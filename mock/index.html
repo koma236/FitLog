@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>FitLog — UI草案</title>
+  <style>
+    :root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#182b37;background:#f4f6f7;--ink:#182b37;--green:#17624c;--line:#dce4e7;--muted:#526773;--orange:#ffca8b}
+    *{box-sizing:border-box}body{margin:0}a{color:inherit;text-decoration:none}button,input,textarea{font:inherit}button,.button{border:0;border-radius:9px;padding:11px 17px;cursor:pointer;display:inline-block;font-weight:650;background:var(--green);color:white}button:hover,.button:hover{filter:brightness(.94)}button.secondary,.secondary{background:#e9efec;color:var(--green)}button.ghost{background:transparent;color:var(--muted);border:1px solid var(--line)}button:focus-visible,a:focus-visible,input:focus-visible,textarea:focus-visible{outline:3px solid #b85c00;outline-offset:3px}
+    .notice{padding:10px 24px;background:#fff0d9;color:#634416;font-size:13px;text-align:center;border-bottom:1px solid #efd5b2}.frame{display:grid;grid-template-columns:220px minmax(0,1fr);max-width:1400px;margin:auto;min-height:calc(100vh - 40px)}.sidebar{padding:40px 25px;border-right:1px solid var(--line);display:flex;flex-direction:column;gap:30px}.brand{font-size:30px;letter-spacing:-1.5px;font-weight:850}.brand span{color:var(--green)}.tagline{font-size:12px;color:var(--muted);margin:7px 0 0}.nav{display:grid;gap:8px}.nav a{padding:13px;border-radius:9px;font-size:14px}.nav a.active{background:#e0ece6;color:#124e3d;font-weight:700}.nav a:hover{background:#e8eeee}.side-bottom{margin-top:auto;font-size:13px;color:var(--muted);line-height:1.8}.workspace{padding:34px 44px}.topbar{display:flex;align-items:center;justify-content:space-between;margin-bottom:32px}.eyebrow{font-size:11px;letter-spacing:1.8px;color:var(--green);font-weight:750}.topbar h1{margin:8px 0;font-size:28px;letter-spacing:-.7px}.user{display:flex;align-items:center;gap:10px;font-size:13px}.avatar{width:40px;height:40px;border-radius:50%;background:#d6e9df;display:inline-flex;align-items:center;justify-content:center;font-weight:750;color:#23523e;flex-shrink:0}.avatar.orange{background:#f6e1cc;color:#79512b}.avatar.blue{background:#dce6f3;color:#345274}.columns{display:grid;grid-template-columns:minmax(0,1fr) 250px;gap:24px}.card{border:1px solid var(--line);background:white;border-radius:14px;padding:24px;margin-bottom:18px}.intro{background:var(--ink);color:white;border:0}.intro p{color:#c3d6df;font-size:14px;line-height:1.8}.intro h2{font-size:24px;margin:0}.intro .button{background:var(--orange);color:#3a281a}.row{display:flex;align-items:center;justify-content:space-between;gap:12px}.wrap{flex-wrap:wrap}.stack{display:grid;gap:12px}.muted{color:var(--muted);font-size:13px;line-height:1.7}.tabs{display:flex;gap:22px;border-bottom:1px solid var(--line);margin:0 0 20px}.tabs button{border-radius:0;background:transparent;color:var(--muted);padding:12px 0}.tabs button[aria-pressed=true]{border-bottom:3px solid var(--green);color:var(--green)}.author{display:flex;gap:11px;align-items:center}.author strong{font-size:14px}.author small{display:block;color:var(--muted);font-size:12px;margin-top:4px}.exercise{background:#f4f7f5;padding:15px;border-radius:9px;margin:17px 0}.exercise strong{font-size:14px}.set-summary{margin-top:8px;color:var(--muted);font-size:13px}.weight{font-size:27px;font-weight:750;color:var(--green);letter-spacing:-1px}.weight small{font-size:13px;letter-spacing:0;margin-left:4px}.post-text{font-size:14px;line-height:1.9}.actions{display:flex;gap:15px;align-items:center;margin-top:15px;padding-top:13px;border-top:1px solid #edf0f1}.actions button{padding:5px 0;background:none;color:var(--muted);font-size:13px}.actions a{font-size:13px;color:var(--muted)}.actions button[aria-pressed=true]{color:#a33243}.subheading{font-size:14px;margin:0 0 18px}.small-title{font-size:13px;font-weight:700}.person{display:flex;gap:10px;align-items:center;margin-bottom:17px}.person .avatar{width:34px;height:34px}.person .small-title{flex:1}.person button{padding:7px 10px;font-size:11px}.footnote{font-size:12px;color:var(--muted);line-height:1.8}.section[hidden]{display:none!important}.form-card{max-width:650px}.field{display:grid;gap:8px;margin-bottom:18px;font-size:14px;font-weight:600}input,textarea{width:100%;border:1px solid #bfcdd2;border-radius:7px;padding:11px;background:white;color:var(--ink)}textarea{resize:vertical;min-height:90px}.help{font-size:12px;color:var(--muted);font-weight:400}.sets{width:100%;border-collapse:collapse;margin:12px 0 20px}.sets th,.sets td{text-align:left;padding:9px;border-bottom:1px solid var(--line);font-size:13px}.sets input{max-width:135px}.profile-head{text-align:center;padding:30px}.profile-head .avatar{width:72px;height:72px;font-size:25px}.profile-head h2{margin:14px 0 2px}.counts{display:flex;justify-content:center;gap:28px;margin:22px}.counts span{font-size:12px;color:var(--muted)}.counts strong{display:block;font-size:22px;color:var(--ink)}.auth{max-width:450px;margin:20px auto}.auth h2{font-size:25px}.comment{padding:18px 0;border-bottom:1px solid var(--line)}.comment p{font-size:14px;margin-left:50px}.image-placeholder{height:170px;display:grid;place-items:center;border:1px dashed #aabdb5;border-radius:9px;color:var(--muted);background:repeating-linear-gradient(135deg,#f4f7f5,#f4f7f5 12px,#eef3f0 12px,#eef3f0 24px);font-size:13px}.screen-note{font-size:12px;color:var(--muted);margin-top:20px}.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);padding:14px 22px;background:var(--ink);color:white;border-radius:9px;max-width:90%;font-size:14px;box-shadow:0 5px 30px #0002}.toast:empty{display:none}.demo-links{display:flex;flex-wrap:wrap;gap:12px;margin-top:20px;font-size:12px;text-decoration:underline}.danger{color:#a23535}.hide{display:none}
+    [hidden]{display:none!important}
+    @media(max-width:1100px){.columns{grid-template-columns:1fr}.aside{display:none}.workspace{padding:28px}.frame{grid-template-columns:195px minmax(0,1fr)}}
+    @media(max-width:700px){.frame{display:block}.sidebar{padding:16px;border-right:0;border-bottom:1px solid var(--line);gap:15px}.brand{font-size:25px}.nav{display:flex;overflow:auto;gap:4px}.nav a{white-space:nowrap;padding:10px;font-size:12px}.sidebar .button,.side-bottom,.tagline{display:none}.workspace{padding:22px 14px}.topbar{margin-bottom:20px}.topbar h1{font-size:23px}.user .name{display:none}.notice{font-size:11px;padding:8px}.card{padding:19px}.sets td,.sets th{padding:7px 4px}.counts{gap:20px}.topbar .eyebrow{font-size:10px}}
+
+    .prototype-toolbar{display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 16px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap;font-size:12px}.prototype-toolbar select{font:inherit;padding:7px;border:1px solid var(--line);border-radius:6px}.prototype-toolbar button{font-size:12px;padding:7px 10px}.prototype-toolbar span{color:var(--muted)}.form-error{color:#8e2525;background:#fff0ef;padding:12px;border:1px solid #edc5bf;border-radius:7px;font-weight:600;font-size:14px}.exercise-group{border:1px solid var(--line);border-radius:10px;margin:18px 0;padding:16px}.exercise-group legend{font-size:13px;font-weight:700;padding:0 6px}.post-image{display:block;width:100%;max-height:330px;object-fit:contain;border-radius:9px;margin:14px 0;background:#eef3f0}.avatar{object-fit:cover}.checkbox-label{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:14px}.checkbox-label input{width:auto}.post-text{white-space:pre-wrap;overflow-wrap:anywhere}dialog{border:1px solid var(--line);border-radius:15px;max-width:450px;padding:26px;color:var(--ink)}dialog::backdrop{background:#15262e88}dialog h2{margin:0 0 18px;font-size:22px}dialog p{line-height:1.8}button.delete-button{background:#9c3434}button:disabled{opacity:.6;cursor:wait}@media(max-width:700px){.exercise-group{padding:10px}.prototype-toolbar span{display:none}.row{gap:8px}.author{min-width:0}.author strong{overflow-wrap:anywhere}.actions{flex-wrap:wrap}.sets input{padding:9px 6px;min-width:60px}}
+  </style>
+</head>
+<body>
+  <div class="notice">操作モック — データはこのブラウザ内だけに保存されます。実認証・クラウド接続はありません。</div>
+  <div class="frame">
+    <aside class="sidebar">
+      <a class="brand" href="#timeline" aria-label="FitLog タイムライン">Fit<span>Log</span><p class="tagline">毎日の積み重ねを、記録に。</p></a>
+      <nav class="nav" aria-label="メインナビゲーション"><a href="#timeline">タイムライン</a><a href="#profile">自分の記録</a><a href="#search">仲間を探す</a><a href="#profile-edit">プロフィール</a></nav>
+      <a class="button" href="#editor">＋ トレーニングを記録</a>
+      <div class="side-bottom">FitLog / 画面相談用<br>サンプル：2026年10月27日<br><a href="#login">ログイン画面へ</a><br><a href="#signup">新規登録画面へ</a></div>
+    </aside>
+    <div class="workspace">
+      <header class="topbar"><div><div class="eyebrow">YOUR TRAINING JOURNAL</div><h1 id="page-title">タイムライン</h1></div><a href="#profile" class="user"><span class="avatar">S</span><span class="name">Saki<br><span class="muted">@saki</span></span></a></header>
+      <main id="main-content"><noscript>この操作モックにはJavaScriptが必要です。</noscript></main>
+      <nav class="demo-links" aria-label="全画面プレビュー"><a href="#login">ログイン</a><a href="#signup">登録</a><a href="#timeline">タイムライン</a><a href="#editor">記録入力</a><a href="#detail/p1">詳細</a><a href="#profile">プロフィール</a><a href="#search">検索</a><a href="#profile-edit">プロフィール編集</a></nav>
+    </div>
+  </div>
+  <div class="toast" role="status" aria-live="polite" id="toast"></div>
+  <script>
+'use strict';
+const KEY = 'fitlog.prototype.v2';
+const DEMO_PASSWORD = 'demo-only-1234';
+const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const size = value => [...value].length;
+const today = () => new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Tokyo'}).format(new Date());
+const uid = () => crypto.randomUUID();
+const initial = () => {
+  const day = today();
+  return {version:2,current:'u1',users:[
+    {id:'u1',username:'saki',display_name:'Saki',email:'saki@example.test',bio:'週2〜3回、自分のペースでトレーニング。',avatar:null},
+    {id:'u2',username:'mika',display_name:'Mika',email:'mika@example.test',bio:'フォームを大切に、少しずつ。',avatar:null},
+    {id:'u3',username:'ren',display_name:'Ren',email:'ren@example.test',bio:'家でもコツコツ続けています。',avatar:null}
+  ],posts:[
+    {id:'p1',user_id:'u1',performed_on:day,note:'最後までフォームを意識できた。次回も同じ重量で丁寧に。',exercises:[{name:'ベンチプレス',sets:[{weight_kg:'60',reps:10},{weight_kg:'60',reps:10},{weight_kg:'60',reps:10}]}],image:null,created_at:3},
+    {id:'p2',user_id:'u2',performed_on:day,note:'少しずつ、無理なく継続。',exercises:[{name:'スクワット',sets:[{weight_kg:'40',reps:8},{weight_kg:'40',reps:8},{weight_kg:'40',reps:8}]}],image:null,created_at:2},
+    {id:'p3',user_id:'u3',performed_on:day,note:'今日は家でトレーニング。',exercises:[{name:'プッシュアップ',sets:[{weight_kg:'0',reps:15}]}],image:null,created_at:1}
+  ],follows:[['u1','u2']],likes:[['p1','u2']],comments:[{id:'c1',post_id:'p1',user_id:'u2',body:'おつかれさま！ 今日もいいトレーニング。',created_at:1}]};
+};
+let state;
+let storageError = '';
+try {
+  const raw = localStorage.getItem(KEY);
+  state = raw ? JSON.parse(raw) : initial();
+  if(state.version!==2 || !['users','posts','follows','likes','comments'].every(k=>Array.isArray(state[k]))) throw new Error('保存データの形式が異なります。');
+} catch {
+  state=initial(); storageError='モックの保存データを読み込めませんでした。必要なら「データリセット」を使ってください。';
+}
+function transaction(change) {
+  const next=structuredClone(state); change(next);
+  try { localStorage.setItem(KEY,JSON.stringify(next)); }
+  catch { throw new Error('ブラウザの保存容量が不足しているか、保存が許可されていません。写真を小さくして再試行してください。'); }
+  state=next;
+}
+const current = () => state.users.find(u=>u.id===state.current);
+const user = id => state.users.find(u=>u.id===id);
+const liked = post => state.likes.some(([p,u])=>p===post && u===state.current);
+const follows = id => state.follows.some(([a,b])=>a===state.current && b===id);
+const imageUrl = data => /^data:image\/(png|jpeg);base64,[a-zA-Z0-9+/=]+$/.test(data ?? '') ? data : '';
+function avatar(u) { const src=imageUrl(u.avatar); return src?`<img class="avatar" alt="" src="${esc(src)}">`:`<span class="avatar ${u.id==='u2'?'orange':u.id==='u3'?'blue':''}">${esc([...u.display_name][0])}</span>`; }
+function author(u) { return `<a class="author" href="#profile/${esc(u.username)}">${avatar(u)}<span><strong>${esc(u.display_name)}</strong><small>@${esc(u.username)}</small></span></a>`; }
+let toastTimer;
+function toast(text) { document.getElementById('toast').textContent=text; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{document.getElementById('toast').textContent='';},6000); }
+function fail(form,error) { const node=form.querySelector('[role="alert"]');node.textContent=error.message;node.hidden=false;node.focus(); }
+const alertBox = '<p role="alert" class="form-error" tabindex="-1" hidden></p>';
+function pageRoute() { const [name='timeline',id] = location.hash.slice(1).split('/');return {name:name||'timeline',id}; }
+const titles={timeline:'タイムライン',editor:'トレーニングを記録',detail:'トレーニングの詳細',profile:'プロフィール',search:'仲間を探す','profile-edit':'プロフィールを編集',login:'ログイン',signup:'新規登録'};
+let tab='following',limit=5,searchQuery='',editingComment=null;
+let draft=null,draftKey=null;
+const emptyDraft=()=>({performed_on:today(),note:'',exercises:[{name:'',sets:[{weight_kg:'0',reps:10}]}]});
+const content=document.getElementById('main-content');
+const toolbar=document.createElement('div');toolbar.className='prototype-toolbar';
+document.querySelector('.notice').after(toolbar);
+const confirmDialog=document.createElement('dialog');
+confirmDialog.innerHTML='<h2 id="confirm-title">削除の確認</h2><p id="confirm-description"></p><div class="row"><button type="button" class="ghost" data-cancel>キャンセル</button><button type="button" class="delete-button" data-confirm>削除する</button></div>';
+confirmDialog.setAttribute('aria-labelledby','confirm-title');document.body.append(confirmDialog);
+let pendingDelete=null;
+function askDelete(description,action) { pendingDelete=action;document.getElementById('confirm-description').textContent=description;confirmDialog.showModal(); }
+confirmDialog.querySelector('[data-cancel]').addEventListener('click',()=>{pendingDelete=null;confirmDialog.close();});
+confirmDialog.querySelector('[data-confirm]').addEventListener('click',()=>{const action=pendingDelete;pendingDelete=null;confirmDialog.close();try{if(action)action();}catch(error){toast(error.message);}});
+function followButton(id) { return id===state.current?'':`<button type="button" class="secondary" data-action="follow" data-id="${esc(id)}" aria-pressed="${follows(id)}">${follows(id)?'フォロー中':'フォロー'}</button>`; }
+function postCard(p) {
+ const u=user(p.user_id),isOwner=p.user_id===state.current;
+ return `<article class="card" data-post="${esc(p.id)}"><div class="row">${author(u)}<span class="muted">${esc(p.performed_on)} の記録</span></div><a href="#detail/${esc(p.id)}">${p.exercises.map(ex=>`<div class="exercise"><div class="row"><strong>${esc(ex.name)}</strong><span class="muted">${ex.sets.length}セット</span></div><div class="set-summary">${ex.sets.map(s=>`${esc(s.weight_kg)}kg × ${esc(s.reps)}回`).join(' / ')}</div></div>`).join('')}<p class="post-text">${esc(p.note)}</p>${p.image?`<img class="post-image" src="${esc(imageUrl(p.image.data))}" alt="トレーニングの添付写真">`:''}</a><div class="actions"><button type="button" data-action="like" data-id="${esc(p.id)}" aria-label="${liked(p.id)?'いいねを解除':'いいね'}" aria-pressed="${liked(p.id)}">${liked(p.id)?'♥':'♡'} ${state.likes.filter(([id])=>id===p.id).length}</button><a href="#detail/${esc(p.id)}">コメント ${state.comments.filter(c=>c.post_id===p.id).length}</a>${isOwner?`<a href="#editor/${esc(p.id)}" style="margin-left:auto">編集</a><button type="button" data-action="delete-post" data-id="${esc(p.id)}">記録を削除</button>`:''}</div></article>`;
+}
+function postList(posts) {
+ const sorted=[...posts].sort((a,b)=>b.created_at-a.created_at || b.id.localeCompare(a.id));
+ if(!sorted.length)return '<div class="card"><p class="muted">まだ記録がありません。</p><a href="#editor" class="button secondary">記録をはじめる</a></div>';
+ return sorted.slice(0,limit).map(postCard).join('')+(sorted.length>limit?'<button type="button" class="ghost" data-action="more">もっと見る</button>':'<p class="muted" style="text-align:center">記録はここまでです</p>');
+}
+function personRow(u) { return `<div class="person">${avatar(u)}<a href="#profile/${esc(u.username)}" class="small-title">${esc(u.display_name)}<br><span class="muted">@${esc(u.username)}</span></a>${followButton(u.id)}</div>`; }
+function timeline() {
+ const posts=state.posts.filter(p=>tab==='all'||p.user_id===state.current||follows(p.user_id));
+ return `<div class="columns"><div><div class="card intro"><h2>今日の一歩を、残そう。</h2><p>重量も、回数も、その日の気づきも。<br>次のトレーニングにつながる記録を。</p><a class="button" href="#editor">トレーニングを記録する</a></div><div class="tabs" role="group" aria-label="タイムラインの種類"><button type="button" data-action="tab" data-id="following" aria-pressed="${tab==='following'}">フォロー中</button><button type="button" data-action="tab" data-id="all" aria-pressed="${tab==='all'}">すべて</button></div>${postList(posts)}</div><aside class="aside"><div class="card"><h2 class="subheading">仲間を見つけよう</h2>${state.users.filter(u=>u.id!==state.current).slice(0,3).map(personRow).join('')}<a href="#search" class="muted">ユーザーを検索 →</a></div><p class="footnote">記録はログインした利用者全員に公開されます。</p></aside></div>`;
+}
+function editor(id) {
+ const p=id?state.posts.find(p=>p.id===id):null;
+ if(id && (!p || p.user_id!==state.current))return missing('自分の記録だけ編集できます。');
+ const key=id||'new';
+ if(draftKey!==key||!draft){draft=p?{performed_on:p.performed_on,note:p.note,exercises:structuredClone(p.exercises)}:emptyDraft();draftKey=key;}
+ return `<form class="card form-card" id="record-form" data-post-id="${esc(id||'')}">${alertBox}<p class="muted">この記録はログイン利用者全員に公開されます。</p><label class="field">トレーニング日<input name="performed_on" type="date" value="${esc(draft.performed_on)}" max="${today()}" required></label><div id="exercise-fields">${exerciseFields()}</div><button type="button" class="secondary" data-action="add-exercise">＋ 種目を追加</button><label class="field" style="margin-top:24px">メモ<textarea name="note" placeholder="今日の気づき（500文字以内）">${esc(draft.note)}</textarea></label>${p?.image?`<img class="post-image" src="${esc(imageUrl(p.image.data))}" alt="現在の添付写真"><label class="checkbox-label"><input type="checkbox" name="remove_image">添付写真を削除する</label>`:''}<label class="field">写真（任意）<input name="image" type="file" accept="image/jpeg,image/png"><span class="help">JPEG / PNG、1枚、5MiB以内。実際のクラウドへは送信しません。</span></label><div class="row wrap"><a href="${p?'#detail/'+esc(p.id):'#timeline'}" class="muted">キャンセル</a><button type="submit">${p?'変更を保存':'記録する'}</button></div></form>`;
+}
+function exerciseFields() { return draft.exercises.map((ex,i)=>`<fieldset class="exercise-group" data-exercise="${i}"><legend>種目 ${i+1}</legend><label class="field">種目名<input data-name value="${esc(ex.name)}" placeholder="ベンチプレス" required></label><table class="sets"><thead><tr><th>セット</th><th>重量（kg）</th><th>回数</th><th>操作</th></tr></thead><tbody>${ex.sets.map((s,j)=>`<tr><th scope="row">${j+1}</th><td><input data-weight type="number" min="0" max="999.99" step="0.01" value="${esc(s.weight_kg)}" aria-label="種目${i+1} セット${j+1} 重量kg" required></td><td><input data-reps type="number" min="1" max="999" step="1" value="${esc(s.reps)}" aria-label="種目${i+1} セット${j+1} 回数" required></td><td><button class="ghost" type="button" data-action="remove-set" data-ex="${i}" data-set="${j}" aria-label="種目${i+1} セット${j+1}を削除">−</button></td></tr>`).join('')}</tbody></table><div class="row wrap"><button type="button" class="secondary" data-action="add-set" data-ex="${i}">＋ セットを追加</button><button type="button" class="ghost" data-action="remove-exercise" data-ex="${i}">種目を削除</button></div></fieldset>`).join(''); }
+function readDraft(form) { return {performed_on:form.elements.performed_on.value,note:form.elements.note.value,exercises:[...form.querySelectorAll('[data-exercise]')].map(el=>({name:el.querySelector('[data-name]').value,sets:[...el.querySelectorAll('tbody tr')].map(row=>({weight_kg:row.querySelector('[data-weight]').value,reps:row.querySelector('[data-reps]').value}))}))}; }
+function missing(text='対象のデータが見つかりません。') { return `<div class="card"><p>${esc(text)}</p><a class="button secondary" href="#timeline">タイムラインへ</a></div>`; }
+function detail(id) {
+ const p=state.posts.find(p=>p.id===id);if(!p)return missing();
+ const comments=state.comments.filter(c=>c.post_id===id).sort((a,b)=>a.created_at-b.created_at);
+ return `<div class="form-card">${postCard(p)}<div class="card"><h2 class="subheading">コメント ${comments.length}</h2>${comments.map(c=>`<div class="comment" data-comment="${esc(c.id)}">${author(user(c.user_id))}${editingComment===c.id?`<form data-comment-edit="${esc(c.id)}">${alertBox}<label class="field">コメントを編集<textarea name="body" required>${esc(c.body)}</textarea></label><button type="submit">変更を保存</button><button type="button" class="ghost" data-action="cancel-comment">キャンセル</button></form>`:`<p class="post-text">${esc(c.body)}</p>${c.user_id===state.current?`<div class="actions"><button type="button" data-action="edit-comment" data-id="${esc(c.id)}">編集</button><button type="button" data-action="delete-comment" data-id="${esc(c.id)}">コメントを削除</button></div>`:''}`}</div>`).join('')||'<p class="muted">最初のコメントを残してみましょう。</p>'}<form id="comment-form" data-post-id="${esc(id)}" style="margin-top:20px">${alertBox}<label class="field">コメント<textarea name="body" placeholder="コメントを入力（500文字以内）" required></textarea></label><button type="submit">送信する</button></form></div></div>`;
+}
+function profile(username) {
+ const u=username?state.users.find(u=>u.username===username):current();if(!u)return missing();
+ const posts=state.posts.filter(p=>p.user_id===u.id);
+ return `<div class="card form-card profile-head">${avatar(u)}<h2>${esc(u.display_name)}</h2><p class="muted">@${esc(u.username)}</p><p class="post-text">${esc(u.bio)}</p><div class="counts"><div><strong>${posts.length}</strong><span>記録</span></div><div><strong>${state.follows.filter(([a])=>a===u.id).length}</strong><span>フォロー中</span></div><div><strong>${state.follows.filter(([,b])=>b===u.id).length}</strong><span>フォロワー</span></div></div>${u.id===state.current?'<a class="button secondary" href="#profile-edit">プロフィールを編集</a>':followButton(u.id)}</div><div class="form-card">${postList(posts)}</div>`;
+}
+function searchResults() { const q=searchQuery.trim().toLowerCase();const users=state.users.filter(u=>u.username.toLowerCase().includes(q)||u.display_name.toLowerCase().includes(q));return users.map(personRow).join('')||'<p class="muted">該当するユーザーはいません。</p>'; }
+function profileEdit() {const u=current();return `<form class="card form-card" id="profile-form">${alertBox}<label class="field">表示名<input name="display_name" value="${esc(u.display_name)}" required></label><label class="field">自己紹介<textarea name="bio">${esc(u.bio)}</textarea><span class="help">160文字以内</span></label>${u.avatar?`${avatar(u)}<label class="checkbox-label"><input type="checkbox" name="remove_avatar">プロフィール画像を削除する</label>`:''}<label class="field">プロフィール画像<input type="file" name="avatar" accept="image/jpeg,image/png"><span class="help">JPEG / PNG、2MiB以内。</span></label><div class="row"><a href="#profile" class="muted">キャンセル</a><button type="submit">変更を保存</button></div></form>`;}
+function auth(signup) {return `<form class="card auth" id="auth-form" data-signup="${signup}">${alertBox}<div class="eyebrow">${signup?'START YOUR JOURNAL':'WELCOME BACK'}</div><h2>${signup?'FitLogをはじめよう。':'おかえりなさい。'}</h2>${signup?'<label class="field">ユーザー名<input name="username" placeholder="demo_user" required></label><label class="field">表示名<input name="display_name" placeholder="デモ利用者" required></label>':''}<label class="field">メールアドレス<input type="email" name="email" value="${signup?'':'saki@example.test'}" autocomplete="off" required></label><label class="field">デモ用パスワード<input type="password" name="password" autocomplete="off" value="${DEMO_PASSWORD}" required></label><button type="submit" style="width:100%">${signup?'登録する':'ログイン'}</button><p class="muted"><a style="text-decoration:underline" href="${signup?'#login':'#signup'}">${signup?'ログイン画面へ':'新規登録'}</a></p><p class="screen-note">実認証ではありません。パスワードは全デモ利用者共通の <code>${DEMO_PASSWORD}</code> 固定です。本物の個人情報を入力しないでください。</p></form>`;}
+function render() {
+ const route=pageRoute();if(!current()&&!['login','signup'].includes(route.name)){location.replace('#login');return;}
+ const name=Object.hasOwn(titles,route.name)?route.name:'timeline';
+ document.getElementById('page-title').textContent=titles[name];
+ toolbar.innerHTML=`<label>モック利用者 <select id="demo-user"><option value="">未ログイン</option>${state.users.map(u=>`<option value="${esc(u.id)}" ${u.id===state.current?'selected':''}>${esc(u.display_name)} (@${esc(u.username)})</option>`).join('')}</select></label><button type="button" class="ghost" id="reset-demo">データリセット</button>${current()?'<button type="button" class="ghost" id="logout-demo">ログアウト</button>':''}<span>ブラウザ内だけに保存・実API未接続</span>`;
+ if(!current())document.getElementById('demo-user').value='';
+ const head=document.querySelector('.topbar .user');head.innerHTML=current()?`${avatar(current())}<span class="name">${esc(current().display_name)}<br><span class="muted">@${esc(current().username)}</span></span>`:'<span class="muted">ゲスト</span>';
+ document.querySelectorAll('.nav a').forEach(link=>{const active=link.hash.split('/')[0]==='#'+name;link.classList.toggle('active',active);if(active)link.setAttribute('aria-current','page');else link.removeAttribute('aria-current');});
+ const views={timeline,editor:()=>editor(route.id),detail:()=>detail(route.id),profile:()=>profile(route.id),search:()=>`<div class="card form-card"><label class="field">仲間を探す<input id="user-query" type="search" value="${esc(searchQuery)}" placeholder="ユーザー名・表示名で検索"></label><div id="search-results">${searchResults()}</div></div>`,'profile-edit':profileEdit,login:()=>auth(false),signup:()=>auth(true)};
+ content.innerHTML=views[name]();
+}
+function navigate() { limit=5;editingComment=null;draftKey=null;draft=null;render();window.scrollTo(0,0); }
+window.addEventListener('hashchange',navigate);
+window.addEventListener('storage',event=>{if(event.key===KEY){try{const next=JSON.parse(event.newValue);if(next?.version===2){state=next;render();}}catch{toast('別タブの保存データを読み込めませんでした。');}}});
+toolbar.addEventListener('change',event=>{if(event.target.id!=='demo-user')return;try{transaction(next=>{next.current=event.target.value||null;});draft=null;draftKey=null;location.hash=state.current?'timeline':'login';render();}catch(error){toast(error.message);}});
+toolbar.addEventListener('click',event=>{
+ if(event.target.id==='logout-demo'){try{transaction(next=>{next.current=null;});location.hash='login';}catch(error){toast(error.message);}}
+ if(event.target.id==='reset-demo')askDelete('このモックに保存した記録・写真・利用者を消して初期状態に戻します。',()=>{const next=initial();localStorage.setItem(KEY,JSON.stringify(next));state=next;draft=null;draftKey=null;location.hash='timeline';render();toast('サンプルデータに戻しました。');});
+});
+content.addEventListener('input',event=>{if(event.target.id==='user-query'){searchQuery=event.target.value;document.getElementById('search-results').innerHTML=searchResults();}});
+content.addEventListener('click',event=>{
+ const button=event.target.closest('[data-action]');if(!button)return;const {action,id}=button.dataset;
+ try{
+  if(action==='tab'){tab=id;limit=5;render();return;}
+  if(action==='more'){limit+=5;render();return;}
+  if(action==='like'){transaction(next=>{if(!next.current)throw new Error('ログインが必要です。');const i=next.likes.findIndex(([p,u])=>p===id&&u===next.current);if(i>=0)next.likes.splice(i,1);else next.likes.push([id,next.current]);});render();return;}
+  if(action==='follow'){transaction(next=>{if(id===next.current)throw new Error('自分はフォローできません。');const i=next.follows.findIndex(([a,b])=>a===next.current&&b===id);if(i>=0)next.follows.splice(i,1);else next.follows.push([next.current,id]);});render();return;}
+  if(action==='delete-post'){askDelete('この記録と写真・コメント・いいねを削除します。',()=>{transaction(next=>{const post=next.posts.find(p=>p.id===id);if(!post||post.user_id!==next.current)throw new Error('自分の記録だけ削除できます。');next.posts=next.posts.filter(p=>p.id!==id);next.likes=next.likes.filter(([p])=>p!==id);next.comments=next.comments.filter(c=>c.post_id!==id);});location.hash='timeline';render();toast('記録を削除しました。');});return;}
+  if(action==='edit-comment'){editingComment=id;render();return;}
+  if(action==='cancel-comment'){editingComment=null;render();return;}
+  if(action==='delete-comment'){askDelete('このコメントを削除します。',()=>{transaction(next=>{const c=next.comments.find(c=>c.id===id);if(!c||c.user_id!==next.current)throw new Error('自分のコメントだけ削除できます。');next.comments=next.comments.filter(c=>c.id!==id);});render();toast('コメントを削除しました。');});return;}
+  if(['add-exercise','remove-exercise','add-set','remove-set'].includes(action)){
+    const form=document.getElementById('record-form');draft=readDraft(form);const i=Number(button.dataset.ex),j=Number(button.dataset.set);
+    if(action==='add-exercise'){if(draft.exercises.length>=10)throw new Error('種目は10個までです。');draft.exercises.push({name:'',sets:[{weight_kg:'0',reps:10}]});}
+    if(action==='remove-exercise'){if(draft.exercises.length===1)throw new Error('種目は1個以上必要です。');draft.exercises.splice(i,1);}
+    if(action==='add-set'){if(draft.exercises[i].sets.length>=20)throw new Error('1種目は20セットまでです。');draft.exercises[i].sets.push({...draft.exercises[i].sets.at(-1)});}
+    if(action==='remove-set'){if(draft.exercises[i].sets.length===1)throw new Error('1セット以上必要です。');draft.exercises[i].sets.splice(j,1);}
+    document.getElementById('exercise-fields').innerHTML=exerciseFields();return;
+  }
+ }catch(error){toast(error.message);}
+});
+function validateDraft(value) {
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(value.performed_on)||Number.isNaN(Date.parse(value.performed_on))||new Date(value.performed_on).toISOString().slice(0,10)!==value.performed_on||value.performed_on>today())throw new Error('トレーニング日は今日以前の実在日を入力してください。');
+ if(size(value.note)>500)throw new Error('メモは500文字以内にしてください。');
+ if(value.exercises.length<1||value.exercises.length>10)throw new Error('種目は1〜10個です。');
+ value.exercises.forEach((ex,i)=>{ex.name=ex.name.trim();if(!ex.name||size(ex.name)>80)throw new Error(`種目${i+1}の名前は1〜80文字です。`);if(!ex.sets.length||ex.sets.length>20)throw new Error('セットは1〜20個です。');ex.sets.forEach((s,j)=>{if(!/^(?:0|[1-9][0-9]{0,2})(?:\.[0-9]{1,2})?$/.test(String(s.weight_kg)))throw new Error(`種目${i+1} セット${j+1}の重量は0〜999.99kgです。`);s.reps=Number(s.reps);if(!Number.isInteger(s.reps)||s.reps<1||s.reps>999)throw new Error(`種目${i+1} セット${j+1}の回数は1〜999回です。`);});});
+ return value;
+}
+async function readImage(file,maxBytes) {
+ if(!file||!file.size)return null;
+ if(!['image/jpeg','image/png'].includes(file.type))throw new Error('JPEGまたはPNGを選んでください。');
+ if(file.size>maxBytes)throw new Error(`画像は${maxBytes/1024/1024}MiB以内にしてください。`);
+ const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('画像を読み込めませんでした。'));reader.readAsDataURL(file);});
+ const img=await new Promise((resolve,reject)=>{const image=new Image();image.onload=()=>resolve(image);image.onerror=()=>reject(new Error('画像を読み込めませんでした。'));image.src=data;});
+ if(img.naturalWidth*img.naturalHeight>20000000)throw new Error('画像は2000万画素以内にしてください。');
+ return {name:file.name,data};
+}
+content.addEventListener('submit',async event=>{
+ event.preventDefault();const form=event.target,button=form.querySelector('[type="submit"]');if(button)button.disabled=true;
+ try{
+  if(form.id==='record-form'){
+   const value=validateDraft(readDraft(form));const image=await readImage(form.elements.image.files[0],5*1024*1024);const id=form.dataset.postId||uid();
+   transaction(next=>{if(!next.current)throw new Error('ログインしてください。');const existing=next.posts.find(p=>p.id===id);if(existing&&existing.user_id!==next.current)throw new Error('自分の記録だけ編集できます。');if(existing){Object.assign(existing,value);if(form.elements.remove_image?.checked)existing.image=null;if(image)existing.image=image;}else next.posts.push({id,user_id:next.current,...value,image,created_at:Date.now()});});
+   draft=null;draftKey=null;location.hash='detail/'+id;toast('記録をブラウザ内に保存しました。');return;
+  }
+  if(form.id==='comment-form'||form.dataset.commentEdit){
+   const body=form.elements.body.value.trim();if(!body||size(body)>500)throw new Error('コメントは1〜500文字で入力してください。');
+   transaction(next=>{if(form.dataset.commentEdit){const c=next.comments.find(c=>c.id===form.dataset.commentEdit);if(!c||c.user_id!==next.current)throw new Error('自分のコメントだけ編集できます。');c.body=body;}else{if(!next.posts.some(p=>p.id===form.dataset.postId))throw new Error('記録が削除されています。');next.comments.push({id:uid(),user_id:next.current,post_id:form.dataset.postId,body,created_at:Date.now()});}});
+   editingComment=null;render();toast('コメントを保存しました。');return;
+  }
+  if(form.id==='profile-form'){
+   const name=form.elements.display_name.value.trim(),bio=form.elements.bio.value;
+   if(!name||size(name)>50)throw new Error('表示名は1〜50文字です。');if(size(bio)>160)throw new Error('自己紹介は160文字以内です。');
+   const image=await readImage(form.elements.avatar.files[0],2*1024*1024);
+   transaction(next=>{const u=next.users.find(u=>u.id===next.current);u.display_name=name;u.bio=bio;if(form.elements.remove_avatar?.checked)u.avatar=null;if(image)u.avatar=image.data;});location.hash='profile';toast('プロフィールを保存しました。');return;
+  }
+  if(form.id==='auth-form'){
+   const email=form.elements.email.value.trim().toLowerCase();if(form.elements.password.value!==DEMO_PASSWORD)throw new Error('モックでは共通パスワード demo-only-1234 を使用してください。');
+   if(form.dataset.signup==='true'){
+    const username=form.elements.username.value.trim().toLowerCase(),name=form.elements.display_name.value.trim();if(!/^[a-z0-9_]{3,30}$/.test(username)||['me','search'].includes(username))throw new Error('ユーザー名は小文字英数字と_の3〜30文字です。me/searchは使えません。');if(!name||size(name)>50)throw new Error('表示名は1〜50文字です。');if(!email.endsWith('@example.test'))throw new Error('モックでは @example.test の架空メールを使ってください。');
+    transaction(next=>{if(next.users.some(u=>u.username===username))throw new Error('このユーザー名は使用されています。');if(next.users.some(u=>u.email===email))throw new Error('このメールアドレスは使用されています。');const id=uid();next.users.push({id,username,display_name:name,email,bio:'',avatar:null});next.current=id;});
+   }else{const u=state.users.find(u=>u.email===email);if(!u)throw new Error('メールまたはパスワードが正しくありません。');transaction(next=>{next.current=u.id;});}
+   form.reset();location.hash='timeline';toast('デモ利用者として切り替えました。実認証ではありません。');return;
+  }
+ }catch(error){fail(form,error);}finally{if(button)button.disabled=false;}
+});
+navigate();if(storageError)toast(storageError);
+
+  </script>
+</body>
+</html>

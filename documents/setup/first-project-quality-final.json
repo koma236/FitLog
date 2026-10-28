@@ -1,0 +1,319 @@
+{
+  "risk_level": "high",
+  "cycles": [
+    {
+      "cycle_number": 1,
+      "review_mode": "full",
+      "personas": [],
+      "findings": [],
+      "notes": [
+        "[Step 4] 3役を予約したが起動元のroute参照ミスでモデル起動前に失敗。予算は保持。"
+      ]
+    },
+    {
+      "cycle_number": 2,
+      "review_mode": "verification",
+      "personas": [
+        "検証レビュアー",
+        "QAエンジニア（ファルシフィケーション型）"
+      ],
+      "findings": [
+        {
+          "id": "FP-Q2-01",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "中",
+          "description": "【確定した欠陥・B12/設計§7違反】resolve_attempt は、process 記録が1件でもあれば owner による process 確認手順（process_checked と WORKERS STOPPED の入力）を省略します。そのうえで、記録済みの pid だけを終了済みと判定します。しかし追跡されない process が少なくとも3種類あります。\n(1) _run_process は Popen の後に process_identity を取得し、記録を書き込みます。その間で親が SIGKILL などで停止すると、起動済みの子 process（start_new_session により別 session）の記録は残りません。例：verify で check1 の記録は保存済み、check2 は Popen 済みで記録前に停止した場合、records=[check1] となります。check1 が終了していれば、生存している check2 を確認しないまま abandon が成立します。\n(2) execute_reserved を実行している親 executor 自体の pid と開始識別子は記録されません。provider の終了後、checks の起動前に別 terminal から resolve すると、親は生存したまま abandoned になります。その後、親は checks 等を起動し続けます（保存は revision 衝突で失敗します）。\n(3) Windows では identity 不一致で即座に終了扱いとなり、provider が起動した子孫 process を確認しません。\n設計§7の「process終了が検証できなければ解消を拒否」「追跡できない場合は自動で終了済みと判定しない」に反します。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-02",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "中",
+          "description": "【テスト不足・B12/テスト設計§5-7】resolve_attempt の統合テストは pending の放棄1件だけです。次のシナリオはいずれもテストがありません。\n- running/unknown で process 記録がなく、--process-checked もない場合の拒否\n- 記録された worker が生存している場合の拒否（V9_RESOLUTION_PROCESS）\n- PID は同じで start_identity が異なる場合\n- killpg でグループの生存が残る場合\n- 確認中に記録が増えた場合の V9_STATE_CONFLICT\n- abandon の後に新しい verify が必要なこと\nまた、FirstProjectAdapter._tracked_run（run=None の経路）はどのテストからも実行されていません（tests から '_tracked_run' と '.process-' の該当なし）。このため、記録が実際に保存されることも、resolve と同じ命名で glob できることも未検証です。上記 Medium の欠陥も、このテスト不足のため検出されていません。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-03",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "中",
+          "description": "【テスト不足・B06/テスト設計§5-3】入力ごとの失効の検証は、workflow 単体で plan_hash と checks_digest を手で書き換えた2ケースだけです。controller の _inputs → _sync を通して、次を確認するテストはありません。\n- source 内容と manifest の sha256 を同時に更新した場合に仕様以降が失効すること\n- baseline_commit、design route（harness-runtime の設計レビュー行）、runtime、policy の各変更で仕様以降が失効すること\n- source だけを変更し manifest を変えない場合に V9_CONTROLLER_INPUT で拒否されること\n- 通常 route（load_model_routes）だけの変更で、計画以降だけが失効し仕様が維持されること\n単体テストの期待値は、実装と同じ _phase_binding で比較しています（test_plan_change_invalidates_specification_binding）。このため、design_binding_digest に実際に何が入るかは検証されません。たとえば design_route_digest を design_binding に入れ忘れても、どのテストも失敗しません。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-04",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "中",
+          "description": "【テスト不足・B21/テスト設計§5-5】作成済み Issue の照合の負例は、URL の改ざん1件だけです。しかもこのケースは result_digest を再計算していないため、構造検査（自己 hash の不一致）で棄却されています。issue_scope_digest、config_base_digest、remote/account、bootstrap_issue_eligible の照合ロジックは一度も負例で実行されていません。次はいずれも未検証です。\n- spec/plan/design route/通常 route/runtime/policy の変更\n- remote URL、gh account、personal environment の変更\n- 予定外の check（argv、env、cwd、timeout_seconds のいずれか1つの差分）\n- scopes が空でなくなった場合\n- 未実行の Issue proposal が計画の再承認で execute 拒否されること（gitops.py:740）\nたとえば bootstrap_issue_eligible の check_values 比較が常に True を返す変異を入れても、全テストが合格すると推定されます（推測。未実行）。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-05",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "【テスト不足・B23/テスト設計§5-9】コードを読んだ範囲では、集合の hash と hook の共有選択は正しく実装されています。しかしテストは次を検証していません。\n- scripts/v9 への新モジュールの追加（集合の変化）\n- bootstrap.py、git_environment.py、ai_dev_handoff.py、bin/ai-dev の変更\n- 選択されていない hook（.codex 側）を変更しても digest が変わらないこと\n- .ai-dev-helm.json の reviewBudgetScript で選択先を切り替えた場合\n- symlink の拒否\n- controller 経由で仕様以降が失効すること\n欠落の検査は migration.py の1ファイルだけです。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-06",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "【推測を含むセキュリティ上の懸念】review-budget hook の選択元である .ai-dev-helm.json は、bootstrap の paths 禁止リストにも generation の保護 path にも含まれていません。本人がこの path を含む計画を承認した場合、生成者は reviewBudgetScript を自作の常時許可スクリプト（例: src/x.cjs）へ向けられます。runtime_digest が変わるため仕様は失効しますが、再実施する設計レビューと以降の admission は差し替え後の hook を通るため、review 予算を迂回できます。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-07",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "bootstrap Issue の分岐では same_gate を上書きしています。このため、通常経路にある job['workflow_revision'] <= state['revision'] の条件が外れています。workflow state を削除して再 init した（revision が初期値に戻った）場合でも、scope digest が一致すれば、別 workflow 期間の Issue 結果を採用できます。実害は限定的ですが、設計§6.1の「緩めるのは approval_digest 一致だけ」より広く緩和しています。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        },
+        {
+          "id": "FP-Q2-08",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "【テスト不足・B10/テスト設計§5-6】次のケースにテストがありません。\n- begin が成功し、bridge の consume が失敗した場合に failed/admission_denied となり、provider 起動0回、予算が返却されないこと\n- consume 成功の直後に provider 起動が失敗した場合、予算が返却されず、同じ marker を再使用できないこと\n- 台帳が壊れている、または読めない場合の拒否\n別 branch と再使用については、bridge 単体でのみ確認されています。",
+          "action": "対応済",
+          "adjudication": "confirmed",
+          "recurrence": "new",
+          "detail": "承認済み設計内の修正・回帰テストを追加し、3巡目Claudeが検証。任意hook全面禁止と新workflow ID導入の補足提案は設計外のため不採用。詳細はdocuments/v9/first-project-review-response.md。"
+        }
+      ],
+      "notes": [
+        "[Step 4] 起動失敗後の初実レビュー。既存hookの後続巡role制限に従った。v9 review-1はユーザー承認済みの固定prompt/受付例外。QAはガイド本文欠落を明示し、一般原則と設計で評価。"
+      ]
+    },
+    {
+      "cycle_number": 3,
+      "review_mode": "verification",
+      "personas": [
+        "検証レビュアー",
+        "QAエンジニア（ファルシフィケーション型）"
+      ],
+      "findings": [
+        {
+          "id": "FP-Q3-verification-reviewer-1",
+          "source": "検証レビュアー",
+          "sources": [
+            "検証レビュアー",
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "scripts/v9/bootstrap.py:88, scripts/v9/spec.py:560 .ai-dev-helm.jsonの保護は大文字小文字を区別する完全一致で判定しているが、他の保護pathはcasefoldで比較している。そのためmacOSの大文字小文字を区別しないFSでは、計画の承認が通れば `.AI-DEV-HELM.JSON` のような別表記でhookの選択を書き換えられる。改善案：既存の保護判定と同様にcasefoldで比較する。",
+          "action": "未対応",
+          "detail": "両役が同じ大小文字の保護漏れをLowとして報告。次の改善候補として保持し、今回のレビュー済みsnapshotは変更しない。",
+          "adjudication": "unknown",
+          "recurrence": "new"
+        },
+        {
+          "id": "FP-Q3-verification-reviewer-2",
+          "source": "検証レビュアー",
+          "sources": [
+            "検証レビュアー"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "scripts/v9/bootstrap.py:88, scripts/v9/controller.py:58-64 既存の.ai-dev-helm.jsonがbootstrapの範囲内のhook（例：hooksディレクトリを含まない scripts/x.cjs）を選択している場合、生成時に選択中のhook本体を書き換えられ、再実施する設計レビューとadmissionがそのhookを通る。設定の全面禁止ではなく、selected_review_hook(project) が返すpathを、validate_generationと_validate_task10の保護pathへ加えることを推奨する。",
+          "action": "未対応",
+          "detail": "ClaudeのLow指摘。既存仕様との整合を確認し、残存事項として記録。",
+          "adjudication": "unknown",
+          "recurrence": "new"
+        },
+        {
+          "id": "FP-Q3-verification-reviewer-3",
+          "source": "検証レビュアー",
+          "sources": [
+            "検証レビュアー"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "documents/v9/first-project-verification.md:3,41 「この再開では製品コードの追加修正は行っていない」と259件・405.456秒の記録が、どのsnapshotまたは修正の前後に対応するのか明記されていない。cycle 3で製品コードを修正したと述べるfirst-project-review-response.mdと矛盾して読める。改善案：対象のsnapshot hashと、修正の前の記録か後の記録かを明記する。",
+          "action": "未対応",
+          "detail": "ClaudeのLow指摘。既存仕様との整合を確認し、残存事項として記録。",
+          "adjudication": "unknown",
+          "recurrence": "new"
+        },
+        {
+          "id": "FP-Q3-falsification-qa-2",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "scripts/v9/controller.py:532-566 【推測。信頼境界に依存】追跡記録（`.process-*.json`）は、stateやattemptのhashに結び付けられていません。同じユーザーの権限で動くagentが、生存中workerのintentとworkerの記録を両方削除し、終了済みexecutorの記録だけを残すとします。この場合、`has_executor=True`かつ`untracked=False`になるため、`--process-checked`も`WORKERS STOPPED`の確認も求められず、ABANDONの確認だけで放棄が成立します。記録の削除や偽造を検知する仕組みはありません。",
+          "action": "未対応",
+          "detail": "設計上、同じユーザーのagentによる改ざんを対象外とするなら、その旨をworkflow文書に明記してください。対象とするなら、intentの作成時に件数またはtoken一覧をattemptの状態に追記し、resolveで突き合わせて欠落を検知する方式を検討してください。",
+          "adjudication": "unknown",
+          "recurrence": "new"
+        },
+        {
+          "id": "FP-Q3-falsification-qa-3",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "tests/test_v9_first_project_resolution.py:56-60 【確定。テストの弱さ】test_no_records_require_process_check_and_both_confirmationsは、放棄後の確認として、is_ready_for_gitがFalseであること、implementationの承認がNoneであること、latest_evidence('implementation')が例外になることを検証しています。しかし対象attemptはdesign_reviewなので、resolveが何も変更しなくても、これらはすべて成立します。attemptのstatusが`abandoned`になったことや、reasonが記録されたことは検証していません。このため「放棄後は新しいverifyが必要」というB12の期待値は、事実上検証されていません。",
+          "action": "未対応",
+          "detail": "`state['attempts']`の該当attemptについて、statusが`abandoned`であることとreasonを検証してください。可能なら、implementationまたはverifyのattemptを放棄し、その後にverifyのevidenceがないことと、計画の再承認が必要なことを検証するケースを追加してください。",
+          "adjudication": "unknown",
+          "recurrence": "new"
+        },
+        {
+          "id": "FP-Q3-falsification-qa-4",
+          "source": "QAエンジニア（ファルシフィケーション型）",
+          "sources": [
+            "QAエンジニア（ファルシフィケーション型）"
+          ],
+          "concern": "falsification",
+          "severity": "低",
+          "description": "tests/test_v9_first_project_admission_failures.py:36-53 【確定。テストの弱さ】test_provider_failure_retains_consumed_seat_and_rejects_same_markerは、同じmarkerの再使用が拒否されることだけを検証しています。テスト名とfix-response.mdにある「予算返却なし」（台帳が変わらないこと、次のbeginが拒否されること）は、このケースでは検証していません。consume成功後に失敗した経路で予算を返却する変異を入れても、検出できない可能性があります（推測。未実行）。",
+          "action": "未対応",
+          "detail": "consume失敗のテストと同様に、provider失敗の前後で台帳のbytesが一致することと、続くbeginが拒否されることを追加で検証してください。",
+          "adjudication": "unknown",
+          "recurrence": "new"
+        }
+      ],
+      "notes": [
+        "[Step 4] 正規marker/checkReview、既存Claude opusルート、実在する共通context/ガイドを使用。詳細verdictはprivate cycle-3成果物。"
+      ]
+    }
+  ],
+  "total_cycles": 3,
+  "cycle_abort_reason": null,
+  "cycle_extensions": [],
+  "lint_cycles": 0,
+  "lint_abort_reason": null,
+  "test_design": {
+    "status": "verified",
+    "memo_path": "documents/v9/first-project-test-design.md",
+    "gaps_addressed": 4
+  },
+  "documentation": {
+    "status": "updated",
+    "files": [
+      "documents/v9/first-project-workflow.md",
+      "documents/v9/first-project-review-response.md",
+      "documents/development/error-codes.md",
+      "skills/ai-dev-chat/SKILL.md"
+    ]
+  },
+  "mutation": {
+    "executed": false,
+    "reason": "not_configured",
+    "recommendation": "none",
+    "recommendation_basis": [
+      "Python mutation runner未配線。Stryker/PITは製品導入用テンプレート。"
+    ],
+    "user_decision": "not_proposed",
+    "decided_by": null,
+    "decline_reason": null
+  },
+  "e2e": {
+    "recommendation": "none",
+    "recommendation_basis": [
+      "UI/フロント変更なし。CLI/controllerの統合は登録unittestに含む。"
+    ],
+    "user_decision": "not_proposed",
+    "decided_by": null,
+    "decline_reason": null,
+    "result": "skipped",
+    "issues": [],
+    "new_scenarios": []
+  },
+  "gate_parameter_overrides": [],
+  "gate_override": null,
+  "risk_level_downgrade": null,
+  "_notes": [
+    "[Step 3] 修正後snapshot c9a35b6837e033ea2caa4bf59b330557c853d3d3bbf868fa9c175798e326dee3で259件397.978秒成功。最新v9実装attemptも登録check成功。",
+    "[Step 4] 本人入力はユーザーの明示委任でCodexが正式terminalに入力。state/receiptの直接編集なし。人間が実際に入力したとは主張しない。",
+    "[Step 4] High/Mediumは0。Lowの重複を統合して残件を記録。追加の製品変更やレビュー予算の延長はしていない。"
+  ],
+  "verification": {
+    "snapshot": "73308da351aa0c92f58a73ab9663a7122104891eacf71fbb490d735653c6eb29",
+    "implementation": {
+      "error_category": null,
+      "id": "FIRST-PROJECT-implementation-4",
+      "input_snapshot": "c9a35b6837e033ea2caa4bf59b330557c853d3d3bbf868fa9c175798e326dee3",
+      "max_rounds": 1,
+      "max_seconds": 3600,
+      "output_snapshot": "73308da351aa0c92f58a73ab9663a7122104891eacf71fbb490d735653c6eb29",
+      "phase": "implementation",
+      "rounds_used": 1,
+      "seconds_used": 792,
+      "status": "succeeded"
+    },
+    "review": {
+      "error_category": null,
+      "id": "FIRST-PROJECT-review-2",
+      "input_snapshot": "73308da351aa0c92f58a73ab9663a7122104891eacf71fbb490d735653c6eb29",
+      "max_rounds": 1,
+      "max_seconds": 3600,
+      "output_snapshot": "73308da351aa0c92f58a73ab9663a7122104891eacf71fbb490d735653c6eb29",
+      "phase": "review",
+      "rounds_used": 1,
+      "seconds_used": 196,
+      "status": "succeeded"
+    },
+    "static": [
+      "Python AST 34 files",
+      "node --check scripts/v9/review_admission.cjs",
+      "git diff --check"
+    ]
+  }
+}

@@ -1,0 +1,84 @@
+{
+  "snapshot": "ec4f142ed47bcf6878c5e1ceeefcb69061028a053b443d6a7d01b4c17433468e",
+  "reviewer": "Claude opus",
+  "seconds": 338,
+  "approved": false,
+  "findings": [
+    {
+      "id": "FP-Q2-01",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Medium",
+      "location": "scripts/v9/controller.py:527-556（関連: scripts/v9/execution.py:154-203, 851-858）",
+      "problem": "【確定した欠陥・B12/設計§7違反】resolve_attempt は、process 記録が1件でもあれば owner による process 確認手順（process_checked と WORKERS STOPPED の入力）を省略します。そのうえで、記録済みの pid だけを終了済みと判定します。しかし追跡されない process が少なくとも3種類あります。\n(1) _run_process は Popen の後に process_identity を取得し、記録を書き込みます。その間で親が SIGKILL などで停止すると、起動済みの子 process（start_new_session により別 session）の記録は残りません。例：verify で check1 の記録は保存済み、check2 は Popen 済みで記録前に停止した場合、records=[check1] となります。check1 が終了していれば、生存している check2 を確認しないまま abandon が成立します。\n(2) execute_reserved を実行している親 executor 自体の pid と開始識別子は記録されません。provider の終了後、checks の起動前に別 terminal から resolve すると、親は生存したまま abandoned になります。その後、親は checks 等を起動し続けます（保存は revision 衝突で失敗します）。\n(3) Windows では identity 不一致で即座に終了扱いとなり、provider が起動した子孫 process を確認しません。\n設計§7の「process終了が検証できなければ解消を拒否」「追跡できない場合は自動で終了済みと判定しない」に反します。",
+      "recommendation": "process 起動前に attempt 単位の「起動予定 intent」を記録し、起動後に identity で確定させてください。intent はあるが identity がない場合は、追跡不能として owner 手順を必須にします。親 executor の pid と開始識別子も記録し、終了を検証してください。Windows では Job Object を使うか、子孫を検証できない場合は owner 手順を必須にしてください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-02",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Medium",
+      "location": "tests/test_v9_first_project_migration.py:83, tests/test_v9_first_project_process.py:1-64",
+      "problem": "【テスト不足・B12/テスト設計§5-7】resolve_attempt の統合テストは pending の放棄1件だけです。次のシナリオはいずれもテストがありません。\n- running/unknown で process 記録がなく、--process-checked もない場合の拒否\n- 記録された worker が生存している場合の拒否（V9_RESOLUTION_PROCESS）\n- PID は同じで start_identity が異なる場合\n- killpg でグループの生存が残る場合\n- 確認中に記録が増えた場合の V9_STATE_CONFLICT\n- abandon の後に新しい verify が必要なこと\nまた、FirstProjectAdapter._tracked_run（run=None の経路）はどのテストからも実行されていません（tests から '_tracked_run' と '.process-' の該当なし）。このため、記録が実際に保存されることも、resolve と同じ命名で glob できることも未検証です。上記 Medium の欠陥も、このテスト不足のため検出されていません。",
+      "recommendation": "一時 home を使い、実際の子 process（sleep）で次を確認するテストを追加してください。\n- 生存中は拒否されること\n- 終了後に通ること\n- 記録なしの場合は process_checked と確認入力が必須であること\n- PID 再利用を patch で再現した場合の挙動\nさらに、FirstProjectAdapter(run=None) の verify で .process-*.json が生成され、resolve から参照されることを統合テストで確認してください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-03",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Medium",
+      "location": "tests/test_v9_first_project_workflow.py:39-44,105-120, tests/test_v9_first_project_controller.py:1-80",
+      "problem": "【テスト不足・B06/テスト設計§5-3】入力ごとの失効の検証は、workflow 単体で plan_hash と checks_digest を手で書き換えた2ケースだけです。controller の _inputs → _sync を通して、次を確認するテストはありません。\n- source 内容と manifest の sha256 を同時に更新した場合に仕様以降が失効すること\n- baseline_commit、design route（harness-runtime の設計レビュー行）、runtime、policy の各変更で仕様以降が失効すること\n- source だけを変更し manifest を変えない場合に V9_CONTROLLER_INPUT で拒否されること\n- 通常 route（load_model_routes）だけの変更で、計画以降だけが失効し仕様が維持されること\n単体テストの期待値は、実装と同じ _phase_binding で比較しています（test_plan_change_invalidates_specification_binding）。このため、design_binding_digest に実際に何が入るかは検証されません。たとえば design_route_digest を design_binding に入れ忘れても、どのテストも失敗しません。",
+      "recommendation": "FirstProjectControllerFixture で仕様と計画を承認した後、入力を1項目ずつ変更し、prepare_attempt または approve_phase の後の approvals を観測する subTest を追加してください。期待値は設計§4の group 表から直接書いてください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-04",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Medium",
+      "location": "tests/test_v9_first_project_flow.py:98-115（実装: scripts/v9/gitops.py:327-344, 384-397）",
+      "problem": "【テスト不足・B21/テスト設計§5-5】作成済み Issue の照合の負例は、URL の改ざん1件だけです。しかもこのケースは result_digest を再計算していないため、構造検査（自己 hash の不一致）で棄却されています。issue_scope_digest、config_base_digest、remote/account、bootstrap_issue_eligible の照合ロジックは一度も負例で実行されていません。次はいずれも未検証です。\n- spec/plan/design route/通常 route/runtime/policy の変更\n- remote URL、gh account、personal environment の変更\n- 予定外の check（argv、env、cwd、timeout_seconds のいずれか1つの差分）\n- scopes が空でなくなった場合\n- 未実行の Issue proposal が計画の再承認で execute 拒否されること（gitops.py:740）\nたとえば bootstrap_issue_eligible の check_values 比較が常に True を返す変異を入れても、全テストが合格すると推定されます（推測。未実行）。",
+      "recommendation": "test_one_issue_survives_only_planned_registration_until_commit_proposal を基にして、commit prepare の直前に1項目ずつ変更し GitOpsError を期待する subTest を追加してください。改ざんのケースでは result_digest も再計算し、意味的な照合で棄却されることを確認してください。未実行 proposal の再承認後の拒否も追加してください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-05",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Low",
+      "location": "tests/test_v9_first_project_runtime.py:9-32（実装: scripts/v9/controller.py:75-96）",
+      "problem": "【テスト不足・B23/テスト設計§5-9】コードを読んだ範囲では、集合の hash と hook の共有選択は正しく実装されています。しかしテストは次を検証していません。\n- scripts/v9 への新モジュールの追加（集合の変化）\n- bootstrap.py、git_environment.py、ai_dev_handoff.py、bin/ai-dev の変更\n- 選択されていない hook（.codex 側）を変更しても digest が変わらないこと\n- .ai-dev-helm.json の reviewBudgetScript で選択先を切り替えた場合\n- symlink の拒否\n- controller 経由で仕様以降が失効すること\n欠落の検査は migration.py の1ファイルだけです。",
+      "recommendation": "上記を subTest で追加してください。特に「未選択 hook の変更では不変、選択した hook の変更では変化」の対と、未知の .py を追加すると変化することを確認してください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-06",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Low",
+      "location": "scripts/v9/spec.py:559-567, scripts/v9/bootstrap.py:88-90, scripts/v9/controller.py:48-72",
+      "problem": "【推測を含むセキュリティ上の懸念】review-budget hook の選択元である .ai-dev-helm.json は、bootstrap の paths 禁止リストにも generation の保護 path にも含まれていません。本人がこの path を含む計画を承認した場合、生成者は reviewBudgetScript を自作の常時許可スクリプト（例: src/x.cjs）へ向けられます。runtime_digest が変わるため仕様は失効しますが、再実施する設計レビューと以降の admission は差し替え後の hook を通るため、review 予算を迂回できます。",
+      "recommendation": ".ai-dev-helm.json を spec._validate_task10 と bootstrap.validate_generation の保護対象に追加してください。あわせて、selected_review_hook が .claude/.codex 配下以外を指す場合は拒否するか、明示的な確認を求めてください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-07",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Low",
+      "location": "scripts/v9/gitops.py:384-387",
+      "problem": "bootstrap Issue の分岐では same_gate を上書きしています。このため、通常経路にある job['workflow_revision'] <= state['revision'] の条件が外れています。workflow state を削除して再 init した（revision が初期値に戻った）場合でも、scope digest が一致すれば、別 workflow 期間の Issue 結果を採用できます。実害は限定的ですが、設計§6.1の「緩めるのは approval_digest 一致だけ」より広く緩和しています。",
+      "recommendation": "bootstrap 分岐でも workflow_revision <= state['revision'] を AND で維持してください。可能であれば、workflow 作成時の識別子（初期 state の digest 等）も proposal に記録して照合してください。",
+      "status": "open"
+    },
+    {
+      "id": "FP-Q2-08",
+      "source": "QAエンジニア（ファルシフィケーション型）",
+      "severity": "Low",
+      "location": "tests/test_v9_first_project_admission.py:10-26, tests/test_v9_first_project_flow.py:138-153",
+      "problem": "【テスト不足・B10/テスト設計§5-6】次のケースにテストがありません。\n- begin が成功し、bridge の consume が失敗した場合に failed/admission_denied となり、provider 起動0回、予算が返却されないこと\n- consume 成功の直後に provider 起動が失敗した場合、予算が返却されず、同じ marker を再使用できないこと\n- 台帳が壊れている、または読めない場合の拒否\n別 branch と再使用については、bridge 単体でのみ確認されています。",
+      "recommendation": "FirstProjectAdapter の経路で bridge の失敗を注入し、attempt の error_category、provider の起動回数、台帳のバイト列を確認するテストを追加してください。",
+      "status": "open"
+    }
+  ],
+  "limitations": [
+    "指定ガイドのコピー欠落。QAは設計と一般的な原則でレビューした。",
+    "v9検証役はまだ未実行。独立セキュリティ専門家は未実行。"
+  ]
+}

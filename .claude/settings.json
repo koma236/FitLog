@@ -1,0 +1,77 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(docker system prune)",
+      "Bash(docker system prune:*)",
+      "Bash(git clean -fd)",
+      "Bash(git clean -fd:*)",
+      "Bash(git push --force origin main)",
+      "Bash(git push --force origin master)",
+      "Bash(git push --force-with-lease origin main)",
+      "Bash(git push --force-with-lease origin master)",
+      "Bash(git push -f origin main)",
+      "Bash(git push -f origin master)",
+      "Bash(git reset --hard)",
+      "Bash(git reset --hard:*)",
+      "Bash(npm publish)",
+      "Bash(npm publish:*)",
+      "Bash(pnpm publish)",
+      "Bash(pnpm publish:*)",
+      "Bash(rm -rf .)",
+      "Bash(rm -rf ./)",
+      "Bash(rm -rf /)",
+      "Bash(rm -rf ~)",
+      "Bash(rm -rf ~/)",
+      "Bash(sudo dd)",
+      "Bash(sudo dd:*)",
+      "Bash(sudo fdisk)",
+      "Bash(sudo fdisk:*)",
+      "Bash(sudo mkfs)",
+      "Bash(sudo mkfs:*)",
+      "Bash(sudo rm -rf)",
+      "Bash(sudo rm -rf:*)",
+      "Bash(yarn publish)",
+      "Bash(yarn publish:*)"
+    ],
+    "allow": []
+  },
+  "env": {
+    "SUPERPOWERS_DISABLE_TELEMETRY": "1"
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "^(Bash|PowerShell)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const find=(r)=>{const s=p.join(r,'.claude','hooks','quality-gate.cjs');return fs.existsSync(s)?s:''};let s=process.env.CLAUDE_PROJECT_DIR?find(process.env.CLAUDE_PROJECT_DIR):'';let g='';if(!s)try{s=find(execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/quality-gate.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Reinstall it with npx @crearize/ai-dev-helm init.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
+            "timeout": 30
+          }
+        ]
+      },
+      {
+        "matcher": "^(Agent|Task|spawn_agent|followup_task|send_message|send_input|resume_agent|SendMessage)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const find=(r)=>{const s=p.join(r,'.claude','hooks','review-budget.cjs');return fs.existsSync(s)?s:''};let s=process.env.CLAUDE_PROJECT_DIR?find(process.env.CLAUDE_PROJECT_DIR):'';let g='';if(!s)try{s=find(execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/review-budget.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Reinstall it with npx @crearize/ai-dev-helm init.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "^(Agent|Task|spawn_agent|followup_task|send_message|send_input|resume_agent|SendMessage)$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const find=(r)=>{const s=p.join(r,'.claude','hooks','review-budget.cjs');return fs.existsSync(s)?s:''};let s=process.env.CLAUDE_PROJECT_DIR?find(process.env.CLAUDE_PROJECT_DIR):'';let g='';if(!s)try{s=find(execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/review-budget.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Reinstall it with npx @crearize/ai-dev-helm init.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ]
+  }
+}

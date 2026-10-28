@@ -1,0 +1,313 @@
+# FitLog - Codex Development Guide
+
+## FitLog 個人用v9運用（最優先）
+
+作業前に `documents/development/personal-workflow.md` を読む。
+この節はユーザー指定に基づき、下記の配布元一般ルール・共通skillsに優先する。
+
+- 対象は `koma236/FitLog`。会社用 `~/.codex` と会社リポジトリを探索・変更しない。
+- Codexは `CODEX_HOME="$HOME/.codex-personal"` を使用する。
+- 仕様・計画・実装結果・独立レビュー結果はv9の個別人間承認を必要とする。
+- Issue作成・commit・push・PR作成は内容提示と個別承認が必要。設計承認による包括許可は適用しない。
+- mergeは人間がGitHub上で行う。AI merge、auto-merge、trunk直接更新、force、hook回避は禁止。
+- v9のreceiptや確認文字列をAIが生成・代行しない。通常ターミナルで本人が確認する。
+- 技術スタック・ポート・checksは未設定。推測で登録せず、未設定を成功扱いしない。
+- `skills/ai-dev-chat/SKILL.md` を共通入口とし、v9操作前に読む。
+- skill探索先は `.claude/skills`・`.codex/skills`・`.agents/skills`。すべて共通 `skills/` を参照する。
+- 下記は配布元の一般説明。Git操作許可の説明はFitLogの承認を代替しない。
+
+This file is loaded by OpenAI Codex CLI at the start of each session (project-scope AGENTS.md).
+See: https://developers.openai.com/codex/guides/agents-md
+
+## Language Setting
+
+> **IMPORTANT**: Always respond in **Japanese** for this project.
+> This setting must persist even after context compaction.
+
+---
+
+## SuperPowers Operating Rules
+
+Use skills when their applicability conditions match the work or the user requests them. Read the relevant skill before applying it. A simple, understood change can use a short plan; a routine question does not require a development workflow. Preserve required verification and independent test expectations regardless of the execution method.
+
+### Development Philosophy (must read)
+
+- Premise: runs across multiple AI models/tools, not tied to one. Quality is enforced by structure; tests can be trusted when they carry rationale (mutation testing is a tool for that, not mandatory).
+- 1. One Issue, one branch.
+- 2. Every completed design gets an independent design review (normally one round - only a serious problem or a large design gets more), then the user reviews the design with the review results and approves it once before implementation starts. This review is why per-task review is unnecessary. Questions are batched into one message.
+- 3. The plan may be reviewed, but no user confirmation is required after that review (a design exists at this point).
+- After approval: the approval covers planning, implementation, documentation, quality-check, commits, feature-branch pushes, the PR and the merge when no deviation from the design was recorded (with deviations, a final confirmation before merging) - do not ask again. Record deviations from the design and report only those, in one final message. Mid-way stops are limited to the exceptions X1-X8 (`documents/development/development-policy.md` §1.0 "承認後の進め方").
+- 4-6. Choose parent implementation or delegation according to complexity and total effort; no in-development reviewer loops (design-intent conformance is checked at step 7).
+- 7. quality-check runs mechanical checks (build, tests, static checks) first; the review roster (integrated reviewer, falsification QA on code changes, at most one specialist) runs only after they pass, sized by the change content.
+- 8. The quality-gate hook blocks direct pushes/merges into main (or the trunk equivalent); a separate review-budget hook limits review rounds only; mutation/E2E runs are decided by quality-check Step 5 (`test-recommendation`), not by the hook: strongly recommended, small, side-effect-free runs execute without asking; the rest are asked in the final report.
+- Passing is judged from review and quality-check results - self-reported completion needs evidence attached.
+- Mandatory for every product that uses this harness.
+
+Full text: `documents/development/development-policy.md` §1.0.
+
+### Skills by Applicability
+
+| Scenario | Skill Path | Notes |
+|----------|------------|-------|
+| Before new feature/change | `.codex/skills/superpowers/brainstorming/SKILL.md` | Required before implementation: design -> design review -> user approval (Design Gate) |
+| Multi-step implementation planning | `.codex/skills/superpowers/writing-plans/SKILL.md` | Plan before code |
+| Plan execution | `.codex/skills/superpowers/subagent-driven-development/SKILL.md` | For independent delegated tasks |
+| Bug / test failure investigation | `.codex/skills/superpowers/systematic-debugging/SKILL.md` | Debug before fix |
+| Test design before implementation (High/Medium risk) | `.codex/skills/project/test-design/SKILL.md` | Test oracles + falsification items before code (quality policy §4) |
+| Testing implementation | `.codex/skills/superpowers/test-driven-development/SKILL.md` | TDD |
+| Receiving code review | `.codex/skills/superpowers/receiving-code-review/SKILL.md` | Verify, not blind agree |
+| Before completion / merge | `.codex/skills/superpowers/verification-before-completion/SKILL.md` | Evidence-based |
+| Post-completion integration | `.codex/skills/superpowers/finishing-a-development-branch/SKILL.md` | Merge/PR/cleanup |
+| 2+ independent tasks | `.codex/skills/superpowers/dispatching-parallel-agents/SKILL.md` | Parallel agents for efficiency |
+| Feature isolation needed | `.codex/skills/superpowers/using-git-worktrees/SKILL.md` | Worktree isolation |
+| Parallel worktree development | `.codex/skills/project/worktree-parallel/SKILL.md` | Worktree placement, ports, env setup, cleanup |
+| Recurring process issue or explicit improvement task | `.codex/skills/project/self-improvement/SKILL.md` | Optional; not a completion gate |
+
+Bundled skills at `.codex/skills/superpowers/<name>/SKILL.md` are authoritative. If a `superpowers:<name>` reference resolves elsewhere or is unknown, read the local SKILL.md directly. If the link is missing (a new worktree, for example), run `link-skills` (the `using-git-worktrees` skill) or read `skills/<same relative path>/SKILL.md` directly.
+
+### Design Confirmation Rules
+
+Explore existing context first and batch the questions that are still needed into one message. Scale design detail to the uncertainty and impact of the change, but not the gate below.
+
+**Design gate (required before any implementation code)** - when the design is complete:
+
+1. Reserve and request one independent design review: `node .codex/hooks/review-budget.cjs begin --phase design --roles document-reviewer` (`.claude` when that copy is the installed one), the `helm-doc-reviewer` agent (or a reviewer named `document-reviewer` with the design-review model from `documents/development/harness-runtime.md`).
+2. Send the user one message with the design, the review findings and how each was resolved.
+3. Stop until the user explicitly approves. A request to implement is not approval of a design that did not exist yet.
+
+This applies to bounded changes too. Exemption: a typo fix that involves no design choice, or an obviously correct change of a few lines; a fix within an already approved design (such as a response to a quality-check finding) that does not change that design needs no new Design Gate. After approval, do not ask again: the approval covers the spec update, plan and plan review, implementation, documentation, quality-check, commits, feature-branch pushes and the PR. It also covers the merge when no deviation from the design was recorded (neither in the spec / plan record nor in the PR body's deviation section); with deviations, finish everything else and ask for a final confirmation before merging (the deviations are a change to what was approved). It is not an approval to exceed a review limit. Record deviations from the design and report only those in the final report (`documents/development/development-policy.md` §1.0 "承認後の進め方"). The shipped brainstorming skill (Design Gate) and writing-plans skill implement this workflow.
+
+### Plan Execution Rules
+
+1. Choose direct implementation or bounded delegation by total effort: planning, handoff, repeated exploration, integration and rework. A capable parent may implement small or medium tasks directly. Delegate independent work when parallelism or context isolation helps; delegation is not a completion requirement.
+2. Keep plans proportional: scope, affected contracts, independent test oracles and validation. Do not write the implementation twice as detailed plan code and then a transcription task. Local plan files under `docs/superpowers/plans/` are not committed; clean them up after merge.
+3. During implementation, use self-checks and tests. Final quality review belongs to `quality-check`; do not add per-task reviewer loops or a second whole-branch review. Design/plan document reviews follow quality-policy §5.5. Review depth follows risk and uncertainty; the current review roster is retained pending comparison.
+4. Respect user budgets. Estimate agent use when delegating; stay within a limit the user set explicitly (needing more is exception X4); report an overrun of an estimate in the final report. Resume interrupted agents after inspecting their committed/uncommitted work and restating ownership. Do not restore, stash or clean another task's files. One writing agent or session per worktree; see `worktree-parallel`.
+5. Verify external platform limits against official documentation when the design relies on them.
+
+### Subagent Model Selection
+
+Use `documents/development/harness-runtime.md` for the shared model table, live tool parameter names and review reservations. This table describes delegation; it does not prohibit implementation by the current parent model. Use Claude Opus / Sonnet 5.5 or later only (never Haiku or older Claude models), and do not use GPT-6 Luna. This applies only to the models you choose for agents, subagents and delegation; model IDs that product code or product configuration calls (the product's own LLM features) are out of scope and must not be rewritten. Do not add project-specific overrides of agent model choices; the table in harness-runtime.md is the source of truth. Quality reviewers retain the required capability and check independent specifications and actual behavior.
+
+---
+
+## Quality Check Rules
+
+**All quality verification is done locally. CI is for build confirmation only.**
+
+### Flow
+
+```
+Harness-only diff? -> skip quality-check entirely (the gate exempts it;
+                      gate-parameter changes are NOT exempt - see Quality Check Hook)
+    |
+Step 1: Change area + risk level detection (git diff; risk levels per quality policy §1)
+    |
+Step 2: Build + static checks -> Step 3: tests (High/Medium: cross-check the test-design
+        memo). If failures remain after the one fix pass, the cycle ends here (no
+        reviewers) and the next cycle starts
+    |
+Step 4: Review cycle (roster sized by change content - integrated reviewer always,
+        falsification QA when code changed, at most one specialist
+        (Security > Requirements > Performance); normally 1 cycle; cycles 2+ verify
+        fixes with a single verification reviewer)
+    |
+Step 5: Additional tests (test-recommendation skill: heuristics rate mutation/E2E
+        runs; strong + small scope + no side effects -> run without asking;
+        the rest are asked once in the final report, and the flag waits for
+        that answer; declines are recorded and never block - except an
+        executed E2E that fails must be fixed)
+    |
+Step 6: Report data saved -> .quality-check-passed (commit-bound JSON) created -> merge allowed
+```
+
+Thresholds, cycle caps and time budgets are defined in `documents/development/quality-policy.md` (§1 risk levels, §2 gate matrix, §5 loop protection). Do not restate the numbers here - read them from the policy.
+
+### Quality Check Hook
+
+Codex enforces this via a `PreToolUse` hook (configured in `.codex/hooks.json`). The hook is a static classifier of the command line - it never resolves what actually lands on main; it only stops direct pushes/merges into main (or the trunk equivalent). **The gate stops accidental pushes/merges to main; deliberate evasion is out of scope by design** (enumerated forms live in the hook's own header). **The complete unconditional-block list and fail-open scope live in the `quality-check` skill's "最重要ルール" section (`hook の完全な契約`) - read the full list there, it is not restated here.**
+
+- **Target**: `gh pr merge`, `gh api ...pulls/<n>/merge`, `git merge` / `git pull` / `git rebase` on main or master, a `git push` whose destination refspec matches `main` / `master` exactly, a `git push` on main or master that omits the refspec or gives only `HEAD` / `@` (also off main when the refspec is omitted and the branch's `@{push}` is `<remote>/main`), and - on any branch, even without those words - `git branch -f <trunk> ...`, `git update-ref refs/heads/<trunk> ...` and `git fetch <remote> <src>:<trunk>`. `gh` with `-R` / `--repo` naming another repository than origin is refused: run it from that repository. **Pushes to feature branches are not gated** by these forms (a line containing a candidate word can still trip an unconditional block - see the skill). `--abort` / `--continue` / `--quit` / `--skip` on `git merge` / `git pull` / `git rebase` are not gated.
+- **What passes**: `.quality-check-passed` (commit-bound JSON `{branch, commit}` at the repo root, not consumed) has `commit` equal to (or an abbreviated prefix of) `HEAD` (`branch` is diagnostic only), OR `commit` is an ancestor of `HEAD` and every file in `commit..HEAD` is a harness file with no control-plane touch and no `Quality Gate Overrides` / `mutation_budget_minutes` string change (see the carve-out below - validity is not parsed, a commented-out or fenced change still blocks). Separately, syncing the current trunk from its own remote with no other options - exactly `git pull`, `git pull origin <trunk>`, or `git merge origin/<trunk>` (using the trunk's own name, e.g. the `master` form on a `master` checkout) - needs no flag. A merge or rebase of a branch on main, and the trunk rewrites above, are checked against the commit main RECEIVES, not HEAD: the flag must name that branch's tip, so a flag left on main from an earlier run does not let another branch in, and main must not have commits the branch lacks. A shell call (`Bash` / `PowerShell` tool) whose command cannot be read is refused.
+- Harness-only diffs skip the gate and the quality check entirely (`CLAUDE.md`, `AGENTS.md`, `.cursorrules`, `.github/review-*.md`, and the `.md` / `.mdc` documents only under `.claude/`, `.codex/`, `.cursor/`, `skills/project/`, `skills/superpowers/`, `documents/development/coding-rules/` - scripts and config files there are not exempt; the base is `origin/main`, or the local `main` / `master` when there is no remote-tracking trunk). **Carve-out**: a diff that changes gate parameters - the `Quality Gate Overrides` keys below - is NOT exempt, even inside those paths, and neither is a diff touching **gate control-plane files** (the `quality-check` skill and its schemas, `test-recommendation`, the Design Gate skills `brainstorming` / `writing-plans`, the hook body/registration and its `.codex`/`.cursor` copies, `.claude`/`.codex`/`.cursor` `agents/`/`commands/`/`prompts/`/`rules/` directories, `.codex/config.toml`, the MCP registration files, and `.claude/settings.json` / `.claude/settings.local.json` in their entirety - the full set is defined once in the `quality-check` skill's "ハーネスのみ変更の免除" section). These must go through quality-check; the hook enforces the same carve-out and blocks such diffs with `Gate control-plane changed:`.
+- **Trunk names are fixed to `main` / `master`**; products using another trunk name are not gated by the hook and rely on the `permissions.deny` layer and convention.
+- **Worktree main** (#116): if the session's working directory is not the worktree, a merge into that worktree's main made through a statically resolvable `cd` / `pushd` / `-C` is judged with that worktree's branch and flag, and one made through a move the hook cannot resolve is blocked; any other route (a script, for example) is invisible to this hook. If the session's working directory is the worktree, that main is gated normally. The hook evaluates in the session's working directory and reads the flag from that repository root (a worktree's own root when the session's working directory is a worktree). Make the flag where the commit main receives was checked: run quality-check in the worktree of the branch being integrated and integrate from there (with a remote, `gh pr merge` from that worktree). Do not make the flag on a main checkout. Without a remote (no remote-tracking trunk such as `origin/main` on a remote that takes pull requests - a `<remote>/main` of a publishing, deploy or backup remote does not count, and the hook's hints look at origin only; do not push the feature branch there), with main open in another worktree, integrate from the feature worktree instead (`git switch --detach` in the main checkout, `git push . HEAD:main` in the feature worktree, then `git switch main`; first run `npx --no ai-dev-helm integrate-check --main <main checkout>` in the feature worktree (read-only; it names a main checkout that does not have main open, uncommitted tracked changes there, a main that is not an ancestor of the feature, anything untracked or ignored at a path the feature adds, and skip-worktree / assume-unchanged files the feature changes - unrelated untracked files do not matter; if main is only not an ancestor, merge main into the feature, re-run quality-check and start over; on any other problem change nothing and report it, exception X3) and check that `git push` is usable in the project, and if push is not usable, use the skill's merge in the feature worktree instead; see the `branch-workflow` skill). Delete `.quality-check-passed` after any merge into main.
+- **Everyday commands that never touch the trunk are allowed** next to other git commands: on a feature branch `git add` / `git commit` then `git push`; `git fetch && git rebase origin/main` (with further commands after it) and `git push --force-with-lease` to the branch's own upstream; `git checkout -b <x> && ... && git push -u origin HEAD`. Syncing the trunk from origin needs no flag: `git pull` / `git pull --ff-only` / `git pull origin <trunk>` / `git merge [--ff-only] origin/<trunk>`, `git pull --rebase` while the local trunk has no commits ahead of origin, optionally after `git checkout <trunk> &&` and followed by `&& git branch -d <x>`. A push to the trunk still needs the flag, a commit chained with a push on the trunk is refused (the push needs the quality check on the new commit), and a force push to the trunk is always refused. Other combinations keep the conservative rule; see the skill for the exact contract.
+- **Simple form and relocation** (#158): a command that mentions `push` / `pull` / `merge` / `rebase` is judged only in a simple form; anything else is refused with guidance (a false refusal only costs a rerun). Run the push/merge as its own command - optionally after `cd <path>` or as `git -C <path> ...` - without variables, without special characters inside quotes, and without other shell constructs (pipes, redirects, `||`, subshells, blocks). Simple means: segments joined only by newlines, `;` or `&&`; each starting with `git`, `gh`, a location change (`cd` / `pushd` / `popd`) or a build/test runner; `git` with no global option other than `-C <path>` / `--no-pager`. The hook reads the command as the tool's shell runs it (`tool_name`): from the PowerShell tool, `Set-Location` / `sl` / `Push-Location` / `Pop-Location`, unquoted `C:\...` paths and `A; if ($?) { B }` (read as `A && B`) are judged; from Bash, quoted `"C:\..."` paths and Git Bash's `/c/...` (read as `C:/...`) are; a path written `C:/...` works everywhere. In a simple command, location changes and `-C` are followed in order: the same repository is judged as usual, another repository with ITS OWN branch and flag, and a target that does not exist now - or a place that depends on whether an earlier command in an `&&` chain succeeded - blocks. A command that does not push or merge should avoid those words (write such a commit message or PR body to a file and use `git commit -F <file>` / `gh pr create --body-file <file>`). The exact definition lives in the `quality-check` skill.
+- If main advanced independently after the flag was issued, `git merge <branch>` on main is refused: merge main into the branch (or rebase it), re-run quality-check there, then integrate.
+- **Nested shells and unreadable PowerShell**: a push/merge written inside another shell (`powershell -Command "..."`, `pwsh -c`, `cmd /c`, `bash -c`) is not simple and is refused even with a valid flag - run the push/merge itself as its own command. An encoded or stdin PowerShell script is refused whether or not it mentions those words.
+- **Hook trust (Codex)**: Codex silently skips hooks it has not been told to trust. Until the `.codex/hooks.json` hooks are trusted in `/hooks`, neither quality-gate nor review-budget runs, and no warning is shown. Trust them again after any change to `hooks.json` (matcher, command, timeout or order; the hook scripts' contents are not part of the trust). Trust is recorded per Codex config location (`CODEX_HOME`): after switching Codex accounts or config locations (an orca account switch, for example), trust the hooks there too. The project itself must be trusted, or Codex does not read `.codex/`. Check with `npx @crearize/ai-dev-helm codex-trust --dir . [--codex-home <dir>]` (read-only; exit 0 ok, 1 `ACTION REQUIRED`, 2 unreadable) - pass `--codex-home` when Codex runs with a `CODEX_HOME` your terminal does not have.
+
+<!-- Quality Gate Overrides (optional). Uncomment the key if you want to change it and
+     write your value. The default is deliberately NOT written here - it lives in
+     documents/development/quality-policy.md §2 (single source). `mutation_budget_minutes`
+     is the only recognized override key, and changing it is never exempt from the merge
+     gate. While commented out (or inside a code span/fence) the block declares nothing
+     and the policy default applies.
+
+### Quality Gate Overrides
+- mutation_budget_minutes: <minutes>
+-->
+
+### Review Roster (quality-check Step 4)
+
+`quality-check` owns a single outer cycle (Step 2 static checks -> Step 3 tests -> Step 4 review roster -> consolidated-findings fixes). Within Step 4, the roster reviews in parallel (each spawned with `gpt-6-astra` / `model_reasoning_effort = "high"` - see Subagent Model Selection):
+
+| Role | When | Focus |
+|---|---|---|
+| Integrated Reviewer | Every cycle that runs Step 4 | Design and maintainability first (SOLID/DRY, layer responsibilities, dependencies, whole-change consistency, side effects), then a mandatory checklist pass on security, performance, requirements alignment and documentation consistency - each concern reported explicitly |
+| Falsification QA | Any code change (tests and config included; any path, regardless of area - docs-only and declarative infra-only diffs excluded) | Inputs and scenarios that prove the implementation wrong, test-oracle validity, edge cases, error handling |
+| Specialist (at most one: Security > Requirements > Performance) | Security: auth, input/output handling, secrets and crypto, serialization, external URLs, uploads, CORS/CSP, sensitive logging, config/Dockerfile/CI, dependencies incl. lockfile-only updates; gate control plane, harness config, CI workflows or dependency files trigger Security even in a docs-only diff. Requirements: feature-level diff with an Issue, spec or design doc. Performance: queries, loops, caching, bundles, hot paths | Single-concern deep dive with its review guide; concerns not dispatched become emphasized concerns for the integrated reviewer |
+| Verification Reviewer | Cycles 2+ (joined by Falsification QA when the fix diff touches production code under a security trigger) | Checks the fix diff against the consolidated findings list and hunts new High findings |
+
+- **Completion criteria**: no High/Medium findings remaining in the consolidated results, minimum 1 cycle, and Step 5 judged with its automatic runs done and the user's answer recorded for any item that needed confirmation (the `quality-check` skill holds the full definition - read it there)
+- The roster is sized by change content (Step 1 roster table in the `quality-check` skill): the integrated reviewer always runs, falsification QA runs on any code change, and at most one specialist runs (Security > Requirements > Performance); docs-only = the integrated reviewer alone, unless gate control-plane files, harness config files, CI workflows or dependency files changed (then Security joins). Concerns that did not get a specialist are passed to the integrated reviewer as emphasized concerns
+- The coordinator writes one shared context pack per cycle (diff, changed files, Step 2-3 results, review guides); reviewers read it instead of re-deriving it
+- Normally 1 cycle; a second cycle only if High/Medium findings remain, as a verification review by a single verification reviewer (no revert to the full roster; a re-verification after new High findings counts as a new cycle)
+- Reviewers run only after build/static checks and tests pass in that cycle
+- `self-improvement` is optional and does not delay `.quality-check-passed` or completion.
+
+---
+
+## Critical Rules
+
+### Level 0: Auto-Execute (No confirmation needed)
+
+1. **Create GitHub Issue** (in projects that use Issues) - `gh issue create` to get Issue number
+2. **Create branch** - `git checkout -b [type]/[description]-[issue-number]` (omit the number when the project does not use Issues)
+3. **Include Issue/branch/PR in plans** - Phase 0: Issue/branch creation, final Phase: PR creation
+4. **Execution method** - Choose parent implementation or bounded delegation according to Plan Execution Rules; preserve the same final quality gate.
+5. **Run quality-check before merging into main** - Required before `gh pr merge`, `git merge` on main, or a direct push to main. Feature-branch pushes need no check
+
+### Level 1: Must Follow
+
+1. **Branch check before work** - `git branch --show-current` to confirm not on main
+2. **No work on main** - Always create a new branch
+3. **Issue number required** (in projects that use Issues) - Branch name: `[type]/[description]-[issue-number]`
+4. **New error codes must be documented** - Add to error code list immediately
+5. **Server ports are fixed** - Stop existing processes, use only configured ports, and stop servers after work
+
+### Level 2: Important
+
+- Follow coding conventions (see `documents/development/coding-rules/`)
+- Always implement tests
+- Document-driven development (spec -> implementation)
+
+### Level 3: Recommended
+
+- Performance optimization
+- Security measures
+- Accessibility
+
+---
+
+## Shell Command Rules (Windows / PowerShell)
+
+When the execution shell is PowerShell (default on Windows), bash idioms fail. Follow these rules:
+
+1. **No `&&` / `||` chaining** - Windows PowerShell 5.1 does not support them. Use `;` for unconditional sequencing, and check `$LASTEXITCODE` for conditional execution:
+
+   ```powershell
+   git add -- <paths>; git commit -m "msg"
+   git fetch; if ($LASTEXITCODE -eq 0) { git status }
+   ```
+
+2. **No bash heredocs** (`<<EOF`) - use PowerShell here-strings instead:
+
+   ```powershell
+   $body = @'
+   multi-line
+   content
+   '@
+   ```
+
+3. **No bash test syntax** (`[ -f file ]`) - use `Test-Path` / `if (...)`
+4. **No `/dev/null`** - redirect with `2>$null` or pipe to `Out-Null`
+5. **Quote paths containing spaces** and prefer `Join-Path` for path construction
+6. **Complex one-liners break easily** (quoting, `?:` operator is PowerShell 7+ only) - write a temporary script file and execute it instead
+
+More Windows shell rules (Git Bash path conversion, `taskkill`, encodings): `documents/development/windows-shell.md`
+
+---
+
+## Autonomy Principles
+
+AI should act autonomously by default.
+
+Before the design is approved, ask the user only when:
+
+1. The answer cannot be determined after investigation
+2. An unexpected situation causes a loop or prevents reliable progress
+3. The Design Gate approval is still pending (Design Confirmation Rules)
+
+After the design is approved, do not ask again. Decide within the approved design, record deviations from it, and report only those in one final message (completion, deviations from the design, decisions needed). Stop mid-way only for these exceptions (full text: `documents/development/development-policy.md` §1.0 "承認後の進め方"):
+
+- X1 quality-check review limit, stagnation or structural stagnation (and the review limit of a production's final quality review)
+- X2 a release (including a merge that automatically releases, publishes or deploys to production - an environment that customers or users rely on; an automatic deploy to an environment for checking behavior (such as staging) that does not touch production - the production database, live payments, or sending to real customers and the like - is not X2; judge by the effect on customers or users, not by the name), closing a security advisory (GHSA), or a merge that an adopter rule requires the user to approve. Only an answer to that item, or an instruction that names the operation and its target (range), counts as an X2 OK - not the design approval, a generic "continue", or an instruction that names no range. For a project that promotes main to a production branch, the OK covers the whole range that goes out: the item shows the list and the SHA, and a "promote it" that names no range gets that list and SHA asked first (§1.0 "承認後の進め方" 8)
+- X3 an irreversible operation the design does not include (deleting data or others' work, force push, changing shared environments (such as editing staging's environment variables by hand), publishing externally), and pushing, opening a PR for, or merging into main a fix of an undisclosed vulnerability in a public repository (use the advisory's private fork)
+- X4 the approved design cannot reach its goal, or reaching it needs reversing an explicit owner decision, adding a feature or breaking change the design lacks, or exceeding a limit the user set - ask once for the deviation design and, if needed, one more design review round
+- X5 an executed E2E still fails after two fix-and-recheck iterations
+- X6 the cause of a failure is unknown and progress is impossible, or only a temporary workaround exists
+- X7 a state file, ledger or harness setting is broken and cannot be repaired by the rules
+- X8 something the work needs cannot be obtained by the AI (credentials, paid services, accounts, manual login)
+
+Additional tests that need confirmation, self-improvement candidates waiting for a decision, and a merge that waits because deviations from the design were recorded go into the final message, not a mid-way stop. In upstream skills (`superpowers:*`), "ask your human partner" after approval means: decide within the approved design and record a deviation, unless one of these exceptions applies. Do not ask the user to run commands or do operations; run them yourself and verify.
+
+Do not ask questions that can be answered by reading code, docs, command output, or existing project configuration.
+
+When errors occur, investigate and fix them autonomously if a durable fix is clear. Do not use temporary workarounds such as disabling tests, swallowing errors, weakening types, or bypassing quality gates. If a durable fix is unclear, stop and ask (exception X6).
+
+---
+
+## Project Overview
+
+**FitLog** — 個人開発用の新規アプリ。現在はハーネス導入のみ。
+
+技術スタック、データベース、テストフレームワーク、開発ポートは未決定。
+実行可能なアプリのbuild/lint/testコマンドはまだない。
+
+## Skills (Read on demand)
+
+Located under `.codex/skills/`. Confirm discovery in the session's skill catalog; if absent, read the explicit paths below on demand.
+
+| Skill | Path |
+|-------|------|
+| Server startup | `.codex/skills/project/server-startup/SKILL.md` |
+| Branch management | `.codex/skills/project/branch-workflow/SKILL.md` |
+| Backend implementation | `.codex/skills/project/backend-development/SKILL.md` |
+| Frontend implementation | `.codex/skills/project/frontend-development/SKILL.md` |
+| DB migration | `.codex/skills/project/database-migration/SKILL.md` |
+| Pre-implementation test design | `.codex/skills/project/test-design/SKILL.md` |
+| Deterministic check wiring (lint) + coverage map | `.codex/skills/project/lint-scaffolding/SKILL.md` |
+| Pre-push quality check | `.codex/skills/project/quality-check/SKILL.md` |
+| Additional tests (mutation / E2E): judge, run automatically or confirm; standalone or via quality-check Step 5 | `.codex/skills/project/test-recommendation/SKILL.md` |
+| Parallel worktree development | `.codex/skills/project/worktree-parallel/SKILL.md` |
+| Self improvement | `.codex/skills/project/self-improvement/SKILL.md` |
+| PR report generation | `.codex/skills/project/implementation-report/SKILL.md` |
+| UI verification | `.codex/skills/project/browser-agent/SKILL.md` |
+| Feature/knowledge documentation | `.codex/skills/project/feature-documentation/SKILL.md` |
+| Log design review | `.codex/skills/project/log-design/SKILL.md` |
+| CHANGELOG / release notes generation | `.codex/skills/project/generate-docs/SKILL.md` |
+
+## Common Commands
+
+技術スタック決定後に実コマンドを確認して登録する。現時点では未設定。
+導入診断は `documents/setup/harness-setup.md` を参照する。
+
+## Reference Documents
+
+### Required (check before work)
+- **Development guidelines**: `documents/development/development-policy.md`
+- **Coding rules**: `documents/development/coding-rules/`
+- **Quality policy**: `documents/development/quality-policy.md` (risk levels, gates, loop protection)
+
+### As Needed
+- **Error codes**: `documents/development/error-codes.md`
+- **Naming conventions**: `documents/development/naming-conventions.md`
+- **Static check standard**: `documents/development/static-check-standard.md` (static check standard catalog)
+
+<!-- ai-dev-helm:runtime:start -->
+## Harness runtime policy
+
+Before delegating work, read `documents/development/harness-runtime.md`. Its model routing, review-only admission protocol, and scope rules override older harness paragraphs and upstream skills. Preserve stricter user limits.
+<!-- ai-dev-helm:runtime:end -->

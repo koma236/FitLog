@@ -1,0 +1,15 @@
+# Codex project-local configuration
+# Loaded when this project is trusted by Codex.
+# Docs: https://developers.openai.com/codex/config-basic
+
+# Project-local approval policy (uses safer default than user-level)
+approval_policy = "on-request"
+
+# Default sandbox mode for this project's automation
+sandbox_mode = "workspace-write"
+
+# Named role files in .codex/agents/ carry explicit model routing.
+[agents]
+enabled = true
+default_subagent_model = "gpt-6.1-sol"
+default_subagent_reasoning_effort = "medium"
