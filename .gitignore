@@ -1,0 +1,21 @@
+# ai-dev-helm: local workflow artifacts (do not commit)
+.superpowers/
+docs/superpowers/plans/
+.worktrees/
+.claude/worktrees/
+.quality-check-report.json
+.quality-check-passed
+.stryker-tmp/
+**/reports/mutation/
+*.ai-dev-helm-new
+/.claude/skills
+/.codex/skills
+/.cursor/skills
+
+# Local backups produced by ai-dev-helm init
+/AGENTS.md.backup.*
+/CLAUDE.md.backup.*
+/.claude/settings.json.backup.*
+/.codex/hooks.json.backup.*
+
+# Shared runtime skill links stay local; keep actual app files visible.

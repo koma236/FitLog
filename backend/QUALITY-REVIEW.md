@@ -1,0 +1,25 @@
+# FL-01 品質レビューの対応記録
+
+2026-10-28。bootstrap継続では保持済み生成物を整理した。check・build・test・migration・サーバー起動・Git操作は実行していない。実装結果の検証と独立品質レビューは、後続の正式なv9手順で行う。
+
+以下は保持済みファイルに含まれていた修正説明であり、実行結果・レビュー判定の証拠ではない。過去のレビューや反証実行に関する記述を、今回の対象snapshotの合格根拠として使用しない。正式な実行・判定・承認状態はv9の保存結果を参照する。
+
+## 必須修正
+
+ログの秘密非露出テストがroot向けcaplogだけを見ており、propagate=Falseの実loggerを観測できなかった。設定されたStreamHandlerの出力先をテスト中だけStringIOへ差し替え、handler追加やpropagation変更をせず、実出力を捕捉するfixtureへ変更した。statusとrequest-idの出力が実在する正の対照もassertする。
+
+意図する反証オラクルは、秘密文字列を実loggerへ注入した場合に非露出assertionが失敗することと、通常の固定イベント・request-idを正の対照として観測できること。保持済みテストはこの観測用fixtureを使うが、今回の生成段階では実行していない。
+
+## 同じ範囲での軽微な修正
+
+- 未実装APIのcatch-allへcsrf_exemptを付け、CSRF検査を有効にしたPOST/PUT/DELETEでも設計どおりJSON404となることを確認する。
+- API境界でget_hostを呼び、ALLOWED_HOSTSを実際に検証。evil.exampleの拒否とlocalhost/backendの許可をHTTPで検証する。
+- process_exceptionの内外境界、非DRFのRuntimeError、HTMLエラー正規化時の認証・レート制限・セキュリティヘッダー保持を追加検証する。
+- frontendのunmountテストから自明なDOM不在assertionを除き、AbortSignalとtimer解放を保証対象とする。
+- READMEとenv.exampleの古い実行状態の宣言を除き、実行記録は正式v9 verifyとPR本文を正本にする。TEST-ORACLESのリスクはHighに揃えた。
+
+## 保持するLow・未確認事項
+
+設計レビュー時のfrontend/DB timeoutの時間関係、ログの詳細な運用観測、FL-02のSession認証challenge、依存監査未配線、host生成物のgitignore追加、共有Codex hookの上流仕様、初期導入文書のローカルパスは残件として保持する。これらを修正済みとしない。固定済みの設計原本の状態行は変更せず、採用・レビュー状態はdocuments/setup/fl-01-design-review-final.mdと正式receiptを参照する。
+
+実行日時・対象snapshot・image ID・最終テスト件数はv9 verify結果とPR検証欄に記録する。AWS・認証CRUD・製品全体E2EはこのIssueの対象外。

@@ -1,0 +1,59 @@
+name: fitlog-dev
+
+services:
+  postgres:
+    # Exact tag + registry digest are required; never silently use a moving tag.
+    image: postgres:17.11-bookworm@sha256:d2b1a0795f5ecbe49dc07be0b35b62977aff9152870ea332375021c79ea4905b
+    environment:
+      POSTGRES_DB: fitlog
+      POSTGRES_USER: fitlog
+      # Local only, public sample value. Never use these credentials in production.
+      POSTGRES_PASSWORD: fitlog-local-only-not-a-secret
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fitlog -d fitlog"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+
+  backend:
+    image: fitlog-dev-backend
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+      args:
+        PYTHON_IMAGE: python:3.13.18-slim-bookworm@sha256:4178fea840d0d85a1f4d4e768b4cc2ad71b5df43954e1836650c6d239039a4a3
+        UV_IMAGE: ghcr.io/astral-sh/uv:0.13.6@sha256:af22a52f5eafef3d78e551599d405c02df61919d18028f0cea8eda93bc9986d0
+    environment:
+      # Local only, public sample key. Never use this key in production.
+      DJANGO_SECRET_KEY: fitlog-local-only-public-key-never-use-in-production
+      DJANGO_DEBUG: "false"
+      POSTGRES_DB: fitlog
+      POSTGRES_USER: fitlog
+      POSTGRES_PASSWORD: fitlog-local-only-not-a-secret
+      POSTGRES_HOST: postgres
+    command: ["uv", "run", "--frozen", "--no-sync", "python", "manage.py", "runserver", "0.0.0.0:8000", "--noreload"]
+    ports:
+      - "127.0.0.1:18080:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    image: fitlog-dev-frontend
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      args:
+        NODE_IMAGE: node:24.22.1-bookworm-slim@sha256:be8204d4bd327363357f532187b752ff62759c31bedf98e9e18fc08c9cbd605c
+    command: ["npm", "run", "dev"]
+    ports:
+      - "127.0.0.1:15173:5173"
+    depends_on:
+      backend:
+        condition: service_started
+
+volumes:
+  postgres-data:

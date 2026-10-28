@@ -1,0 +1,388 @@
+{
+  "project": "/Users/saki/project/ai-dev-harness",
+  "branch": "fix/v9-personal-git-environment",
+  "revision": 20,
+  "snapshot": "2cf5222c57f3a0252d95825a431c91d77d4face760be1c79960d12ccc4525d3a",
+  "changed_count": 74,
+  "planned_count": 17,
+  "outside_count": 57,
+  "files": [
+    {
+      "path": "README.md",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "documents/development/error-codes.md",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "documents/v9/personal-git.md",
+      "status": " A",
+      "in_plan": true
+    },
+    {
+      "path": "documents/v9/workflow-policy.md",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "scripts/v9/execution.py",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "scripts/v9/git_environment.py",
+      "status": " A",
+      "in_plan": true
+    },
+    {
+      "path": "scripts/v9/gitops.py",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "skills/ai-dev-chat/SKILL.md",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "tests/test_claude_diagnostics.py",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "tests/test_harness.py",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "tests/test_v9_execution.py",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": "tests/test_v9_gitops.py",
+      "status": " M",
+      "in_plan": true
+    },
+    {
+      "path": ".DS_Store",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-corrected/v9-first-project-design-v3.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-corrected/v9-first-project-review-response-r2.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-design-review-r2.json",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-design-review.json",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-design-v2-r2.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-design.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-document-reviewer-r2.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-document-reviewer.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev-jobs/v9-first-project-review-response-r2.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".ai-dev/personal-git.plan.json",
+      "status": "??",
+      "in_plan": true
+    },
+    {
+      "path": ".ai-dev/personal-git.spec.json",
+      "status": "??",
+      "in_plan": true
+    },
+    {
+      "path": ".ai-dev/project.toml",
+      "status": "??",
+      "in_plan": true
+    },
+    {
+      "path": ".claude/settings.json.backup.20261013220001077",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": ".codex/hooks.json.backup.20261013220001088",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "AGENTS.md.backup.1791928801090",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "CLAUDE.md.backup.1791928801081",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "bin/.DS_Store",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/baseline-candidates.txt",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/baseline-commit.json",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/baseline-manifest.json",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/baseline-test-output.txt",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/implementation-plan.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/personal-git-acceptance.md",
+      "status": "??",
+      "in_plan": true
+    },
+    {
+      "path": "documents/v9/personal-git-save-plan.md",
+      "status": "??",
+      "in_plan": true
+    },
+    {
+      "path": "documents/v9/plan-review.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/runtime-decision.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/security-baseline.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/stage0-boundary-evidence.json",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/stage0-report.md",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "documents/v9/v8-test-output.txt",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/.DS_Store",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/__pycache__/ai_dev_handoff.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/__pycache__/harness.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/__pycache__/orchestrate.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/ai_dev_handoff.py.before-path-fix",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/ai_dev_handoff.py.review-backup",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/harness.backup20261014_py.py",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/harness.py.before-chat-20261014-161809",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/harness.py.v5-backup",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/harness.py.v6-backup.py",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/harness.py.v7-backup",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/__init__.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/auto.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/cli.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/config.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/controller.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/execution.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/gitops.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/handoff.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/spec.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "scripts/v9/__pycache__/workflow.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_claude_diagnostics.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_harness.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_harness_backup20261014.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_v9_cli.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_v9_config.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_v9_execution.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_v9_spec.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/__pycache__/test_v9_workflow.cpython-312.pyc",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/test_harness.py.before-chat-20261014-161809",
+      "status": "??",
+      "in_plan": false
+    },
+    {
+      "path": "tests/test_harness_backup20261014.py",
+      "status": "??",
+      "in_plan": false
+    }
+  ],
+  "hypothetical_snapshot_only_change_preserves_approvals": {
+    "implementation": false,
+    "plan": true,
+    "review": false,
+    "specification": true
+  },
+  "applied": false
+}

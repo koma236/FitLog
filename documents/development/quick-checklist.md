@@ -1,0 +1,60 @@
+# Quick Checklist
+
+A quick-reference checklist for AI tools when working on development tasks.
+
+## Before Starting Work (AI auto-executes)
+
+- [ ] Create GitHub Issue with `gh issue create` (in projects that use Issues)
+- [ ] Get Issue number (in projects that use Issues)
+- [ ] Create branch: `git checkout -b [type]/[description]-[issue-number]`
+
+## Before Starting (Required)
+
+- [ ] Branch confirmed (not on main)
+- [ ] Issue number obtained (in projects that use Issues)
+- [ ] Branch created with correct naming
+
+## During Implementation (Important)
+
+- [ ] Coding conventions followed
+- [ ] Tests implemented
+- [ ] Error codes added (if new)
+- [ ] **Feature documentation created or updated** (via /feature-documentation)
+  - When adding a new feature/service, requirement, prerequisite, or behavior change
+  - Existing doc -> update; no doc yet -> create under `documents/` or `docs/`
+
+## Before Merge (Required - via /quality-check)
+
+> Feature-branch pushes are not gated (though a line containing a candidate word - merge/pull/rebase/refspec-omitted push - can still trip an unconditional block; see the quality-check skill). Run /quality-check before `gh pr merge`, `git merge` on main, or a direct push to main. Harness-only diffs skip the check entirely — except a harness config file (CLAUDE.md / AGENTS.md / `.cursorrules`) diff that changes Quality Gate Overrides parameters, which is never exempt. Sync of the current trunk from its own remote (`git pull`, `git pull origin <trunk>`, `git merge origin/<trunk>`, optionally with `--ff-only`, as the whole command; the merge form only while `origin/<trunk>` is the remote-tracking branch) needs no flag.
+> 適用されるゲートの**強度**（要否）はリスクレベルで決まる（`documents/development/quality-policy.md` §2）。ゲートの列挙と実行条件は quality-check SKILL.md を正とし、本チェックリストは要点の抜粋である。
+
+### Static Checks
+- [ ] **Backend quality check passed** (linting + static analysis + tests + coverage + build)
+- [ ] **Frontend static check passed** (lint + format + build)
+
+### Unit Tests
+- [ ] **Frontend tests passed**
+
+### Review Cycles (minimum 1 cycle; repeat on High/Medium findings)
+- [ ] **Review roster completed** (integrated reviewer always, falsification QA on any code change, at most one specialist - Security joins even a docs-only diff that touches gate control-plane files, harness config, CI workflows or dependency files; sized by change content, see the quality-check skill's Step 1 roster table; mechanical checks must pass before reviewers run)
+- [ ] **High/Medium findings = 0** (full definition: the quality-check skill's 完了条件)
+- [ ] **Report data saved** (`.quality-check-report.json`)
+
+### Additional Tests (Step 5)
+- [ ] **test-recommendation heuristics run**; strong + small scope + no side effects ran without asking, the rest asked once in the final report
+- [ ] **Decision recorded with `decided_by`** (auto / user; declines are non-blocking; an executed E2E that fails must be fixed)
+- [ ] **Ledger and Step 5 artifacts committed before the flag** (`documents/development/test-recommendation-ledger.md`)
+
+### Final Confirmation
+- [ ] **Deviations from the design recorded before the flag** (spec `## 実装時の差異` / plan / working note)
+- [ ] **Final message**: completion / deviations from the design / decisions needed only (`documents/development/development-policy.md` §1.0)
+- [ ] Related documentation consistency verified
+- [ ] (Optional) Self-improvement candidates noted (not a completion condition)
+- [ ] PR created (with /implementation-report, closes #[issue-number])
+
+## Documentation Update Checks
+
+- [ ] **Feature/service added or changed -> Run /feature-documentation** (create or update)
+- [ ] **Project prerequisites/requirements changed -> Run /feature-documentation**
+- [ ] New error codes -> Add to error code list
+- [ ] DB design changes -> Reflect in related documents

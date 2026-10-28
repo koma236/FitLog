@@ -1,0 +1,273 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design",
+    "mock",
+    "api",
+    "data-model"
+  ],
+  "sources": [
+    {
+      "id": "design-00",
+      "role": "design",
+      "path": "requirements.md",
+      "sha256": "8e3567c75946111bd8d7f2fefd89e074800a3f30a06129ddc5300e7271021362"
+    },
+    {
+      "id": "design-01",
+      "role": "design",
+      "path": "docs/01_overview.md",
+      "sha256": "b8047508bcd4a7143adb076d06761f65f25159e644305b8bb4f668ad03738ae0"
+    },
+    {
+      "id": "design-02",
+      "role": "design",
+      "path": "docs/02_tech_stack.md",
+      "sha256": "31d92f12c067518243e7dbb5602181a0a100fd8a62c5be7ecc0754894d9042b5"
+    },
+    {
+      "id": "design-03",
+      "role": "design",
+      "path": "docs/03_usecases.md",
+      "sha256": "6d9be191f16e009c99784be3c4c8b9bfb4b9a4c24db49e5cc68e4227b7469b5a"
+    },
+    {
+      "id": "requirements",
+      "role": "requirements",
+      "path": "docs/04_features.md",
+      "sha256": "4eb2a5afa06fd61650a12c05dcc2c388ea3bcb3c9a2139928ca166392d01b89c"
+    },
+    {
+      "id": "design-05",
+      "role": "design",
+      "path": "docs/05_nonfunctional.md",
+      "sha256": "91d3acfcd9d2718af70cac9756d697c88affa6d9f22b535a04647af1918accc7"
+    },
+    {
+      "id": "design-06",
+      "role": "design",
+      "path": "docs/06_ui_design.md",
+      "sha256": "94da9c3eb7f8d553e2d89857fc8732d6803af29c6914c1143590420e9188ff2b"
+    },
+    {
+      "id": "data-model",
+      "role": "data-model",
+      "path": "docs/07_er_diagram.md",
+      "sha256": "eb1e12046e09aaa206b7f02ce60c441a57261cb8a8761ad2da147c8fcd87f9ec"
+    },
+    {
+      "id": "design-08",
+      "role": "design",
+      "path": "docs/08_constraints.md",
+      "sha256": "3749943e63b0b13ed362f44ce4e8cb8aab25d9352d590011283f392ad0b87337"
+    },
+    {
+      "id": "design-09",
+      "role": "design",
+      "path": "docs/09_infrastructure.md",
+      "sha256": "659a4ce05cc46af09ebc50d86bfb65d12773019d64bf8ed6cf46e0c06a050349"
+    },
+    {
+      "id": "design-10",
+      "role": "design",
+      "path": "docs/10_logging_design.md",
+      "sha256": "65dc52192fd66ea0eb8d2ab296fc571f85629173413f68c9b1a790964bc187bf"
+    },
+    {
+      "id": "design-11",
+      "role": "design",
+      "path": "docs/11_monitoring_design.md",
+      "sha256": "54765c4afe96c85a460ad3d9b03d4a736164547d569be0b5cffc0c5f3835e787"
+    },
+    {
+      "id": "design-12",
+      "role": "design",
+      "path": "docs/12_incident_response.md",
+      "sha256": "3b9680fd267e59f16de48e361ceb10c870e211c7fb1098b63d128f50dd5f1857"
+    },
+    {
+      "id": "design-13",
+      "role": "design",
+      "path": "docs/13_performance_test.md",
+      "sha256": "d516930ce0c389e98e48e7fca3562010d804900a6dcc17d75a7c086af0bf5ad9"
+    },
+    {
+      "id": "design-14",
+      "role": "design",
+      "path": "docs/14_e2e_test.md",
+      "sha256": "c90543d887d44a11308639d46ad3737c45c3355871b16d0c89a6ba017d0e61ba"
+    },
+    {
+      "id": "acceptance",
+      "role": "acceptance",
+      "path": "docs/acceptance.md",
+      "sha256": "3da2ac31654b24ab005de6a7237515d6888141aebb43211a872134171eeee398"
+    },
+    {
+      "id": "design-16",
+      "role": "design",
+      "path": "docs/features/F01_auth.md",
+      "sha256": "cf62de6861b8b2644fc439023ff62776e770cecc5b15adf306646bc1d850b771"
+    },
+    {
+      "id": "design-17",
+      "role": "design",
+      "path": "docs/features/F02_timeline.md",
+      "sha256": "64db309fe8876005e9498d251ac03c5105b0f3ad001e5a07ff18b6ebba212bfa"
+    },
+    {
+      "id": "design-18",
+      "role": "design",
+      "path": "docs/features/F03_post.md",
+      "sha256": "5df93d58878d5e243f7196df6fcd5b6111eab49bba06f43bbf6976aad3abf807"
+    },
+    {
+      "id": "design-19",
+      "role": "design",
+      "path": "docs/features/F04_comment.md",
+      "sha256": "f26a3a8dc6a06d19fbb27f68bc1072f254fbddf35ef6ee0621b6946664210f43"
+    },
+    {
+      "id": "design-20",
+      "role": "design",
+      "path": "docs/features/F05_like.md",
+      "sha256": "5f6441a9327869813dc382424ec570c705f2ece2a40aa1a2909b98356283d5ee"
+    },
+    {
+      "id": "design-21",
+      "role": "design",
+      "path": "docs/features/F06_follow.md",
+      "sha256": "df982ad6ca11a0158ece479994ad0a6e6c47aaafc4f9a76e21d23d4463af24f1"
+    },
+    {
+      "id": "design-22",
+      "role": "design",
+      "path": "docs/features/F07_profile.md",
+      "sha256": "d5557f7eca90cce548be073303b9d62022b9b66ef2c2c517cd3dfab6a8287752"
+    },
+    {
+      "id": "design-23",
+      "role": "design",
+      "path": "docs/mytimeline-parity.md",
+      "sha256": "bc45ea69f2fb8bff60aa03ddba8528c83576d047d7c9125443cc77a1943b7843"
+    },
+    {
+      "id": "api",
+      "role": "api",
+      "path": "docs/api/openapi.json",
+      "sha256": "fde2c1123ca6a52e03ffdb1b13b51a68610e395023e5a9660d1414f2eda3eeff"
+    },
+    {
+      "id": "mock",
+      "role": "mock",
+      "path": "mock/index.html",
+      "sha256": "f0c4f445c53bbc520a465ea897b2686abef0a0dbe856c3aed929ce97c03a716e"
+    },
+    {
+      "id": "design-26",
+      "role": "design",
+      "path": "mock/README.md",
+      "sha256": "1e80c6b3ef94b979f2403e343e6e89fa5c8a02d975a4a0314d443a04bbfb2b15"
+    },
+    {
+      "id": "design-27",
+      "role": "design",
+      "path": "terraform/README.md",
+      "sha256": "76d2245be5072d0fdfc08e2b564ff475d928cfb638362fb02390a9df65f1c01a"
+    },
+    {
+      "id": "api-contract",
+      "role": "api",
+      "path": "docs/api/README.md",
+      "sha256": "c568188607da46530da34af8125efda32dfe29b7f3839527075c07c7c4fe50cc"
+    },
+    {
+      "id": "task-index",
+      "role": "design",
+      "path": "docs/task-plan.md",
+      "sha256": "e34ed1aba4c4a44ad05066db040881a67df977c8ada796f779e353d990476f73"
+    },
+    {
+      "id": "v9-preparation",
+      "role": "design",
+      "path": "docs/v9-preparation.md",
+      "sha256": "1462126239564f5d14763ec0795ea52ee401bca70b4e0bd8f8366a8c65b7221c"
+    },
+    {
+      "id": "fl01-design",
+      "role": "design",
+      "path": "docs/fl-01-foundation-design.md",
+      "sha256": "4a027258268ae32fc3bf7c4fdbce126002cc522d1de830de00a2a88b6e650893"
+    },
+    {
+      "id": "fl01-requirements",
+      "role": "requirements",
+      "path": "docs/fl-01-foundation-design.md",
+      "sha256": "4a027258268ae32fc3bf7c4fdbce126002cc522d1de830de00a2a88b6e650893"
+    },
+    {
+      "id": "fl01-acceptance",
+      "role": "acceptance",
+      "path": "docs/fl-01-foundation-design.md",
+      "sha256": "4a027258268ae32fc3bf7c4fdbce126002cc522d1de830de00a2a88b6e650893"
+    },
+    {
+      "id": "fl01-review-response",
+      "role": "design",
+      "path": "docs/fl-01-design-review-response.md",
+      "sha256": "51a5b160f6677feb34480a572cadbe0ec23460bbd0a514847dbf8c30c0b35a16"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FL01-REQ",
+      "source": "fl01-requirements",
+      "text": "FL-01設計の範囲でDocker ComposeによるReact/TypeScript・Django/DRF・PostgreSQLのローカル基盤と実品質checkを構築する。後続の機能とAWS操作は実装しない。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "FL01-AC1",
+      "source": "fl01-acceptance",
+      "requirements": [
+        "FL01-REQ"
+      ],
+      "text": "UUID主キーの保存・再取得、PostgreSQL隔離テストDBへの初回と再migration、開発DBへのmigrate、migration driftなしを検証する。"
+    },
+    {
+      "id": "FL01-AC2",
+      "source": "fl01-acceptance",
+      "requirements": [
+        "FL01-REQ"
+      ],
+      "text": "DB/migration状態、request-id、DEBUG両モードのJSONエラーと例外分類表、healthPOSTの405を契約と照合し、秘密を露出しない。"
+    },
+    {
+      "id": "FL01-AC3",
+      "source": "fl01-acceptance",
+      "requirements": [
+        "FL01-REQ"
+      ],
+      "text": "readyの各状態・5秒timeout・unmountをroleと固定文言でDOM検証する。"
+    },
+    {
+      "id": "FL01-AC4",
+      "source": "fl01-acceptance",
+      "requirements": [
+        "FL01-REQ"
+      ],
+      "text": "予定した静的解析・型・DBテスト・frontendテスト・buildを実行し、常時成功・全体ignore・テスト0件で代用しない。"
+    },
+    {
+      "id": "FL01-AC5",
+      "source": "fl01-acceptance",
+      "requirements": [
+        "FL01-REQ"
+      ],
+      "text": "lockを使った再build・起動停止とcheckの手順を残し、hostの既存環境・他プロジェクトを変更しない。"
+    }
+  ],
+  "questions": []
+}

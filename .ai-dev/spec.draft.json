@@ -1,0 +1,409 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design",
+    "mock",
+    "api",
+    "data-model"
+  ],
+  "sources": [
+    {
+      "id": "design-00",
+      "role": "design",
+      "path": "requirements.md",
+      "sha256": "8e3567c75946111bd8d7f2fefd89e074800a3f30a06129ddc5300e7271021362"
+    },
+    {
+      "id": "design-01",
+      "role": "design",
+      "path": "docs/01_overview.md",
+      "sha256": "b8047508bcd4a7143adb076d06761f65f25159e644305b8bb4f668ad03738ae0"
+    },
+    {
+      "id": "design-02",
+      "role": "design",
+      "path": "docs/02_tech_stack.md",
+      "sha256": "31d92f12c067518243e7dbb5602181a0a100fd8a62c5be7ecc0754894d9042b5"
+    },
+    {
+      "id": "design-03",
+      "role": "design",
+      "path": "docs/03_usecases.md",
+      "sha256": "6d9be191f16e009c99784be3c4c8b9bfb4b9a4c24db49e5cc68e4227b7469b5a"
+    },
+    {
+      "id": "requirements",
+      "role": "requirements",
+      "path": "docs/04_features.md",
+      "sha256": "4eb2a5afa06fd61650a12c05dcc2c388ea3bcb3c9a2139928ca166392d01b89c"
+    },
+    {
+      "id": "design-05",
+      "role": "design",
+      "path": "docs/05_nonfunctional.md",
+      "sha256": "91d3acfcd9d2718af70cac9756d697c88affa6d9f22b535a04647af1918accc7"
+    },
+    {
+      "id": "design-06",
+      "role": "design",
+      "path": "docs/06_ui_design.md",
+      "sha256": "94da9c3eb7f8d553e2d89857fc8732d6803af29c6914c1143590420e9188ff2b"
+    },
+    {
+      "id": "data-model",
+      "role": "data-model",
+      "path": "docs/07_er_diagram.md",
+      "sha256": "eb1e12046e09aaa206b7f02ce60c441a57261cb8a8761ad2da147c8fcd87f9ec"
+    },
+    {
+      "id": "design-08",
+      "role": "design",
+      "path": "docs/08_constraints.md",
+      "sha256": "3749943e63b0b13ed362f44ce4e8cb8aab25d9352d590011283f392ad0b87337"
+    },
+    {
+      "id": "design-09",
+      "role": "design",
+      "path": "docs/09_infrastructure.md",
+      "sha256": "659a4ce05cc46af09ebc50d86bfb65d12773019d64bf8ed6cf46e0c06a050349"
+    },
+    {
+      "id": "design-10",
+      "role": "design",
+      "path": "docs/10_logging_design.md",
+      "sha256": "65dc52192fd66ea0eb8d2ab296fc571f85629173413f68c9b1a790964bc187bf"
+    },
+    {
+      "id": "design-11",
+      "role": "design",
+      "path": "docs/11_monitoring_design.md",
+      "sha256": "54765c4afe96c85a460ad3d9b03d4a736164547d569be0b5cffc0c5f3835e787"
+    },
+    {
+      "id": "design-12",
+      "role": "design",
+      "path": "docs/12_incident_response.md",
+      "sha256": "3b9680fd267e59f16de48e361ceb10c870e211c7fb1098b63d128f50dd5f1857"
+    },
+    {
+      "id": "design-13",
+      "role": "design",
+      "path": "docs/13_performance_test.md",
+      "sha256": "d516930ce0c389e98e48e7fca3562010d804900a6dcc17d75a7c086af0bf5ad9"
+    },
+    {
+      "id": "design-14",
+      "role": "design",
+      "path": "docs/14_e2e_test.md",
+      "sha256": "c90543d887d44a11308639d46ad3737c45c3355871b16d0c89a6ba017d0e61ba"
+    },
+    {
+      "id": "acceptance",
+      "role": "acceptance",
+      "path": "docs/acceptance.md",
+      "sha256": "3da2ac31654b24ab005de6a7237515d6888141aebb43211a872134171eeee398"
+    },
+    {
+      "id": "design-16",
+      "role": "design",
+      "path": "docs/features/F01_auth.md",
+      "sha256": "cf62de6861b8b2644fc439023ff62776e770cecc5b15adf306646bc1d850b771"
+    },
+    {
+      "id": "design-17",
+      "role": "design",
+      "path": "docs/features/F02_timeline.md",
+      "sha256": "64db309fe8876005e9498d251ac03c5105b0f3ad001e5a07ff18b6ebba212bfa"
+    },
+    {
+      "id": "design-18",
+      "role": "design",
+      "path": "docs/features/F03_post.md",
+      "sha256": "5df93d58878d5e243f7196df6fcd5b6111eab49bba06f43bbf6976aad3abf807"
+    },
+    {
+      "id": "design-19",
+      "role": "design",
+      "path": "docs/features/F04_comment.md",
+      "sha256": "f26a3a8dc6a06d19fbb27f68bc1072f254fbddf35ef6ee0621b6946664210f43"
+    },
+    {
+      "id": "design-20",
+      "role": "design",
+      "path": "docs/features/F05_like.md",
+      "sha256": "5f6441a9327869813dc382424ec570c705f2ece2a40aa1a2909b98356283d5ee"
+    },
+    {
+      "id": "design-21",
+      "role": "design",
+      "path": "docs/features/F06_follow.md",
+      "sha256": "df982ad6ca11a0158ece479994ad0a6e6c47aaafc4f9a76e21d23d4463af24f1"
+    },
+    {
+      "id": "design-22",
+      "role": "design",
+      "path": "docs/features/F07_profile.md",
+      "sha256": "d5557f7eca90cce548be073303b9d62022b9b66ef2c2c517cd3dfab6a8287752"
+    },
+    {
+      "id": "design-23",
+      "role": "design",
+      "path": "docs/mytimeline-parity.md",
+      "sha256": "bc45ea69f2fb8bff60aa03ddba8528c83576d047d7c9125443cc77a1943b7843"
+    },
+    {
+      "id": "api",
+      "role": "api",
+      "path": "docs/api/openapi.json",
+      "sha256": "fde2c1123ca6a52e03ffdb1b13b51a68610e395023e5a9660d1414f2eda3eeff"
+    },
+    {
+      "id": "mock",
+      "role": "mock",
+      "path": "mock/index.html",
+      "sha256": "f0c4f445c53bbc520a465ea897b2686abef0a0dbe856c3aed929ce97c03a716e"
+    },
+    {
+      "id": "design-26",
+      "role": "design",
+      "path": "mock/README.md",
+      "sha256": "1e80c6b3ef94b979f2403e343e6e89fa5c8a02d975a4a0314d443a04bbfb2b15"
+    },
+    {
+      "id": "design-27",
+      "role": "design",
+      "path": "terraform/README.md",
+      "sha256": "76d2245be5072d0fdfc08e2b564ff475d928cfb638362fb02390a9df65f1c01a"
+    },
+    {
+      "id": "api-contract",
+      "role": "api",
+      "path": "docs/api/README.md",
+      "sha256": "c568188607da46530da34af8125efda32dfe29b7f3839527075c07c7c4fe50cc"
+    },
+    {
+      "id": "task-index",
+      "role": "design",
+      "path": "docs/task-plan.md",
+      "sha256": "e34ed1aba4c4a44ad05066db040881a67df977c8ada796f779e353d990476f73"
+    },
+    {
+      "id": "v9-preparation",
+      "role": "design",
+      "path": "docs/v9-preparation.md",
+      "sha256": "1462126239564f5d14763ec0795ea52ee401bca70b4e0bd8f8366a8c65b7221c"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REQ-01",
+      "source": "requirements",
+      "text": "登録・ログイン・ログアウトとサーバー側の認証・失効を実装する。"
+    },
+    {
+      "id": "REQ-02",
+      "source": "requirements",
+      "text": "全体と自分＋フォロー先の記録を、安定した新着順とカーソルで表示する。"
+    },
+    {
+      "id": "REQ-03",
+      "source": "requirements",
+      "text": "実施日・種目・セット・メモを記録し、本人だけが編集・削除できる。"
+    },
+    {
+      "id": "REQ-04",
+      "source": "requirements",
+      "text": "投稿・プロフィール画像を検証してS3に保存し、権限と失敗時の整合性を守る。"
+    },
+    {
+      "id": "REQ-05",
+      "source": "requirements",
+      "text": "コメントの作成・一覧・本人による編集・削除と件数を提供する。"
+    },
+    {
+      "id": "REQ-06",
+      "source": "requirements",
+      "text": "1ユーザー1投稿1いいねを保証し、冪等な付与と解除を提供する。"
+    },
+    {
+      "id": "REQ-07",
+      "source": "requirements",
+      "text": "自己フォローを禁止し、フォロー・解除・ユーザー検索を提供する。"
+    },
+    {
+      "id": "REQ-08",
+      "source": "requirements",
+      "text": "プロフィールと記録一覧を表示し、本人だけがプロフィールを編集できる。"
+    },
+    {
+      "id": "REQ-09",
+      "source": "requirements",
+      "text": "承認した技術構成のローカル環境、DB制約、OpenAPI、実行可能な品質checksを用意する。"
+    },
+    {
+      "id": "REQ-10",
+      "source": "requirements",
+      "text": "低費用のデモ環境をIaCで構築・デプロイ・検証・破棄・再構築できる。"
+    },
+    {
+      "id": "REQ-11",
+      "source": "requirements",
+      "text": "秘密情報を漏らさないログ、ヘルスチェック、監視・障害対応手順を整備する。"
+    },
+    {
+      "id": "REQ-12",
+      "source": "requirements",
+      "text": "受け入れ条件に基づくE2E・性能検証と、AWSでの動作撮影シナリオを用意する。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "AC-01",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-01"
+      ],
+      "text": "Aの登録・ログイン後にmeがAを返し、ログアウト後は旧Cookieで拒否される。重複登録はユーザーを増やさず、CSRFのないログイン・更新は拒否される。"
+    },
+    {
+      "id": "AC-02",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-02"
+      ],
+      "text": "AがBのみをフォローしCも存在する固定データで、フォロー中はA/Bだけ、全体はA/B/Cを新着順で返す。同時刻の境界を跨いで重複・欠落なく終端に到達する。"
+    },
+    {
+      "id": "AC-03",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-03"
+      ],
+      "text": "60kg×10回の3セットを保存し、再取得・再起動後も全値が一致する。回数0・重量負数・不正日付・種目なしは拒否し一部保存しない。BによるAの編集削除を拒否し、Aの削除で配下の関連を除去する。"
+    },
+    {
+      "id": "AC-04",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-04"
+      ],
+      "text": "許可した実画像を保存・表示できる。拡張子だけ画像のファイル・容量超過・画素数超過を拒否する。S3保存失敗時は旧画像を維持し、DBとS3の削除失敗は追跡して再試行できる。"
+    },
+    {
+      "id": "AC-05",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-05"
+      ],
+      "text": "BのコメントがAの記録に表示され、編集後も件数は同じ、削除後は1減る。AによるBのコメント編集削除を拒否し、空白のみ・上限超過・削除済み投稿への送信を拒否する。"
+    },
+    {
+      "id": "AC-06",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-06"
+      ],
+      "text": "同じ利用者から並行して2回いいねしてもDBは1行・件数は1増加。解除の再送でも0を下回らず、リロード後の状態が一致する。"
+    },
+    {
+      "id": "AC-07",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-07"
+      ],
+      "text": "A→Bを重複なく付与・解除でき、自己フォローを拒否する。検索は指定文字列の部分一致で、%/_を入力しても無条件一致にならない。フォロー中一覧と数が連動する。"
+    },
+    {
+      "id": "AC-08",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-08"
+      ],
+      "text": "Aの表示名・自己紹介が更新され、Bのプロフィール応答にAのメールが含まれない。Bの認証でAを更新できず、プロフィールの記録一覧はAの記録だけになる。"
+    },
+    {
+      "id": "AC-09",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-09"
+      ],
+      "text": "承認した依存lockからローカル環境を起動し、migrationを空DBに適用できる。実在するlint・型・単体・DB結合checkを実行して終了コードと対象を記録し、そのコマンドをv9設定に登録する。"
+    },
+    {
+      "id": "AC-10",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-10"
+      ],
+      "text": "独自ドメインを取得せず専用環境をapply・配置・migration・seedし、CloudFront提供URLでHTTPS接続してAWS上の認証・画像・交流を操作する。再構築後は新しいoutput URLで同じ操作が成立する。動画をAWS外に保存した後destroyし、stateと対象リソースの残存検査を行う。再applyから同じシナリオを再現して再destroyし、費用見積りと実行時間を記録する。"
+    },
+    {
+      "id": "AC-11",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-11"
+      ],
+      "text": "DB断でreadinessが異常、復旧で正常に戻る。処理失敗をrequest_idで追跡でき、パスワード・Cookie・メール・本文・署名URLがログにない。S3失敗とdestroy失敗の手順を確認する。"
+    },
+    {
+      "id": "AC-12",
+      "source": "acceptance",
+      "requirements": [
+        "REQ-12"
+      ],
+      "text": "2ユーザーの主要E2Eと固定負荷性能検証を実行し、対象commit・環境・結果を記録する。AWS動作動画は実際の操作を含み、モック映像と区別され、破棄後もローカルで再生できる。"
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q-01",
+      "text": "筋トレだけか、有酸素の距離・時間も初版に含めるか。",
+      "blocking": true,
+      "resolution": "ユーザー回答により筋トレ中心と確定。有酸素の距離・時間は初版に含めない。"
+    },
+    {
+      "id": "Q-02",
+      "text": "React継続、Python/Django/DRF/ORM/セッションの採用案を確定する。",
+      "blocking": true,
+      "resolution": null
+    },
+    {
+      "id": "Q-03",
+      "text": "記録の公開範囲を確定する。",
+      "blocking": true,
+      "resolution": "ユーザーが全記録をログイン利用者全員に公開する案に同意。ゲスト非公開、本人だけが編集削除できる。"
+    },
+    {
+      "id": "Q-04",
+      "text": "公開ドメインとブラウザ側HTTPS方式を確定する。",
+      "blocking": true,
+      "resolution": "ユーザー回答により独自ドメインなし。MyTimelineと同じCloudFront提供ドメインと既定証明書を使う。AWS内部構成はQ-08で扱う。"
+    },
+    {
+      "id": "Q-05",
+      "text": "依存版・ポート・実checksと初回基盤構築のv9手順を確定する。",
+      "blocking": true,
+      "resolution": null
+    },
+    {
+      "id": "Q-06",
+      "text": "仕様詳細化後、既存ルーティングのClaudeによる独立設計レビューを実施する。",
+      "blocking": true,
+      "resolution": null
+    },
+    {
+      "id": "Q-07",
+      "text": "OpenAPI詳細契約とMyTimeline相当の全操作UIモックを完成する。",
+      "blocking": true,
+      "resolution": "OpenAPIの入出力・エラー・認証契約と8画面の疑似操作モックを作成。ブラウザで主要操作を確認。製品APIの動作・独立レビューとは区別する。"
+    },
+    {
+      "id": "Q-08",
+      "text": "NATなしFargate・public ALBの推奨案と主要料金の試算を作成。内部HTTP経路・総費用を独立レビューし採用を確定する。",
+      "blocking": true,
+      "resolution": null
+    }
+  ]
+}

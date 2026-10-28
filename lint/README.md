@@ -1,0 +1,48 @@
+# Lint assets
+
+Pre-built static-analysis assets placed into this `lint/` directory by `ai-dev-helm init`. They are **not yet wired up** — copying them here changes nothing about your build. Wiring and enabling (ESLint config imports, `sgconfig.yml` opt-ins, Gradle plugin blocks, CI steps) is done by the `lint-scaffolding` skill, which walks through each group and records what was enabled.
+
+## Layout
+
+```
+lint/
+  README.md                 # this file
+  README-<stack>.md         # per-stack wiring guide (only for selected stacks)
+  ast-grep/
+    <category>/             # generic rule groups (rules copied per selected stack)
+      *.yml                 # ast-grep rules
+      README.md             # what the group catches and why
+    <stack>/                # stack-specific ast-grep rules (e.g. nextjs-react/)
+  eslint/                   # ESLint flat-config preset + custom rules (nextjs-react)
+  checkstyle/               # Checkstyle preset (java-springboot)
+  archunit/                 # ArchUnit test-class template (java-springboot)
+  mutation/                 # mutation-testing config (per selected stack; see below)
+  product/                  # product-owned, NOT package-managed (init never touches it)
+    ast-grep/               # generated rules that fill gaps; add to sgconfig.yml ruleDirs
+```
+
+Which directories you have depends on the stacks selected during `init`; the generic `ast-grep/<category>/` groups are always present as directories, but their rules are selected per stack by language (Java rules with `java-springboot`, JS/TS rules with `nextjs-react`; no stack selected copies all). A JS product that does not select `nextjs-react` gets no JS rules. Everything except `lint/product/` is package-managed (see Updating); `lint/product/` is yours to own.
+
+## Opting in and out
+
+Products opt in **per directory / per group** — nothing here is all-or-nothing:
+
+- Enable only the groups that fit your product; the `lint-scaffolding` skill handles the mechanics.
+- **The durable opt-out is the coverage map plus leaving the group out of `sgconfig.yml` (or the equivalent tool config) — NOT deleting the directory.** These `lint/` directories are package-managed: re-running `ai-dev-helm init` restores a deleted directory, so a deletion does not durably opt out. Record the decision in the coverage map and simply do not wire the group in.
+- Do not weaken a rule in place to make it pass — opt out of the group whole and record why.
+
+## Mutation testing
+
+Stacks that ship a mutation-testing config place it under `lint/mutation/`: `stryker.config.mjs` + `stryker.diff.config.mjs` + `changed-ranges.mjs` (Stryker, nextjs-react) or `pitest.gradle` (PIT, java-springboot). Like everything else here it arrives **unwired**; the per-stack guide (`README-<stack>.md`) describes the wiring and the two entry points - full scope and diff scope (`mutation:full` / `mutation:diff` package.json scripts on the JS side, `mutationFull` / `mutationDiff` Gradle tasks on the Java side). Three contracts to know:
+
+- **There is no score gate — not in these configs, and not downstream.** They deliberately set no failing threshold (`thresholds.break` / `mutationThreshold`). Mutation runs are decided and executed via the `test-recommendation` skill (quality-check Step 5: strong + small scope runs without asking, the rest are confirmed in the final report): it reads the generated report, records the score as reference information only, and triages survivors by its default rules (`documents/development/quality-policy.md` §2 — no pass/fail score). Do not add a threshold to the config to "make it strict" — that invents a gate the policy deliberately does not have.
+- **The diff scope is changed lines (Stryker) or changed classes (PIT), never whole changed files.** `stryker.diff.config.mjs` derives mutation ranges from the working tree against the merge base of the base ref; `pitest.gradle` narrows `targetClasses` the same way when the `mutationDiff` task is invoked with `-PmutationDiffBase=<ref>`. An empty scope is reported and the run ends without mutating anything; a failed derivation (base ref not fetched) fails loudly instead. The shipped mutator set is lean on purpose (non-behavioural mutators excluded, see quality-policy §2); re-enable one in a product-owned config that extends the shipped one, never by editing these package-managed files.
+- **Mutation runs are local-only** (run time is cost); CI stays a build-confirmation stage. See quality-policy §2 for the execution policy.
+
+## Generated rules
+
+Rules you generate to fill gaps (categories with no pre-built asset for your stack) go in the **product-owned** `lint/product/ast-grep/` directory and are added to `sgconfig.yml` `ruleDirs`. Never place generated rules inside the package-managed `lint/ast-grep/` tree: `init` overwrites that tree with the release's versions and can remove them. `lint/product/` is never written by `init`, so your rules survive re-runs.
+
+## Updating
+
+These files are adopter-editable: `init` records a sha256 of what it wrote in `.ai-dev-helm.json`. Re-running `ai-dev-helm init` refreshes files you have not edited, and restores deleted ones. A file you edited (or one with no record, e.g. after upgrading from 3.2.x) is never overwritten: the release's version is written next to it as `<file>.ai-dev-helm-new` and listed under ACTION REQUIRED, for the AI to merge (see `documents/development/harness-upgrade.md`). Keep generated rules in `lint/product/`, which `init` never touches.
