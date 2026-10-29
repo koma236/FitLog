@@ -26,3 +26,31 @@ button:focus-visible, input:focus-visible { outline: 3px solid #db893c; outline-
 .form-error { color: #8e2525; background: #fff0ef; padding: 12px; border: 1px solid #edc5bf; border-radius: 7px; font-weight: 600; font-size: 14px; }
 .field-error { margin: 0; color: #8e2525; font-size: 13px; }
 @media (max-width: 500px) { .auth-shell { margin: 0 auto; padding: 20px 16px; } .auth-form { padding: 22px 18px; } }
+.app-shell { max-width: 1100px; margin: 24px auto; padding: 24px; }
+.profile-nav { display: flex; gap: 24px; margin-bottom: 20px; }
+a { color: #17624c; }
+.profile-frame > button { margin-bottom: 24px; }
+.profile-card { background: white; border: 1px solid #d6e0df; border-radius: 14px; padding: 28px; margin-bottom: 22px; }
+.profile-card h1 { font-size: 28px; margin: 0 0 8px; }
+.profile-card h2 { font-size: 18px; margin-top: 20px; }
+.profile-heading, .form-actions { display: flex; justify-content: space-between; gap: 20px; align-items: center; }
+.button-link { border: 1px solid #bfcdd2; border-radius: 7px; padding: 10px 18px; text-decoration: none; font-size: 14px; }
+.bio { white-space: pre-wrap; overflow-wrap: anywhere; }
+textarea, select { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #bfcdd2; border-radius: 7px; padding: 11px; background: white; color: #182b37; font: inherit; }
+textarea { min-height: 110px; resize: vertical; }
+.calorie-section { border-top: 1px solid #d6e0df; padding-top: 20px; margin: 24px 0; }
+.setting-row { display: grid; grid-template-columns: minmax(0,1fr) 145px; gap: 20px; }
+.privacy-control { display: grid; gap: 8px; color: #576b72; font-size: 12px; margin-bottom: 18px; }
+.energy-grid, .result-settings { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin: 16px 0; }
+.energy-card { padding: 16px; border: 1px solid #dce9e0; border-radius: 10px; background: #f0f6f2; display: grid; gap: 10px; min-width: 0; }
+.energy-card > span, .energy-card small { font-size: 12px; color: #576b72; }
+.energy-card strong { font-size: 23px; color: #17624c; overflow-wrap: anywhere; }
+.health-list { margin: 20px 0; }
+.health-list > div { display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid #d6e0df; padding: 12px 0; }
+.health-list dd { margin: 0; text-align: right; }
+.health-list small { color: #576b72; font-size: 11px; }
+.privacy-note { background: #fff6e8; border-radius: 8px; color: #624a2d; padding: 12px; font-size: 12px; }
+.calorie-method { font-size: 12px; color: #576b72; margin-top: 20px; overflow-wrap: anywhere; }
+.calorie-method summary { text-decoration: underline; cursor: pointer; }
+[aria-disabled="true"] { pointer-events: none; opacity: .6; }
+@media (max-width: 700px) { .app-shell { padding: 16px; margin: 0 auto; } .profile-card { padding: 20px 16px; } .profile-heading { flex-wrap: wrap; } .energy-grid, .result-settings { grid-template-columns: 1fr; } .setting-row { grid-template-columns: minmax(0,1fr) 100px; gap: 10px; } .privacy-control select { padding: 10px 6px; } }

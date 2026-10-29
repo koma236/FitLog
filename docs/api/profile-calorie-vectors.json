@@ -1,0 +1,198 @@
+[
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 30,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1649,
+      "tdee": 2885,
+      "intake": 2885
+    }
+  },
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 30,
+      "formula": "female",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1483,
+      "tdee": 2595,
+      "intake": 2595
+    }
+  },
+  {
+    "health": {
+      "height": "170",
+      "weight": "60",
+      "age": 30,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1518,
+      "tdee": 2656,
+      "intake": 2656
+    }
+  },
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 19,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1704,
+      "tdee": 2982,
+      "intake": 2982
+    }
+  },
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 59,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1504,
+      "tdee": 2632,
+      "intake": 2632
+    }
+  },
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 18,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": null,
+      "tdee": null,
+      "intake": null
+    }
+  },
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 60,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": null,
+      "tdee": null,
+      "intake": null
+    }
+  },
+  {
+    "health": {
+      "height": "175",
+      "weight": "70",
+      "age": 30,
+      "formula": "male",
+      "activity": null
+    },
+    "energy": {
+      "bmr": 1649,
+      "tdee": null,
+      "intake": null
+    }
+  },
+  {
+    "health": {
+      "height": null,
+      "weight": "70",
+      "age": 30,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": null,
+      "tdee": null,
+      "intake": null
+    }
+  },
+  {
+    "health": {
+      "height": "170",
+      "weight": "60",
+      "age": 31,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1513,
+      "tdee": 2647,
+      "intake": 2647
+    }
+  },
+  {
+    "health": {
+      "height": "168",
+      "weight": "60",
+      "age": 28,
+      "formula": "male",
+      "activity": "low"
+    },
+    "energy": {
+      "bmr": 1515,
+      "tdee": 2273,
+      "intake": 2273
+    }
+  },
+  {
+    "health": {
+      "height": "168",
+      "weight": "60",
+      "age": 30,
+      "formula": "male",
+      "activity": "high"
+    },
+    "energy": {
+      "bmr": 1505,
+      "tdee": 3161,
+      "intake": 3161
+    }
+  },
+  {
+    "health": {
+      "height": "164.8",
+      "weight": "60.1",
+      "age": 30,
+      "formula": "male",
+      "activity": "medium"
+    },
+    "energy": {
+      "bmr": 1486,
+      "tdee": 2601,
+      "intake": 2601
+    }
+  },
+  {
+    "health": {
+      "height": "170.5",
+      "weight": "60.1",
+      "age": 30,
+      "formula": "female",
+      "activity": "high"
+    },
+    "energy": {
+      "bmr": 1356,
+      "tdee": 2847,
+      "intake": 2847
+    }
+  }
+]

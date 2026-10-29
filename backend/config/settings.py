@@ -65,6 +65,7 @@ LOGGING = {
     },
     "loggers": {
         "django": {"handlers": ["null"], "propagate": False},
+        "django.db.backends": {"handlers": ["null"], "propagate": False},
         "fitlog.api": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }

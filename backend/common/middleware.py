@@ -11,6 +11,7 @@ from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import DisallowedHost
 from django.db import DatabaseError
 from django.http import HttpRequest, HttpResponse, JsonResponse
+from django.utils.cache import patch_vary_headers
 
 from common.errors import ERRORS, api_exception_handler, error_response
 
@@ -37,7 +38,7 @@ class ApiBoundaryMiddleware:
         if is_api:
             if (
                 response.status_code in ERRORS
-                and (response.status_code != 503 or request.path.startswith("/api/auth/"))
+                and (response.status_code != 503 or request.path.startswith(("/api/auth/", "/api/users/")))
                 and not self._is_common_error(request, response)
             ):
                 normalized = error_response(request, response.status_code)
@@ -50,8 +51,10 @@ class ApiBoundaryMiddleware:
                         normalized[header] = response[header]
                 response = normalized
             response["X-Request-Id"] = request.META["FITLOG_REQUEST_ID"]
-            if request.path.startswith("/api/auth/"):
+            if request.path.startswith(("/api/auth/", "/api/users/")):
                 response["Cache-Control"] = "no-store"
+            if request.path.startswith("/api/users/"):
+                patch_vary_headers(response, ("Cookie",))
             if response.status_code >= 400:
                 logger.warning("api_error status=%s request_id=%s",
                                response.status_code, request.META["FITLOG_REQUEST_ID"])
@@ -74,7 +77,7 @@ class ApiBoundaryMiddleware:
 
     def process_exception(self, request: HttpRequest, exception: Exception) -> JsonResponse | None:
         if request.path == "/api" or request.path.startswith("/api/"):
-            if request.path.startswith("/api/auth/") and isinstance(
+            if request.path.startswith(("/api/auth/", "/api/users/")) and isinstance(
                 exception, (DatabaseError, SessionInterrupted),
             ):
                 return auth_unavailable(request)
@@ -99,6 +102,6 @@ class AuthSessionMiddleware(SessionMiddleware):
         try:
             return super().process_response(request, response)
         except (DatabaseError, SessionInterrupted):
-            if not request.path.startswith("/api/auth/"):
+            if not request.path.startswith(("/api/auth/", "/api/users/")):
                 raise
             return auth_unavailable(request)

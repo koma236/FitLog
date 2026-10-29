@@ -45,6 +45,7 @@ class UserManager(DjangoUserManager["User"]):
 class User(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     display_name = models.CharField(max_length=50)
+    bio = models.CharField(max_length=160, blank=True, default="")
     objects: ClassVar[UserManager] = UserManager()
     REQUIRED_FIELDS = ["email", "display_name"]
 
@@ -71,4 +72,30 @@ class AuthRateLimit(models.Model):
             models.UniqueConstraint(
                 fields=["ip_digest", "window_start"], name="fitlog_auth_rate_window_unique",
             ),
+        ]
+
+
+class ProfileHealth(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name="profile_health")
+    height_cm = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    weight_kg = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True)
+    age = models.PositiveSmallIntegerField(null=True, blank=True)
+    formula = models.CharField(max_length=6, null=True, blank=True)
+    activity = models.CharField(max_length=6, null=True, blank=True)
+    height_public = models.BooleanField(default=False)
+    weight_public = models.BooleanField(default=False)
+    age_public = models.BooleanField(default=False)
+    formula_public = models.BooleanField(default=False)
+    activity_public = models.BooleanField(default=False)
+    bmr_public = models.BooleanField(default=False)
+    tdee_public = models.BooleanField(default=False)
+    intake_public = models.BooleanField(default=False)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(condition=models.Q(height_cm__isnull=True) | models.Q(height_cm__gte=100, height_cm__lte=250), name="profile_height_range"),
+            models.CheckConstraint(condition=models.Q(weight_kg__isnull=True) | models.Q(weight_kg__gte=20, weight_kg__lte=350), name="profile_weight_range"),
+            models.CheckConstraint(condition=models.Q(age__isnull=True) | models.Q(age__gte=0, age__lte=120), name="profile_age_range"),
+            models.CheckConstraint(condition=models.Q(formula__isnull=True) | models.Q(formula__in=["male", "female"]), name="profile_formula_choice"),
+            models.CheckConstraint(condition=models.Q(activity__isnull=True) | models.Q(activity__in=["low", "medium", "high"]), name="profile_activity_choice"),
         ]
