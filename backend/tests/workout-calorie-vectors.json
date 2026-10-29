@@ -1,0 +1,62 @@
+[
+  {
+    "kind": "general",
+    "weight": "60",
+    "minutes": 30,
+    "kcal": 105
+  },
+  {
+    "kind": "squat",
+    "weight": "60",
+    "minutes": 30,
+    "kcal": 150
+  },
+  {
+    "kind": "vigorous",
+    "weight": "60",
+    "minutes": 30,
+    "kcal": 180
+  },
+  {
+    "kind": "general",
+    "weight": "60.1",
+    "minutes": 30,
+    "kcal": 105
+  },
+  {
+    "kind": "general",
+    "weight": "50",
+    "minutes": 6,
+    "kcal": 18
+  },
+  {
+    "kind": "squat",
+    "weight": "54",
+    "minutes": 1,
+    "kcal": 5
+  },
+  {
+    "kind": "vigorous",
+    "weight": "60.5",
+    "minutes": 1,
+    "kcal": 6
+  },
+  {
+    "kind": "general",
+    "weight": "350",
+    "minutes": 240,
+    "kcal": 4900
+  },
+  {
+    "kind": "vigorous",
+    "weight": "349.9",
+    "minutes": 240,
+    "kcal": 8398
+  },
+  {
+    "kind": "vigorous",
+    "weight": "350.0",
+    "minutes": 240,
+    "kcal": 8400
+  }
+]

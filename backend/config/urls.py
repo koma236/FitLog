@@ -5,6 +5,7 @@ from accounts import profile_views
 from accounts import views as auth
 from common.errors import not_found
 from common.health import LiveView, ReadyView
+from workouts import views as workouts
 
 urlpatterns = [
     path("api/auth/csrf", auth.csrf),
@@ -12,6 +13,9 @@ urlpatterns = [
     path("api/auth/login", auth.email_login),
     path("api/auth/logout", auth.signout),
     path("api/auth/me", auth.me),
+    path("api/posts", workouts.record),
+    path("api/posts/<str:identity>", workouts.record),
+    path("api/users/<str:username>/posts", workouts.user_posts),
     path("api/users/me", profile_views.profile),
     path("api/users/<str:username>", profile_views.profile),
     path("api/health/live", LiveView.as_view()),

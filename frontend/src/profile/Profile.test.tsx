@@ -17,6 +17,7 @@ function path(input: RequestInfo | URL): string { return typeof input === 'strin
 function setup(options: { put?: (init?: RequestInit) => Response | Promise<Response>; get?: (target: string) => Response | Promise<Response>; identity?: () => Account } = {}) {
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const url = path(input)
+    if (url.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: (options.identity?.() ?? owner).id, items: [], next_cursor: null }))
     if (url.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf-current' }))
     if (url === '/api/auth/me') return Promise.resolve(reply(200, options.identity?.() ?? owner))
     if (init?.method === 'PUT') return Promise.resolve(options.put?.(init) ?? reply(200, profile()))

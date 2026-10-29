@@ -39,6 +39,12 @@ def error_response(
         message = "リクエストを再送してください。"
     elif code == "PROFILE_OWNER_CHANGED":
         message = "ログインしているユーザーが変わりました。プロフィールを開き直してください。"
+    elif code == "RECORD_OWNER_CHANGED":
+        message = "ログインしているユーザーが変わりました。記録を開き直してください。"
+    elif code == "POST_ID_CONFLICT":
+        message = "この識別子は使用できません。保存状態を確認してください。"
+    elif code == "INVALID_CURSOR":
+        message = "一覧の続きが無効になりました。最初から読み込み直してください。"
     elif code == "ALREADY_AUTHENTICATED":
         message = "すでにログインしています。"
     elif code in {"DUPLICATE_EMAIL", "DUPLICATE_USERNAME"}:

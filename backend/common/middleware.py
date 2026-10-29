@@ -38,7 +38,7 @@ class ApiBoundaryMiddleware:
         if is_api:
             if (
                 response.status_code in ERRORS
-                and (response.status_code != 503 or request.path.startswith(("/api/auth/", "/api/users/")))
+                and (response.status_code != 503 or request.path.startswith(("/api/auth/", "/api/users/", "/api/posts")))
                 and not self._is_common_error(request, response)
             ):
                 normalized = error_response(request, response.status_code)
@@ -51,9 +51,9 @@ class ApiBoundaryMiddleware:
                         normalized[header] = response[header]
                 response = normalized
             response["X-Request-Id"] = request.META["FITLOG_REQUEST_ID"]
-            if request.path.startswith(("/api/auth/", "/api/users/")):
+            if request.path.startswith(("/api/auth/", "/api/users/", "/api/posts")):
                 response["Cache-Control"] = "no-store"
-            if request.path.startswith("/api/users/"):
+            if request.path.startswith(("/api/users/", "/api/posts")):
                 patch_vary_headers(response, ("Cookie",))
             if response.status_code >= 400:
                 logger.warning("api_error status=%s request_id=%s",
@@ -77,7 +77,7 @@ class ApiBoundaryMiddleware:
 
     def process_exception(self, request: HttpRequest, exception: Exception) -> JsonResponse | None:
         if request.path == "/api" or request.path.startswith("/api/"):
-            if request.path.startswith(("/api/auth/", "/api/users/")) and isinstance(
+            if request.path.startswith(("/api/auth/", "/api/users/", "/api/posts")) and isinstance(
                 exception, (DatabaseError, SessionInterrupted),
             ):
                 return auth_unavailable(request)
@@ -102,6 +102,6 @@ class AuthSessionMiddleware(SessionMiddleware):
         try:
             return super().process_response(request, response)
         except (DatabaseError, SessionInterrupted):
-            if not request.path.startswith(("/api/auth/", "/api/users/")):
+            if not request.path.startswith(("/api/auth/", "/api/users/", "/api/posts")):
                 raise
             return auth_unavailable(request)

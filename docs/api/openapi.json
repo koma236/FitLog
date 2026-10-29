@@ -3,7 +3,7 @@
   "info": {
     "title": "FitLog API",
     "version": "0.1.0-draft",
-    "description": "FL-01 health、FL-02の最小認証、FL-03プロフィールを実装。記録・画像・交流などは後続の契約案。認証はDBセッションとCSRFを使う。"
+    "description": "health, FL-02 auth, FL-03 profile and FL-04 workouts are implemented. Images/social/timeline/infra remain draft contracts."
   },
   "servers": [
     {
@@ -1192,7 +1192,7 @@
       "post": {
         "operationId": "createPost",
         "summary": "筋トレ記録を作成",
-        "description": "DBトランザクションで種目・セットをまとめて保存。画像は別のPUTで添付する。POSTの自動再試行はしない。",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -1204,6 +1204,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
               }
             },
             "content": {
@@ -1215,16 +1229,330 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "VALIDATION_ERROR / INVALID_REQUEST / INVALID_CURSOR.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Session"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "POST"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED / POST_ID_CONFLICT; no automatic retry.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -1234,8 +1562,17 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Record-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "Expected actor from the originating form. Compared to request.user; never chooses author."
           }
         ],
         "requestBody": {
@@ -1254,7 +1591,7 @@
       "get": {
         "operationId": "getPost",
         "summary": "記録詳細",
-        "description": "記録詳細",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -1266,6 +1603,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
               }
             },
             "content": {
@@ -1277,13 +1628,330 @@
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Session"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_ERROR / INVALID_REQUEST / INVALID_CURSOR.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, PUT, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED / POST_ID_CONFLICT; no automatic retry.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -1301,7 +1969,7 @@
       "put": {
         "operationId": "updatePost",
         "summary": "自分の記録を全置換",
-        "description": "本人のみ。本文・日付・種目・セットを原子的に置換し、既存画像と交流は維持。created_atは変えない。初版の同時編集は後勝ち。",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -1313,6 +1981,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
               }
             },
             "content": {
@@ -1324,19 +2006,330 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "VALIDATION_ERROR / INVALID_REQUEST / INVALID_CURSOR.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Session"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, PUT, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED / POST_ID_CONFLICT; no automatic retry.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -1355,8 +2348,17 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Record-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "Expected actor from the originating form. Compared to request.user; never chooses author."
           }
         ],
         "requestBody": {
@@ -1364,7 +2366,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/PostInput"
+                "$ref": "#/components/schemas/PostUpdateInput"
               }
             }
           }
@@ -1373,7 +2375,7 @@
       "delete": {
         "operationId": "deletePost",
         "summary": "自分の記録を削除",
-        "description": "本人のみ。関連DB行を削除しS3削除を試みる。S3削除失敗は再試行記録に残す。",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -1385,20 +2387,348 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
               }
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Session"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VALIDATION_ERROR / INVALID_REQUEST / INVALID_CURSOR.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, PUT, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED / POST_ID_CONFLICT; no automatic retry.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -1417,8 +2747,17 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Record-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "Expected actor from the originating form. Compared to request.user; never chooses author."
           }
         ]
       }
@@ -2291,7 +3630,7 @@
       "get": {
         "operationId": "listUserPosts",
         "summary": "利用者の記録一覧",
-        "description": "利用者の記録一覧",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "users"
         ],
@@ -2303,6 +3642,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
               }
             },
             "content": {
@@ -2314,16 +3667,330 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "VALIDATION_ERROR / INVALID_REQUEST / INVALID_CURSOR.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "Session"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED / POST_ID_CONFLICT; no automatic retry.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Fixed common error; private input is never reflected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Contains Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -2343,9 +4010,9 @@
             "name": "cursor",
             "schema": {
               "type": "string",
-              "maxLength": 1024
+              "maxLength": 2048
             },
-            "description": "不透明なカーソル。他の一覧・検索条件のカーソルは流用不可。"
+            "description": "Signed cursor bound to target user UUID and viewer UUID; microsecond timestamp; 24h expiry. Invalid cursor requires explicit restart from first page."
           },
           {
             "in": "query",
@@ -3360,7 +5027,10 @@
               "UNSUPPORTED_MEDIA_TYPE",
               "ALREADY_AUTHENTICATED",
               "PAYLOAD_TOO_LARGE",
-              "PROFILE_OWNER_CHANGED"
+              "PROFILE_OWNER_CHANGED",
+              "RECORD_OWNER_CHANGED",
+              "POST_ID_CONFLICT",
+              "INVALID_REQUEST"
             ]
           },
           "message": {
@@ -3524,30 +5194,128 @@
       "PostInput": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "performed_on",
-          "note",
-          "exercises"
-        ],
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Client-generated UUID v4. Reserved permanently, including after deletion."
+          },
           "performed_on": {
             "type": "string",
             "format": "date",
-            "description": "Asia/Tokyoの今日以前の実在日。"
+            "description": "Valid ASCII YYYY-MM-DD; not after current JST day."
           },
           "note": {
             "type": "string",
-            "maxLength": 500
+            "maxLength": 500,
+            "description": "CRLF/CR normalized to LF before counting codepoints."
           },
           "exercises": {
             "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Exercise"
-            },
             "minItems": 1,
-            "maxItems": 10
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "sets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "weight_kg": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,2})(\\.[0-9]{1,2})?$",
+                        "description": "ASCII decimal string; whole-string match; no trailing newline, exponent, sign or leading zero; 0..999.99."
+                      },
+                      "reps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                      }
+                    },
+                    "required": [
+                      "weight_kg",
+                      "reps"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "sets"
+              ]
+            }
+          },
+          "energy_input": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "integer",
+                "nullable": true,
+                "minimum": 1,
+                "maximum": 240
+              },
+              "kind": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "general",
+                  "squat",
+                  "vigorous",
+                  null
+                ]
+              }
+            },
+            "required": [
+              "minutes",
+              "kind"
+            ]
+          },
+          "visibility": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "default": "private"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "default": "private"
+              }
+            },
+            "required": [
+              "minutes",
+              "kind"
+            ]
           }
-        }
+        },
+        "required": [
+          "id",
+          "performed_on",
+          "note",
+          "exercises",
+          "energy_input",
+          "visibility"
+        ]
       },
       "Image": {
         "type": "object",
@@ -3582,98 +5350,14 @@
         }
       },
       "Post": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "author",
-          "performed_on",
-          "note",
-          "exercises",
-          "image",
-          "created_at",
-          "updated_at",
-          "like_count",
-          "comment_count",
-          "is_liked"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OwnerPost"
           },
-          "author": {
-            "$ref": "#/components/schemas/UserSummary"
-          },
-          "performed_on": {
-            "type": "string",
-            "format": "date"
-          },
-          "note": {
-            "type": "string",
-            "maxLength": 500
-          },
-          "exercises": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Exercise"
-            },
-            "minItems": 1,
-            "maxItems": 10
-          },
-          "image": {
-            "type": "object",
-            "additionalProperties": false,
-            "required": [
-              "url",
-              "expires_at",
-              "content_type",
-              "byte_size"
-            ],
-            "properties": {
-              "url": {
-                "type": "string",
-                "format": "uri",
-                "description": "取得用の署名付きURL。発行から300秒有効。"
-              },
-              "expires_at": {
-                "type": "string",
-                "format": "date-time"
-              },
-              "content_type": {
-                "type": "string",
-                "enum": [
-                  "image/jpeg",
-                  "image/png"
-                ]
-              },
-              "byte_size": {
-                "type": "integer",
-                "minimum": 1
-              }
-            },
-            "nullable": true
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time"
-          },
-          "like_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "comment_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "is_liked": {
-            "type": "boolean"
+          {
+            "$ref": "#/components/schemas/PublicPost"
           }
-        }
+        ]
       },
       "CommentInput": {
         "type": "object",
@@ -3880,11 +5564,11 @@
       "PostPage": {
         "type": "object",
         "additionalProperties": false,
-        "required": [
-          "items",
-          "next_cursor"
-        ],
         "properties": {
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "items": {
             "type": "array",
             "items": {
@@ -3895,7 +5579,12 @@
             "type": "string",
             "nullable": true
           }
-        }
+        },
+        "required": [
+          "viewer_id",
+          "items",
+          "next_cursor"
+        ]
       },
       "CommentPage": {
         "type": "object",
@@ -4293,6 +5982,466 @@
             "$ref": "#/components/schemas/PublicProfileEnergy"
           }
         }
+      },
+      "PostUpdateInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "performed_on": {
+            "type": "string",
+            "format": "date",
+            "description": "Valid ASCII YYYY-MM-DD; not after current JST day."
+          },
+          "note": {
+            "type": "string",
+            "maxLength": 500,
+            "description": "CRLF/CR normalized to LF before counting codepoints."
+          },
+          "exercises": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "sets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "weight_kg": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,2})(\\.[0-9]{1,2})?$",
+                        "description": "ASCII decimal string; whole-string match; no trailing newline, exponent, sign or leading zero; 0..999.99."
+                      },
+                      "reps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                      }
+                    },
+                    "required": [
+                      "weight_kg",
+                      "reps"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "sets"
+              ]
+            }
+          },
+          "energy_input": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "integer",
+                "nullable": true,
+                "minimum": 1,
+                "maximum": 240
+              },
+              "kind": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "general",
+                  "squat",
+                  "vigorous",
+                  null
+                ]
+              }
+            },
+            "required": [
+              "minutes",
+              "kind"
+            ]
+          },
+          "visibility": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "default": "private"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "default": "private"
+              }
+            },
+            "required": [
+              "minutes",
+              "kind"
+            ]
+          },
+          "recalculate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "performed_on",
+          "note",
+          "exercises",
+          "energy_input",
+          "visibility",
+          "recalculate"
+        ]
+      },
+      "OwnerPost": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "username": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "display_name"
+            ]
+          },
+          "is_owner": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "performed_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exercises": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "sets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "weight_kg": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,2})\\.[0-9]{2}$"
+                      },
+                      "reps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                      }
+                    },
+                    "required": [
+                      "weight_kg",
+                      "reps"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "sets"
+              ]
+            }
+          },
+          "energy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kcal": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "met-gross-v1"
+                ]
+              }
+            },
+            "required": [
+              "kcal",
+              "method"
+            ],
+            "nullable": true
+          },
+          "energy_input": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "integer",
+                "nullable": true,
+                "minimum": 1,
+                "maximum": 240
+              },
+              "kind": {
+                "type": "string",
+                "nullable": true,
+                "enum": [
+                  "general",
+                  "squat",
+                  "vigorous",
+                  null
+                ]
+              }
+            },
+            "required": [
+              "minutes",
+              "kind"
+            ]
+          },
+          "visibility": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "default": "private"
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "public",
+                  "private"
+                ],
+                "default": "private"
+              }
+            },
+            "required": [
+              "minutes",
+              "kind"
+            ]
+          }
+        },
+        "required": [
+          "viewer_id",
+          "id",
+          "author",
+          "is_owner",
+          "performed_on",
+          "note",
+          "created_at",
+          "updated_at",
+          "exercises",
+          "energy",
+          "energy_input",
+          "visibility"
+        ]
+      },
+      "PublicPost": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "author": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "username": {
+                "type": "string"
+              },
+              "display_name": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "username",
+              "display_name"
+            ]
+          },
+          "is_owner": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "performed_on": {
+            "type": "string",
+            "format": "date"
+          },
+          "note": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exercises": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 10,
+            "items": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "name": {
+                  "type": "string"
+                },
+                "sets": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 20,
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "properties": {
+                      "weight_kg": {
+                        "type": "string",
+                        "pattern": "^(0|[1-9][0-9]{0,2})\\.[0-9]{2}$"
+                      },
+                      "reps": {
+                        "type": "integer",
+                        "minimum": 1,
+                        "maximum": 999
+                      }
+                    },
+                    "required": [
+                      "weight_kg",
+                      "reps"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "name",
+                "sets"
+              ]
+            }
+          },
+          "energy": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "kcal": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "method": {
+                "type": "string",
+                "enum": [
+                  "met-gross-v1"
+                ]
+              }
+            },
+            "required": [
+              "kcal",
+              "method"
+            ],
+            "nullable": true
+          },
+          "energy_input": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "minutes": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 240
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "general",
+                  "squat",
+                  "vigorous"
+                ]
+              }
+            }
+          }
+        },
+        "required": [
+          "viewer_id",
+          "id",
+          "author",
+          "is_owner",
+          "performed_on",
+          "note",
+          "created_at",
+          "updated_at",
+          "exercises",
+          "energy",
+          "energy_input"
+        ]
       }
     },
     "responses": {
