@@ -14,6 +14,9 @@ ERRORS: dict[int, tuple[str, str]] = {
     404: ("NOT_FOUND", "対象が見つかりません。"),
     405: ("METHOD_NOT_ALLOWED", "このメソッドは利用できません。"),
     406: ("NOT_ACCEPTABLE", "指定された応答形式は利用できません。"),
+    409: ("DUPLICATE_USERNAME", "すでに使われています。"),
+    413: ("PAYLOAD_TOO_LARGE", "リクエストが大きすぎます。"),
+    503: ("SERVICE_UNAVAILABLE", "処理結果を確認できません。時間をおいてログインしてください。"),
     415: ("UNSUPPORTED_MEDIA_TYPE", "指定された入力形式は利用できません。"),
     429: ("RATE_LIMITED", "時間をおいて再試行してください。"),
     500: ("INTERNAL_ERROR", "処理中にエラーが発生しました。"),
@@ -24,17 +27,27 @@ class CsrfFailure(exceptions.PermissionDenied):
     """CSRF拒否として識別済みの場合だけ使用する。"""
 
 
-def error_response(request: HttpRequest, status: int, code: str | None = None) -> JsonResponse:
+def error_response(
+    request: HttpRequest, status: int, code: str | None = None,
+    field_errors: dict[str, list[str]] | None = None,
+) -> JsonResponse:
     """固定文言の共通Errorとrequest-idを返す。"""
     default_code, message = ERRORS[status]
     if code == "INVALID_CREDENTIALS":
         message = "認証情報を確認してください。"
     elif code == "CSRF_FAILED":
         message = "リクエストを再送してください。"
+    elif code == "ALREADY_AUTHENTICATED":
+        message = "すでにログインしています。"
+    elif code in {"DUPLICATE_EMAIL", "DUPLICATE_USERNAME"}:
+        message = "すでに使われています。"
     request_id = request.META.setdefault("FITLOG_REQUEST_ID", str(uuid4()))
-    response = JsonResponse({
+    body: dict[str, object] = {
         "code": code or default_code, "message": message, "requestId": request_id,
-    }, status=status)
+    }
+    if field_errors:
+        body["fieldErrors"] = field_errors
+    response = JsonResponse(body, status=status)
     response["X-Request-Id"] = request_id
     return response
 

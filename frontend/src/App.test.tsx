@@ -1,6 +1,6 @@
 import { act, cleanup, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import App from './App'
+import Readiness from './Readiness'
 
 function response(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -17,7 +17,7 @@ afterEach(() => {
 describe('readyの状態表示（FL01-AC3）', () => {
   it('初期表示は単独のstatusに確認中を表示する', () => {
     vi.stubGlobal('fetch', vi.fn(() => new Promise<Response>(() => {})))
-    render(<App />)
+    render(<Readiness />)
     expect(screen.getAllByRole('status')).toHaveLength(1)
     expect(screen.getByRole('status')).toHaveTextContent(/^確認中$/)
   })
@@ -34,7 +34,7 @@ describe('readyの状態表示（FL01-AC3）', () => {
     [200, { status: 'ok', secret: 'unexpected' }, '応答を確認できません'],
   ])('HTTP %s / %j → %s', async (status, body, text) => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(response(status, body)))
-    render(<App />)
+    render(<Readiness />)
     expect(await screen.findByRole('status')).toBeInTheDocument()
     await screen.findByText(text)
     expect(screen.getByRole('status')).toHaveTextContent(text)
@@ -42,14 +42,14 @@ describe('readyの状態表示（FL01-AC3）', () => {
 
   it('不正JSONは不正応答として表示する', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockResolvedValue(new Response('{', { status: 200 })))
-    render(<App />)
+    render(<Readiness />)
     await screen.findByText('応答を確認できません')
     expect(screen.getByRole('status')).toHaveTextContent('応答を確認できません')
   })
 
   it('通信失敗を表示する', async () => {
     vi.stubGlobal('fetch', vi.fn<typeof fetch>().mockRejectedValue(new TypeError('network')))
-    render(<App />)
+    render(<Readiness />)
     await screen.findByText('接続できません')
     expect(screen.getByRole('status')).toHaveTextContent('接続できません')
   })
@@ -62,7 +62,7 @@ describe('readyの状態表示（FL01-AC3）', () => {
       signal = init.signal
       return new Promise<Response>((resolve) => { finish = resolve })
     }))
-    render(<App />)
+    render(<Readiness />)
     await act(async () => { await vi.advanceTimersByTimeAsync(4999) })
     expect(screen.getByRole('status')).toHaveTextContent('確認中')
     await act(async () => { await vi.advanceTimersByTimeAsync(1) })
@@ -83,7 +83,7 @@ describe('readyの状態表示（FL01-AC3）', () => {
       signal = init.signal
       return new Promise<Response>((resolve) => { finish = resolve })
     }))
-    const { unmount } = render(<App />)
+    const { unmount } = render(<Readiness />)
     unmount()
     expect(signal?.aborted).toBe(true)
     expect(vi.getTimerCount()).toBe(0)

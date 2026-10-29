@@ -2,9 +2,14 @@
 import json
 import logging
 from collections.abc import Callable
+from typing import Literal, cast
 from uuid import uuid4
 
+from django.conf import settings
+from django.contrib.sessions.exceptions import SessionInterrupted
+from django.contrib.sessions.middleware import SessionMiddleware
 from django.core.exceptions import DisallowedHost
+from django.db import DatabaseError
 from django.http import HttpRequest, HttpResponse, JsonResponse
 
 from common.errors import ERRORS, api_exception_handler, error_response
@@ -30,7 +35,11 @@ class ApiBoundaryMiddleware:
         else:
             response = self.get_response(request)
         if is_api:
-            if response.status_code in ERRORS and not self._is_common_error(request, response):
+            if (
+                response.status_code in ERRORS
+                and (response.status_code != 503 or request.path.startswith("/api/auth/"))
+                and not self._is_common_error(request, response)
+            ):
                 normalized = error_response(request, response.status_code)
                 for header in (
                     "Allow", "WWW-Authenticate", "Retry-After", "X-Content-Type-Options",
@@ -41,6 +50,8 @@ class ApiBoundaryMiddleware:
                         normalized[header] = response[header]
                 response = normalized
             response["X-Request-Id"] = request.META["FITLOG_REQUEST_ID"]
+            if request.path.startswith("/api/auth/"):
+                response["Cache-Control"] = "no-store"
             if response.status_code >= 400:
                 logger.warning("api_error status=%s request_id=%s",
                                response.status_code, request.META["FITLOG_REQUEST_ID"])
@@ -63,5 +74,31 @@ class ApiBoundaryMiddleware:
 
     def process_exception(self, request: HttpRequest, exception: Exception) -> JsonResponse | None:
         if request.path == "/api" or request.path.startswith("/api/"):
+            if request.path.startswith("/api/auth/") and isinstance(
+                exception, (DatabaseError, SessionInterrupted),
+            ):
+                return auth_unavailable(request)
             return api_exception_handler(exception, {"request": request})
         return None
+
+
+def auth_unavailable(request: HttpRequest) -> JsonResponse:
+    """DBを再参照せず、結果不明とcookie破棄だけを返す。"""
+    response = error_response(request, 503)
+    response["Cache-Control"] = "no-store"
+    response.delete_cookie(
+        settings.SESSION_COOKIE_NAME, path=settings.SESSION_COOKIE_PATH,
+        domain=settings.SESSION_COOKIE_DOMAIN,
+        samesite=cast(Literal["Lax", "Strict", "None", False] | None, settings.SESSION_COOKIE_SAMESITE),
+    )
+    return response
+
+
+class AuthSessionMiddleware(SessionMiddleware):
+    def process_response(self, request: HttpRequest, response: HttpResponse) -> HttpResponse:
+        try:
+            return super().process_response(request, response)
+        except (DatabaseError, SessionInterrupted):
+            if not request.path.startswith("/api/auth/"):
+                raise
+            return auth_unavailable(request)

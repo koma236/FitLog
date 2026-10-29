@@ -1,4 +1,4 @@
-"""FL-01のローカル設定。実認証情報を保存しない。"""
+"""FitLogの環境設定。実認証情報を保存しない。"""
 import os
 from typing import Any
 
@@ -21,7 +21,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "common.middleware.ApiBoundaryMiddleware",
     "django.middleware.security.SecurityMiddleware",
-    "django.contrib.sessions.middleware.SessionMiddleware",
+    "common.middleware.AuthSessionMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
 ]
@@ -36,6 +36,7 @@ DATABASES: dict[str, Any] = {
         "HOST": os.environ.get("POSTGRES_HOST", "postgres"),
         "PORT": "5432",
         "OPTIONS": {"connect_timeout": 5},
+        "ATOMIC_REQUESTS": False,
         "TEST": {"NAME": "test_fitlog"},
     },
 }
@@ -67,3 +68,38 @@ LOGGING = {
         "fitlog.api": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
+
+# HTTPSが既定。ローカルHTTPを使う場合だけ2つの明示設定が必要。
+FITLOG_ENV = os.environ.get("FITLOG_ENV", "production")
+FITLOG_LOCAL_HTTP = os.environ.get("FITLOG_LOCAL_HTTP", "0")
+if FITLOG_ENV not in {"local", "production"} or FITLOG_LOCAL_HTTP not in {"0", "1"}:
+    raise ImproperlyConfigured("Invalid FitLog environment configuration")
+if FITLOG_ENV != "local" and FITLOG_LOCAL_HTTP == "1":
+    raise ImproperlyConfigured("Local HTTP is only permitted in local environment")
+AUTH_RATE_LIMIT_HMAC_KEY = os.environ.get("AUTH_RATE_LIMIT_HMAC_KEY", "")
+LOCAL_HMAC_SAMPLE = "fitlog-local-only-public-hmac-key-never-use-in-production"
+if len(AUTH_RATE_LIMIT_HMAC_KEY) < 32 or (
+    FITLOG_ENV == "production" and AUTH_RATE_LIMIT_HMAC_KEY == LOCAL_HMAC_SAMPLE
+):
+    raise ImproperlyConfigured("A private AUTH_RATE_LIMIT_HMAC_KEY of at least 32 characters is required")
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_COOKIE_AGE = 7 * 24 * 60 * 60
+SESSION_SAVE_EVERY_REQUEST = False
+SESSION_COOKIE_SECURE = not (FITLOG_ENV == "local" and FITLOG_LOCAL_HTTP == "1")
+SESSION_COOKIE_PATH = "/"
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_SECURE = SESSION_COOKIE_SECURE
+CSRF_COOKIE_HTTPONLY = True
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_PATH = "/"
+CSRF_COOKIE_DOMAIN = None
+CSRF_TRUSTED_ORIGINS: list[str] = []
+AUTHENTICATION_BACKENDS = ["accounts.backends.EmailBackend"]
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
+     "OPTIONS": {"user_attributes": ["username", "email", "display_name"]}},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
+     "OPTIONS": {"min_length": 12}},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]

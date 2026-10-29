@@ -9,3 +9,20 @@ main { max-width: 40rem; margin: 12vh auto; padding: 2rem; }
 h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); line-height: 1.3; }
 .eyebrow { color: #17624c; font-weight: 700; letter-spacing: .12em; font-size: .8rem; }
 .readiness { padding: 1.25rem; border: 1px solid #c4d7ce; border-radius: .5rem; background: #fff; font-weight: 700; }
+* { box-sizing: border-box; }
+.auth-shell { max-width: 498px; margin: 5vh auto; padding: 24px; }
+.brand { font-size: 30px; letter-spacing: -1.5px; font-weight: 850; margin-bottom: 28px; }
+.brand span { color: #17624c; }
+.auth-form { padding: 24px; border: 1px solid #d6e0df; border-radius: 14px; background: white; }
+.auth-form h1 { font-size: 25px; margin: 12px 0 28px; }
+.field { display: grid; gap: 8px; margin-bottom: 18px; font-size: 14px; font-weight: 600; }
+input { width: 100%; border: 1px solid #bfcdd2; border-radius: 7px; padding: 11px; background: white; color: #182b37; font: inherit; }
+button { border: 0; border-radius: 7px; padding: 12px 18px; background: #17624c; color: white; font: inherit; font-weight: 650; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+button:focus-visible, input:focus-visible { outline: 3px solid #db893c; outline-offset: 3px; }
+.primary { width: 100%; }
+.text-button { display: block; padding: 12px 0; background: transparent; color: #17624c; text-decoration: underline; font-size: 13px; }
+.muted { font-size: 13px; color: #576b72; }
+.form-error { color: #8e2525; background: #fff0ef; padding: 12px; border: 1px solid #edc5bf; border-radius: 7px; font-weight: 600; font-size: 14px; }
+.field-error { margin: 0; color: #8e2525; font-size: 13px; }
+@media (max-width: 500px) { .auth-shell { margin: 0 auto; padding: 20px 16px; } .auth-form { padding: 22px 18px; } }

@@ -47,7 +47,8 @@ def test_uuid_and_initial_migration_reapplication() -> None:
     executor = MigrationExecutor(connection)
     assert executor.migration_plan(executor.loader.graph.leaf_nodes()) == []
     assert ("accounts", "0001_initial") in executor.loader.applied_migrations
-    user = User.objects.create_user(username="foundation")
+    user = User.objects.create_user(username="foundation", email="foundation@example.test",
+                                    display_name="Foundation", password="River-lantern-42!pine")
     assert isinstance(user.pk, UUID)
     saved = User.objects.get(username="foundation")
     assert saved.pk == user.pk

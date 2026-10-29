@@ -3,7 +3,7 @@
   "info": {
     "title": "FitLog API",
     "version": "0.1.0-draft",
-    "description": "独立設計レビュー前の契約案。未実装。全記録はログイン利用者に公開。認証CookieとCSRFを使う。"
+    "description": "FL-01 healthとFL-02の最小認証を実装。その他の業務APIは将来の契約案であり未実装。認証はDBセッションとCSRFを使う。"
   },
   "servers": [
     {
@@ -20,7 +20,7 @@
       "get": {
         "operationId": "getCsrf",
         "summary": "CSRF Cookieとmasked tokenを取得",
-        "description": "Cache-Control: no-store。ゲストにも発行。login/signup後はtokenを再取得する。",
+        "description": "Cache-Control: no-store。ゲストにも発行。login/signup後はtokenを再取得する。 全応答no-store、X-Request-Id。DBセッションの固定期限は成功時刻+7日。POSTは自動再送しない。",
         "tags": [
           "auth"
         ],
@@ -31,6 +31,14 @@
               "X-Request-Id": {
                 "schema": {
                   "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
                 }
               }
             },
@@ -43,7 +51,84 @@
             }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "許可されないHTTPメソッド",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "security": []
@@ -53,7 +138,7 @@
       "post": {
         "operationId": "signup",
         "summary": "新規登録",
-        "description": "認証前でもCSRF検査を必須にする。成功時はsessionid Cookieを発行しセッションキーを更新する。",
+        "description": "認証前でもCSRF検査を必須にする。成功時はsessionid Cookieを発行しセッションキーを更新する。 全応答no-store、X-Request-Id。DBセッションの固定期限は成功時刻+7日。POSTは自動再送しない。 CSRF→メソッド→IP固定窓加算（単独autocommit）→認証済み409→入力検証の順。JSON上限16KiB。",
         "tags": [
           "auth"
         ],
@@ -67,34 +152,264 @@
                 }
               },
               "Set-Cookie": {
-                "description": "sessionid; Secure; HttpOnly; SameSite=Lax; Path=/（AWS環境）。",
+                "description": "sessionid; Secure; HttpOnly; SameSite=Lax; Path=/; host-only。明示したlocal HTTPのみSecureを外す。",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
                 }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Me"
+                  "$ref": "#/components/schemas/AuthAccount"
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "VALIDATION_ERROR, INVALID_CURSOR, SELF_FOLLOW",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "409": {
-            "$ref": "#/components/responses/Error409"
+            "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "$ref": "#/components/responses/Error429"
+            "description": "RATE_LIMITED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "許可されないHTTPメソッド",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE（認証JSONは16KiBまで）, IMAGE_TOO_LARGE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE, INVALID_IMAGE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -125,7 +440,7 @@
       "post": {
         "operationId": "login",
         "summary": "ログイン",
-        "description": "認証前でもCSRF検査を必須にする。成功時はsessionid Cookieを発行しセッションキーを更新する。",
+        "description": "認証前でもCSRF検査を必須にする。成功時はsessionid Cookieを発行しセッションキーを更新する。 全応答no-store、X-Request-Id。DBセッションの固定期限は成功時刻+7日。POSTは自動再送しない。 CSRF→メソッド→IP固定窓加算（単独autocommit）→認証済み409→入力検証の順。JSON上限16KiB。",
         "tags": [
           "auth"
         ],
@@ -139,34 +454,295 @@
                 }
               },
               "Set-Cookie": {
-                "description": "sessionid; Secure; HttpOnly; SameSite=Lax; Path=/（AWS環境）。",
+                "description": "sessionid; Secure; HttpOnly; SameSite=Lax; Path=/; host-only。明示したlocal HTTPのみSecureを外す。",
                 "schema": {
                   "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
                 }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Me"
+                  "$ref": "#/components/schemas/AuthAccount"
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "VALIDATION_ERROR, INVALID_CURSOR, SELF_FOLLOW",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED, INVALID_CREDENTIALS",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "認証APIはSessionを返す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "429": {
-            "$ref": "#/components/responses/Error429"
+            "description": "RATE_LIMITED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "schema": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "許可されないHTTPメソッド",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE（認証JSONは16KiBまで）, IMAGE_TOO_LARGE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE, INVALID_IMAGE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -197,7 +773,7 @@
       "post": {
         "operationId": "logout",
         "summary": "ログアウト",
-        "description": "セッションの有無にかかわらず有効なCSRFで204。sessionidをサーバーで失効しCookieを削除する。",
+        "description": "セッションの有無にかかわらず有効なCSRFで204。sessionidをサーバーで失効しCookieを削除する。 全応答no-store、X-Request-Id。DBセッションの固定期限は成功時刻+7日。POSTは自動再送しない。",
         "tags": [
           "auth"
         ],
@@ -214,15 +790,122 @@
                 "schema": {
                   "type": "string"
                 },
-                "description": "sessionidの有効期限を失効させる。"
+                "description": "sessionid; Secure; HttpOnly; SameSite=Lax; Path=/; host-only。明示したlocal HTTPのみSecureを外す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
               }
             }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "許可されないHTTPメソッド",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "security": [],
@@ -243,7 +926,7 @@
       "get": {
         "operationId": "getMe",
         "summary": "自分のアカウント",
-        "description": "自分のアカウント",
+        "description": "自分のアカウント 全応答no-store、X-Request-Id。DBセッションの固定期限は成功時刻+7日。POSTは自動再送しない。",
         "tags": [
           "auth"
         ],
@@ -255,21 +938,134 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Me"
+                  "$ref": "#/components/schemas/AuthAccount"
                 }
               }
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED, INVALID_CREDENTIALS",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "認証APIはSessionを返す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "許可されないHTTPメソッド",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         }
       }
@@ -1791,7 +2587,9 @@
               "SERVICE_UNAVAILABLE",
               "METHOD_NOT_ALLOWED",
               "NOT_ACCEPTABLE",
-              "UNSUPPORTED_MEDIA_TYPE"
+              "UNSUPPORTED_MEDIA_TYPE",
+              "ALREADY_AUTHENTICATED",
+              "PAYLOAD_TOO_LARGE"
             ]
           },
           "message": {
@@ -2217,25 +3015,16 @@
         "properties": {
           "username": {
             "type": "string",
-            "pattern": "^[a-z0-9_]{3,30}$",
-            "minLength": 3,
-            "maxLength": 30,
-            "not": {
-              "enum": [
-                "me",
-                "search"
-              ]
-            }
+            "description": "trim・小文字化後に[a-z0-9_]{3,30}。me/searchは予約語で拒否する。"
           },
           "display_name": {
             "type": "string",
-            "minLength": 1,
-            "maxLength": 50
+            "description": "trim後のUnicodeコードポイント1〜50文字。制御文字を拒否する。"
           },
           "email": {
             "type": "string",
             "format": "email",
-            "maxLength": 254
+            "description": "trim・小文字化後にASCIIの有効メール、最大254文字。保存値は正規化する。"
           },
           "password": {
             "type": "string",
@@ -2257,7 +3046,7 @@
           "email": {
             "type": "string",
             "format": "email",
-            "maxLength": 254
+            "description": "trim・小文字化後にASCIIの有効メール、最大254文字。保存値は正規化する。"
           },
           "password": {
             "type": "string",
@@ -2414,6 +3203,45 @@
             "nullable": true
           }
         }
+      },
+      "AuthAccount": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "email"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{3,30}$",
+            "minLength": 3,
+            "maxLength": 30,
+            "not": {
+              "enum": [
+                "me",
+                "search"
+              ]
+            }
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "email": {
+            "type": "string",
+            "format": "email",
+            "maxLength": 254
+          }
+        },
+        "description": "signup/login/me共通の本人情報。staff/password/session keyを含まない。"
       }
     },
     "responses": {
@@ -2441,6 +3269,12 @@
             "schema": {
               "type": "string"
             }
+          },
+          "WWW-Authenticate": {
+            "schema": {
+              "type": "string"
+            },
+            "description": "認証APIはSessionを返す。"
           }
         },
         "content": {
@@ -2486,7 +3320,7 @@
         }
       },
       "Error409": {
-        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL",
+        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED",
         "headers": {
           "X-Request-Id": {
             "schema": {
@@ -2503,7 +3337,7 @@
         }
       },
       "Error413": {
-        "description": "IMAGE_TOO_LARGE",
+        "description": "PAYLOAD_TOO_LARGE（認証JSONは16KiBまで）, IMAGE_TOO_LARGE（将来API）",
         "headers": {
           "X-Request-Id": {
             "schema": {
@@ -2520,7 +3354,7 @@
         }
       },
       "Error415": {
-        "description": "INVALID_IMAGE",
+        "description": "UNSUPPORTED_MEDIA_TYPE, INVALID_IMAGE（将来API）",
         "headers": {
           "X-Request-Id": {
             "schema": {
@@ -2545,10 +3379,10 @@
             }
           },
           "Retry-After": {
-            "description": "再試行までの秒数。",
             "schema": {
               "type": "integer",
-              "minimum": 1
+              "minimum": 1,
+              "maximum": 60
             }
           }
         },
@@ -2578,7 +3412,7 @@
         }
       },
       "Error503": {
-        "description": "STORAGE_UNAVAILABLE, SERVICE_UNAVAILABLE",
+        "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
         "headers": {
           "X-Request-Id": {
             "schema": {
@@ -2605,8 +3439,7 @@
           "Allow": {
             "schema": {
               "type": "string"
-            },
-            "description": "許可されるHTTPメソッド"
+            }
           }
         },
         "content": {
