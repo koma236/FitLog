@@ -10,6 +10,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals() })
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(new Response(JSON.stringify({ code: 'AUTH_REQUIRED', message: 'ログインが必要です。' }), { status: 401 }))
     if (path.endsWith('/csrf')) return Promise.resolve(new Response(JSON.stringify({ csrf_token: 'test-csrf-token' }), { status: 200 }))
     return Promise.resolve(new Response(JSON.stringify({ code: 'INVALID_CREDENTIALS', message: '認証情報を確認してください。' }), { status: 401 }))
@@ -49,6 +50,7 @@ it('restores account from me and logs out using the fetched CSRF token', async (
   let logoutCalls = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'masked-csrf' }))
     if (path.endsWith('/logout')) {
       logoutCalls++
@@ -68,6 +70,7 @@ it('registers using only the four approved fields and shows the returned account
   let sent: unknown
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(reply(401, { code: 'AUTH_REQUIRED' }))
     if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
     sent = typeof init?.body === 'string' ? JSON.parse(init.body) as unknown : null
@@ -87,6 +90,7 @@ it.each([400, 401, 429, 503])('keeps input and never shows home after HTTP %s', 
   let posts = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(reply(401, { code: 'AUTH_REQUIRED' }))
     if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
     posts++
@@ -105,6 +109,7 @@ it('refreshes CSRF once on 403, retains input and waits for a new click', async 
   let csrfCalls = 0; let posts = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(reply(401, { code: 'AUTH_REQUIRED' }))
     if (path.endsWith('/csrf')) { csrfCalls++; return Promise.resolve(reply(200, { csrf_token: `csrf-${String(csrfCalls)}` })) }
     posts++
@@ -121,6 +126,7 @@ it.each([200, 401])('checks me after ALREADY_AUTHENTICATED and follows HTTP %s',
   let meCalls = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) {
       meCalls++
       return Promise.resolve(meCalls === 1 || status === 401 ? reply(401, { code: 'AUTH_REQUIRED' }) : reply(200, account))
@@ -140,6 +146,7 @@ it('blocks duplicate submissions until the original request settles', async () =
   let posts = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(reply(401, { code: 'AUTH_REQUIRED' }))
     if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
     posts++
@@ -158,6 +165,7 @@ it.each(['network', 'non-json'])('shows %s failure without retrying the POST', a
   let posts = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(reply(401, { code: 'AUTH_REQUIRED' }))
     if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
     posts++
@@ -174,6 +182,7 @@ it('returns to login when focus detects expiry and safely renders a display name
   let meCalls = 0
   const display = '<img src=x onerror=alert(1)>'
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+    if (requestPath(input).includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (requestPath(input).endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
     meCalls++
     return Promise.resolve(meCalls === 1 ? reply(200, { ...account, display_name: display }) : reply(401, { code: 'AUTH_REQUIRED' }))
@@ -190,6 +199,7 @@ it('does not authenticate from an unexpected success status or account shape', a
   let posts = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
+    if (path.includes('/posts')) return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
     if (path.endsWith('/me')) return Promise.resolve(reply(401, { code: 'AUTH_REQUIRED' }))
     if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
     posts++

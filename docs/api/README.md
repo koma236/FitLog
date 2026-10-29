@@ -1,6 +1,6 @@
 # API共通契約・エラー一覧
 
-> health・FL-02認証・FL-03プロフィールの実装契約。記録・画像・交流などは将来の契約案。検証結果は別途記録する。
+> health・FL-02認証・FL-03プロフィール・FL-04記録の実装契約。画像・交流・全体タイムラインなどは将来の契約案。検証結果は別途記録する。
 
 正本は [OpenAPI](openapi.json)。JSONのデータ項目はsnake_case、既存の共通エラー項目のみfieldErrors/requestIdという名前を使う。すべてのAPI応答にX-Request-Idを付ける。
 
@@ -27,6 +27,7 @@ PUTは対象データの全置換。記録PUTは画像・コメント・いい�
 | HTTP | code | 用途 |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | 入力値・未知項目・形式 |
+| 400 | `INVALID_REQUEST` | 本人ヘッダーの欠落／形式不正 |
 | 400 | `INVALID_CURSOR` | カーソル不正／他条件の流用 |
 | 400 | `SELF_FOLLOW` | 自己フォロー |
 | 401 | `AUTH_REQUIRED` | ログインが必要 |
@@ -39,9 +40,11 @@ PUTは対象データの全置換。記録PUTは画像・コメント・いい�
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | リクエストのContent-Type非対応 |
 | 409 | `DUPLICATE_USERNAME` | ユーザー名重複 |
 | 409 | `DUPLICATE_EMAIL` | メール重複 |
+| 409 | `RECORD_OWNER_CHANGED` | 記録入力開始時と現在の本人が異なる。更新しない |
+| 409 | `POST_ID_CONFLICT` | 使用済み／削除済みの記録ID。保存状態を確認する |
 | 409 | `PROFILE_OWNER_CHANGED` | 編集開始時と現在の本人が異なる。更新しない |
 | 409 | `ALREADY_AUTHENTICATED` | すでにログイン中。meを確認 |
-| 413 | `PAYLOAD_TOO_LARGE` | 認証・プロフィールJSONが16KiB超 |
+| 413 | `PAYLOAD_TOO_LARGE` | 認証・プロフィールJSONが16KiB超、または記録JSONが32KiB超 |
 | 413 | `IMAGE_TOO_LARGE` | ファイルサイズまたは画素数超過 |
 | 415 | `INVALID_IMAGE` | 画像形式・デコード不正 |
 | 429 | `RATE_LIMITED` | 認証試行制限 |
@@ -60,3 +63,11 @@ CSRFを含む認証境界、DBとS3の障害境界、画像競合、ページン
 詳細は[F07](../features/F07_profile.md)。会員間のみ、全応答no-store/Vary:Cookie。
 PUTにはX-CSRFTokenと編集開始時のUser UUIDを送るX-Profile-Ownerが必須。不一致は409 `PROFILE_OWNER_CHANGED`。本文から対象Userや計算結果を指定できない。成功/エラーのschemaはOpenAPIを参照。
 本人だけvisibility8項目を取得可能。他人向けは非公開値をhealth/energyからキーごと除外し、emailも返さない。公開結果からの数学的な推測を防ぐ保証はない。
+
+## FL-04 筋トレ記録（実装）
+
+POST /api/posts、GET/PUT/DELETE /api/posts/{id}、GET /api/users/{username}/posts。詳細は[F03](../features/F03_post.md)とOpenAPI。新規POSTはclient生成UUID v4を固定し、削除後もPostIdentityに保持。RECORD_OWNER_CHANGED（409）は下書きの本人が変化、POST_ID_CONFLICT（409）は使用済みidで、いずれも自動再送しない。INVALID_CURSOR（400）は先頭からの明示再取得が必要。
+
+記録JSON上限32KiB・深さ8、UTF-8、厳密な数値/文字列と既知キーだけを受理。413 PAYLOAD_TOO_LARGEは記録のbody上限にも適用。全応答no-store/Vary:Cookie/request-id。本人向けPostだけトップレベルvisibilityを持ち、他人向けenergy_inputは公開かつ非nullのキーだけ（なければ{}）。viewer_idは実際の閲覧会員を示し、クライアントは期待する本人と照合する。
+
+固定METのカロリーと保持/再計算規則、同一snapshotの読取り、削除済みid保護はF03参照。GitHub Actions CIは未実装で、品質checksはローカルDockerで実行する。
