@@ -30,6 +30,10 @@ services:
       # Local only, public sample key. Never use this key in production.
       DJANGO_SECRET_KEY: fitlog-local-only-public-key-never-use-in-production
       DJANGO_DEBUG: "false"
+      FITLOG_ENV: local
+      FITLOG_LOCAL_HTTP: "1"
+      # Local-only public sample; production rejects this key.
+      AUTH_RATE_LIMIT_HMAC_KEY: fitlog-local-only-public-hmac-key-never-use-in-production
       POSTGRES_DB: fitlog
       POSTGRES_USER: fitlog
       POSTGRES_PASSWORD: fitlog-local-only-not-a-secret

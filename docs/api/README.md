@@ -1,13 +1,15 @@
 # API共通契約・エラー一覧
 
-> 独立設計レビュー前の契約案。アプリの実装済み仕様ではない。
+> healthとFL-02認証の実装契約。他の業務APIは将来の契約案。検証結果は別途記録する。
 
 正本は [OpenAPI](openapi.json)。JSONのデータ項目はsnake_case、既存の共通エラー項目のみfieldErrors/requestIdという名前を使う。すべてのAPI応答にX-Request-Idを付ける。
 
 ## 認証・CSRF
-公開APIはcsrf・signup・login・logout・healthのみ。その他は認証必須。DRFのセッション認証を利用しつつ、未認証は認証境界で401 AUTH_REQUIREDへ統一する。CSRF拒否・本人以外の変更は403。ログイン・登録にもCSRF検証を適用し、DRFの未認証時CSRFスキップに依存しない。
-AWSではsessionidはSecure/HttpOnly/SameSite=Lax/Path=/、Domainを指定しないhost-only Cookie。セッション期限はログインから7日、通常リクエストで延長しない案。ログインでキーをローテート、ログアウトでDBセッションを失効する。秘密はlocalStorageへ保存しない。csrf Cookieとmasked tokenはGETで取得し、login/signupの成功後に再取得してX-CSRFTokenへ設定する。
-認証・アカウントAPIはCache-Control: no-store。認証失敗はメールの存在有無を区別しない。認証試行にはAPI側のrate limitを設定し、閾値の設定・429・Retry-Afterを結合テストで確認する。具体値は初期案でIPあたりlogin/signup合計10回/分、PostgreSQLのauth_rate_limitsにIPのHMAC・時間窓・件数を保存し原子的に更新する案。生IPは保存せず、期限切れ窓は清掃する。信頼できるプロキシが設定した送信元だけを使い、任意の転送ヘッダを信用しない。
+認証の採用仕様と運用は [FL-02認証](auth-implementation.md) を参照する。
+認証APIはDjango JSON views、DBセッション、global CSRF検査を使用する。
+signup201/login200/me200の本文はid/username/display_name/emailのみ。logout204は本文なし。
+セッション期限は成功時刻から7日固定。Secure/HttpOnly/SameSite=Lax/Path=/・host-onlyが既定。
+全auth応答はno-store。IPあたりsignup/login合算10回/60秒固定窓で、直接接続元のHMACのみをPostgreSQLへ保存する。
 
 ## 入力とページング
 未知フィールドは400。usernameは予約語me/searchを除く小文字ASCII英数字と_、emailは前後空白除去・小文字化して一意とする。文字数はUnicodeコードポイントで数える。表示名・種目名・コメントの前後空白を除去し空白だけの値を拒否する。パスワードは入力をそのまま扱い、勝手にtrimしない。
@@ -37,6 +39,8 @@ PUTは対象データの全置換。記録PUTは画像・コメント・いい�
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | リクエストのContent-Type非対応 |
 | 409 | `DUPLICATE_USERNAME` | ユーザー名重複 |
 | 409 | `DUPLICATE_EMAIL` | メール重複 |
+| 409 | `ALREADY_AUTHENTICATED` | すでにログイン中。meを確認 |
+| 413 | `PAYLOAD_TOO_LARGE` | 認証JSONが16KiB超 |
 | 413 | `IMAGE_TOO_LARGE` | ファイルサイズまたは画素数超過 |
 | 415 | `INVALID_IMAGE` | 画像形式・デコード不正 |
 | 429 | `RATE_LIMITED` | 認証試行制限 |
