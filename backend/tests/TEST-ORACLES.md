@@ -45,3 +45,15 @@ HTTP期待値はsignup201/login200/me200/logout204、最小account4項目、固�
 
 実ブラウザ→Vite→backendのcookie/CSRF往復、登録済み11checks、独立品質レビューは実行結果を別途記録する。
 これらのテストの存在や構文検査だけをGREENの証拠にしない。
+
+# FL-03 プロフィールの独立根拠
+
+承認済みのプロフィール設計改訂2、採用時のLow判断と確認済みモックを根拠とする。
+
+- 本人/他人の実セッション、8公開設定の256通りで許可されたキーと固定の値だけを比較する。期待値はserializerから作らない。email/visibility/非公開キーが他人へ含まれない。
+- ownerヘッダーに旧A、cookieとCSRFに新Bを使用して409。CSRF欠落、本文サイズ、形式、owner、JSONの優先順を固定する。
+- docs/api/profile-calorie-vectors.jsonは手計算の正本。両環境のテスト用コピーは同じ固定SHA-256をassertする。60kg/170cm/30歳男性式・活動mediumはbmr1518/tdee2656（誤った二段丸めなら2657）で区別する。
+- 0002→追加migrationでUUID/表示名/email/passwordを保持し、身体情報行はGETで作らない。従来のauth migrationテストはhistorical modelで旧状態を検査し、最後に最新leafへ復元する。既存assertionは弱めない。
+- User/身体情報の途中保存・commit失敗のrollback、同時PUTの応答/保存値の一貫性、session保存失敗の503とcookie破棄、DEBUGでのSQL/機密非露出を検証する。
+- DOMは別人への切替、送信前確認後の409、403/503での入力保持・PUT非再送、再取得失敗時の入力保持、成功時のみの置換、古い取得応答、保存中の履歴操作、401での下書き消去を確認する。
+- 実ブラウザで公開/非公開の本人・他人画面、保存・再読込、PC/375px、モックの配色/カード/案内/ラベル、JSエラーを確認して記録する。

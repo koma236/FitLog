@@ -1,6 +1,6 @@
 # API共通契約・エラー一覧
 
-> healthとFL-02認証の実装契約。他の業務APIは将来の契約案。検証結果は別途記録する。
+> health・FL-02認証・FL-03プロフィールの実装契約。記録・画像・交流などは将来の契約案。検証結果は別途記録する。
 
 正本は [OpenAPI](openapi.json)。JSONのデータ項目はsnake_case、既存の共通エラー項目のみfieldErrors/requestIdという名前を使う。すべてのAPI応答にX-Request-Idを付ける。
 
@@ -39,8 +39,9 @@ PUTは対象データの全置換。記録PUTは画像・コメント・いい�
 | 415 | `UNSUPPORTED_MEDIA_TYPE` | リクエストのContent-Type非対応 |
 | 409 | `DUPLICATE_USERNAME` | ユーザー名重複 |
 | 409 | `DUPLICATE_EMAIL` | メール重複 |
+| 409 | `PROFILE_OWNER_CHANGED` | 編集開始時と現在の本人が異なる。更新しない |
 | 409 | `ALREADY_AUTHENTICATED` | すでにログイン中。meを確認 |
-| 413 | `PAYLOAD_TOO_LARGE` | 認証JSONが16KiB超 |
+| 413 | `PAYLOAD_TOO_LARGE` | 認証・プロフィールJSONが16KiB超 |
 | 413 | `IMAGE_TOO_LARGE` | ファイルサイズまたは画素数超過 |
 | 415 | `INVALID_IMAGE` | 画像形式・デコード不正 |
 | 429 | `RATE_LIMITED` | 認証試行制限 |
@@ -52,3 +53,10 @@ fieldErrorsはフィールドパス→文字列配列。例：`exercises.0.sets.
 
 ## 設計レビューの重点
 CSRFを含む認証境界、DBとS3の障害境界、画像競合、ページングの更新境界、UTC/JST、同時いいねとフォロー、OpenAPIと画面の整合性。モックはこれらのサーバー側保証の証拠ではない。
+
+## FL-03 プロフィール
+
+`GET /api/users/me`、`PUT /api/users/me`、`GET /api/users/{username}`。
+詳細は[F07](../features/F07_profile.md)。会員間のみ、全応答no-store/Vary:Cookie。
+PUTにはX-CSRFTokenと編集開始時のUser UUIDを送るX-Profile-Ownerが必須。不一致は409 `PROFILE_OWNER_CHANGED`。本文から対象Userや計算結果を指定できない。成功/エラーのschemaはOpenAPIを参照。
+本人だけvisibility8項目を取得可能。他人向けは非公開値をhealth/energyからキーごと除外し、emailも返さない。公開結果からの数学的な推測を防ぐ保証はない。

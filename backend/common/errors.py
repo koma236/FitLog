@@ -37,6 +37,8 @@ def error_response(
         message = "認証情報を確認してください。"
     elif code == "CSRF_FAILED":
         message = "リクエストを再送してください。"
+    elif code == "PROFILE_OWNER_CHANGED":
+        message = "ログインしているユーザーが変わりました。プロフィールを開き直してください。"
     elif code == "ALREADY_AUTHENTICATED":
         message = "すでにログインしています。"
     elif code in {"DUPLICATE_EMAIL", "DUPLICATE_USERNAME"}:

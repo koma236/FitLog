@@ -2,8 +2,25 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, getCsrf, getMe, signOut, submitAuth } from './auth/api'
 import type { Account, FieldErrors } from './auth/api'
 import AuthForm from './auth/AuthForm'
+import ProfileScreen from './profile/ProfileScreen'
 
 export default function App() {
+  const profileLock = useRef<{ token: symbol; hash: string } | null>(null)
+  const [profileSaving, setProfileSaving] = useState(false)
+  const profileBusy = useCallback((token: symbol, saving: boolean) => {
+    if (!saving && profileLock.current !== null && profileLock.current.token !== token) return
+    profileLock.current = saving ? { token, hash: location.hash } : null
+    setProfileSaving(saving)
+  }, [])
+  const [hash, setHash] = useState(location.hash)
+  useEffect(() => {
+    const changed = () => {
+      if (profileLock.current !== null && location.hash !== profileLock.current.hash) history.replaceState(null, '', profileLock.current.hash)
+      setHash(location.hash)
+    }
+    window.addEventListener('hashchange', changed)
+    return () => { window.removeEventListener('hashchange', changed) }
+  }, [])
   const [user, setUser] = useState<Account | null>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
@@ -13,6 +30,14 @@ export default function App() {
   const sending = useRef(false)
   const operation = useRef(0)
   const alive = useRef(true)
+
+  const onIdentity = useCallback((next: Account | null) => { csrf.current = ''; profileLock.current = null; setProfileSaving(false); setUser(next) }, [])
+  const onName = useCallback((id: string, name: string) => { setUser(previous => previous?.id === id ? { ...previous, display_name: name } : previous) }, [])
+  const showProfile = hash === '#profile' || hash === '#profile-edit' || hash.startsWith('#profile/')
+  let target = 'me'
+  if (hash.startsWith('#profile/')) {
+    try { target = decodeURIComponent(hash.slice(9)) } catch { target = 'invalid-profile' }
+  }
 
   const refreshCsrf = useCallback(async () => { csrf.current = await getCsrf() }, [])
   const restore = useCallback(async () => {
@@ -93,15 +118,17 @@ export default function App() {
   }
 
   return (
-    <main className="auth-shell">
+    <main className={user && showProfile ? "app-shell" : "auth-shell"}>
       <div className="brand">Fit<span>Log</span></div>
       {message && <p role="alert" className="form-error">{message}</p>}
       {loading ? <p role="status">確認中…</p> : user ? (
-        <section className="auth-form">
-          <p className="eyebrow">HOME</p><h1>{user.display_name}さん</h1>
-          <button type="button" disabled={busy} onClick={() => { void perform(async () => {
+        <section className={showProfile ? "profile-frame" : "auth-form"}>
+          <nav className="profile-nav" aria-label="メニュー"><a aria-disabled={profileSaving} href="#" onClick={event => { if (profileSaving) event.preventDefault() }}>ホーム</a><a aria-disabled={profileSaving} href="#profile" onClick={event => { if (profileSaving) event.preventDefault() }}>プロフィール</a></nav>
+          {!showProfile && <><p className="eyebrow">HOME</p><h1>{user.display_name}さん</h1></>}
+          <button type="button" disabled={busy || profileSaving} onClick={() => { void perform(async () => {
             await signOut(csrf.current); setUser(null); csrf.current = ''; await refreshCsrf()
           }) }}>{busy ? '送信中…' : 'ログアウト'}</button>
+          {showProfile && <ProfileScreen key={user.id} account={user} target={target} editing={hash === '#profile-edit'} onIdentity={onIdentity} onName={onName} onBusy={profileBusy} />}
         </section>
       ) : <AuthForm busy={busy} fields={fields} onSubmit={authenticate} onSwitch={() => { setMessage(''); setFields({}) }} />}
       {!loading && message && <button className="text-button" disabled={busy} onClick={() => {

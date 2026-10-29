@@ -21,6 +21,13 @@ def normalized_email(value: str) -> str:
     return email
 
 
+def normalized_display_name(value: str) -> str:
+    name = value.strip()
+    if not 1 <= len(name) <= 50 or any(unicodedata.category(char) == "Cc" for char in name):
+        raise ValidationError("表示名は制御文字を含まない1〜50文字にしてください。")
+    return name
+
+
 def validate_new_user(user: "User", password: str | None) -> None:
     """値は応答に埋め込まず、各フィールドに固定の案内を返す。"""
     errors: dict[str, list[str]] = {}
@@ -32,9 +39,9 @@ def validate_new_user(user: "User", password: str | None) -> None:
         user.email = normalized_email(user.email)
     except ValidationError:
         errors["email"] = ["有効なメールアドレスを入力してください。"]
-    if not 1 <= len(user.display_name) <= 50 or any(
-        unicodedata.category(char) == "Cc" for char in user.display_name
-    ):
+    try:
+        user.display_name = normalized_display_name(user.display_name)
+    except ValidationError:
         errors["display_name"] = ["表示名は制御文字を含まない1〜50文字にしてください。"]
     if password is None or not 12 <= len(password) <= 128:
         errors["password"] = ["パスワードは12〜128文字にしてください。"]

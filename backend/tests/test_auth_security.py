@@ -233,6 +233,7 @@ def test_secure_environment_configuration(env: str, http: str, key: str, ok: boo
 @pytest.mark.parametrize("invalid", ["", "username", "email", "legacy_email"])
 def test_migration_preserves_legacy_or_stops_without_secret_values(invalid: str) -> None:
     executor = MigrationExecutor(connection)
+    restore = executor.loader.graph.leaf_nodes("accounts")
     before = [("accounts", "0001_initial")]
     after = [("accounts", "0002_auth")]
     executor.migrate(before)
@@ -255,21 +256,23 @@ def test_migration_preserves_legacy_or_stops_without_secret_values(invalid: str)
             assert secret not in str(failure.value)
             assert old.objects.get(pk=user.pk).password == secret
             old.objects.exclude(pk=user.pk).delete()
-        MigrationExecutor(connection).migrate(after)
-        migrated = User.objects.get(pk=user.pk)
+        MigrationExecutor(connection).migrate(restore)
+        migrated_model = MigrationExecutor(connection).loader.project_state(after).apps.get_model("accounts", "User")
+        migrated = migrated_model.objects.get(pk=user.pk)
         assert migrated.password == secret
         assert migrated.email == ""
         assert migrated.display_name == "foundation"
         assert migrated.pk == user.pk
     finally:
         old.objects.exclude(pk=user.pk).delete()
-        MigrationExecutor(connection).migrate(after)
+        MigrationExecutor(connection).migrate(restore)
 
 
 def test_migration_detects_lowercase_collisions_before_mutation() -> None:
     # Run the data migration's preflight against a historical model with the
     # case-sensitive 0001 constraints, where these collisions can exist.
     executor = MigrationExecutor(connection)
+    restore = executor.loader.graph.leaf_nodes("accounts")
     before = [("accounts", "0001_initial")]
     after = [("accounts", "0002_auth")]
     executor.migrate(before)
@@ -283,4 +286,4 @@ def test_migration_detects_lowercase_collisions_before_mutation() -> None:
         assert set(old.objects.values_list("password", flat=True)) == {"preserve"}
     finally:
         old.objects.all().delete()
-        MigrationExecutor(connection).migrate(after)
+        MigrationExecutor(connection).migrate(restore)

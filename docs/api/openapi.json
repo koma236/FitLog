@@ -3,7 +3,7 @@
   "info": {
     "title": "FitLog API",
     "version": "0.1.0-draft",
-    "description": "FL-01 healthとFL-02の最小認証を実装。その他の業務APIは将来の契約案であり未実装。認証はDBセッションとCSRFを使う。"
+    "description": "FL-01 health、FL-02の最小認証、FL-03プロフィールを実装。記録・画像・交流などは後続の契約案。認証はDBセッションとCSRFを使う。"
   },
   "servers": [
     {
@@ -2029,19 +2029,38 @@
     "/api/users/{username}": {
       "get": {
         "operationId": "getProfile",
-        "summary": "プロフィール",
-        "description": "メールアドレスを含めない。usernameは小文字の正規形。",
+        "summary": "プロフィール表示",
         "tags": [
           "users"
         ],
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "description": "会員間のみ。非公開項目は他人向けのhealth/energyからキーごと除外。emailは返さない。全応答no-store/Vary:Cookie。未認証401、HEAD/OPTIONS405。PUT判定順はCSRF→認証→method→413→415→ヘッダー400→owner409→JSON/項目400。",
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "保存/取得成功",
             "headers": {
               "X-Request-Id": {
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
               }
             },
             "content": {
@@ -2053,13 +2072,206 @@
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "enum": [
+                    "Session"
+                  ],
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "enum": [
+                    "GET"
+                  ],
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: 結果不明。自動再送しない。",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -2069,9 +2281,7 @@
             "required": true,
             "schema": {
               "type": "string",
-              "pattern": "^[a-z0-9_]{3,30}$",
-              "minLength": 3,
-              "maxLength": 30
+              "pattern": "^[a-z0-9_]{3,30}$"
             }
           }
         ]
@@ -2151,19 +2361,77 @@
       }
     },
     "/api/users/me": {
-      "put": {
-        "operationId": "updateProfile",
-        "summary": "自分のプロフィールを更新",
-        "description": "自分のプロフィールを更新",
+      "get": {
+        "operationId": "getOwnProfile",
+        "summary": "プロフィール表示",
         "tags": [
           "users"
         ],
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "description": "会員間のみ。非公開項目は他人向けのhealth/energyからキーごと除外。emailは返さない。全応答no-store/Vary:Cookie。未認証401、HEAD/OPTIONS405。PUT判定順はCSRF→認証→method→413→415→ヘッダー400→owner409→JSON/項目400。",
         "responses": {
           "200": {
-            "description": "成功",
+            "description": "保存/取得成功",
             "headers": {
               "X-Request-Id": {
                 "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerProfile"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "enum": [
+                    "Session"
+                  ],
                   "type": "string"
                 }
               }
@@ -2171,22 +2439,515 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Me"
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "enum": [
+                    "GET, PUT"
+                  ],
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: 結果不明。自動再送しない。",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": []
+      },
+      "put": {
+        "operationId": "updateProfile",
+        "summary": "本人プロフィール更新",
+        "tags": [
+          "users"
+        ],
+        "security": [
+          {
+            "SessionCookie": []
+          }
+        ],
+        "description": "会員間のみ。非公開項目は他人向けのhealth/energyからキーごと除外。emailは返さない。全応答no-store/Vary:Cookie。未認証401、HEAD/OPTIONS405。PUT判定順はCSRF→認証→method→413→415→ヘッダー400→owner409→JSON/項目400。",
+        "responses": {
+          "200": {
+            "description": "保存/取得成功",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OwnerProfile"
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "VALIDATION_ERROR: 既知のfieldErrorsドットパスと固定文言。未知キー名や入力値を反射しない。",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "enum": [
+                    "Session"
+                  ],
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "enum": [
+                    "GET, PUT"
+                  ],
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PROFILE_OWNER_CHANGED: 編集開始時の本人とrequest.userが異なる。更新しない。",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE: 本文16KiB超",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE: JSON/UTF-8のみ。",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: 結果不明。自動再送しない。",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "enum": [
+                    "no-store"
+                  ],
+                  "type": "string"
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -2196,8 +2957,17 @@
             "required": true,
             "schema": {
               "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Profile-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "取得時のUser.pkと照合するだけで、編集対象や認証手段として使わない。"
           }
         ],
         "requestBody": {
@@ -2589,7 +3359,8 @@
               "NOT_ACCEPTABLE",
               "UNSUPPORTED_MEDIA_TYPE",
               "ALREADY_AUTHENTICATED",
-              "PAYLOAD_TOO_LARGE"
+              "PAYLOAD_TOO_LARGE",
+              "PROFILE_OWNER_CHANGED"
             ]
           },
           "message": {
@@ -2697,61 +3468,14 @@
         }
       },
       "Profile": {
-        "type": "object",
-        "additionalProperties": false,
-        "required": [
-          "id",
-          "username",
-          "display_name",
-          "bio",
-          "avatar_url",
-          "following_count",
-          "follower_count",
-          "is_following"
-        ],
-        "properties": {
-          "id": {
-            "type": "string",
-            "format": "uuid"
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/OwnerProfile"
           },
-          "username": {
-            "type": "string",
-            "pattern": "^[a-z0-9_]{3,30}$",
-            "minLength": 3,
-            "maxLength": 30,
-            "not": {
-              "enum": [
-                "me",
-                "search"
-              ]
-            }
-          },
-          "display_name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 50
-          },
-          "bio": {
-            "type": "string",
-            "maxLength": 160
-          },
-          "avatar_url": {
-            "type": "string",
-            "format": "uri",
-            "nullable": true
-          },
-          "following_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "follower_count": {
-            "type": "integer",
-            "minimum": 0
-          },
-          "is_following": {
-            "type": "boolean"
+          {
+            "$ref": "#/components/schemas/PublicProfile"
           }
-        }
+        ]
       },
       "WorkoutSet": {
         "type": "object",
@@ -3062,7 +3786,9 @@
         "additionalProperties": false,
         "required": [
           "display_name",
-          "bio"
+          "bio",
+          "health",
+          "visibility"
         ],
         "properties": {
           "display_name": {
@@ -3072,7 +3798,14 @@
           },
           "bio": {
             "type": "string",
-            "maxLength": 160
+            "maxLength": 160,
+            "description": "CRLF/CRをLFへ正規化後にコードポイント計数。trimしない。"
+          },
+          "health": {
+            "$ref": "#/components/schemas/ProfileHealth"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ProfileVisibility"
           }
         }
       },
@@ -3242,6 +3975,324 @@
           }
         },
         "description": "signup/login/me共通の本人情報。staff/password/session keyを含まない。"
+      },
+      "ProfileVisibility": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "height",
+          "weight",
+          "age",
+          "formula",
+          "activity",
+          "bmr",
+          "tdee",
+          "intake"
+        ],
+        "properties": {
+          "height": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "weight": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "age": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "formula": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "bmr": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "tdee": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          },
+          "intake": {
+            "type": "string",
+            "enum": [
+              "private",
+              "public"
+            ],
+            "default": "private"
+          }
+        }
+      },
+      "ProfileHealth": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "height",
+          "weight",
+          "age",
+          "formula",
+          "activity"
+        ],
+        "properties": {
+          "height": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,2})(\\.[0-9])?$",
+            "description": "100〜250cm（両端を含む）。応答は小数1桁。",
+            "nullable": true
+          },
+          "weight": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,2})(\\.[0-9])?$",
+            "description": "20〜350kg（両端を含む）。応答は小数1桁。",
+            "nullable": true
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120,
+            "description": "JSON整数のみ。30.0・bool・文字列は不受理。",
+            "nullable": true
+          },
+          "formula": {
+            "type": "string",
+            "enum": [
+              "male",
+              "female",
+              null
+            ],
+            "nullable": true
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              null
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "PublicProfileHealth": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "height": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,2})(\\.[0-9])?$",
+            "description": "100〜250cm（両端を含む）。応答は小数1桁。",
+            "nullable": true
+          },
+          "weight": {
+            "type": "string",
+            "pattern": "^(0|[1-9][0-9]{0,2})(\\.[0-9])?$",
+            "description": "20〜350kg（両端を含む）。応答は小数1桁。",
+            "nullable": true
+          },
+          "age": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 120,
+            "description": "JSON整数のみ。30.0・bool・文字列は不受理。",
+            "nullable": true
+          },
+          "formula": {
+            "type": "string",
+            "enum": [
+              "male",
+              "female",
+              null
+            ],
+            "nullable": true
+          },
+          "activity": {
+            "type": "string",
+            "enum": [
+              "low",
+              "medium",
+              "high",
+              null
+            ],
+            "nullable": true
+          }
+        }
+      },
+      "ProfileEnergy": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "bmr",
+          "tdee",
+          "intake"
+        ],
+        "properties": {
+          "bmr": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "tdee": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "intake": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          }
+        }
+      },
+      "PublicProfileEnergy": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "bmr": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "tdee": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          },
+          "intake": {
+            "type": "integer",
+            "minimum": 1,
+            "nullable": true
+          }
+        }
+      },
+      "OwnerProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "bio",
+          "is_owner",
+          "health",
+          "energy",
+          "visibility"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "User.pk。身体情報行の有無に無関係。"
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{3,30}$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 160,
+            "description": "CRLF/CRをLFへ正規化後にコードポイント計数。trimしない。"
+          },
+          "is_owner": {
+            "enum": [
+              true
+            ],
+            "type": "boolean"
+          },
+          "health": {
+            "$ref": "#/components/schemas/ProfileHealth"
+          },
+          "energy": {
+            "$ref": "#/components/schemas/ProfileEnergy"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/ProfileVisibility"
+          }
+        }
+      },
+      "PublicProfile": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "bio",
+          "is_owner",
+          "health",
+          "energy"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "User.pk。身体情報行の有無に無関係。"
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{3,30}$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "bio": {
+            "type": "string",
+            "maxLength": 160,
+            "description": "CRLF/CRをLFへ正規化後にコードポイント計数。trimしない。"
+          },
+          "is_owner": {
+            "enum": [
+              false
+            ],
+            "type": "boolean"
+          },
+          "health": {
+            "$ref": "#/components/schemas/PublicProfileHealth"
+          },
+          "energy": {
+            "$ref": "#/components/schemas/PublicProfileEnergy"
+          }
+        }
       }
     },
     "responses": {
@@ -3320,7 +4371,7 @@
         }
       },
       "Error409": {
-        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED",
+        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED",
         "headers": {
           "X-Request-Id": {
             "schema": {
