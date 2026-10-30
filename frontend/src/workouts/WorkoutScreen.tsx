@@ -1,3 +1,4 @@
+import ImageEditor from '../upload/ImageEditor'
 import { useEffect, useRef, useState } from 'react'
 import { ApiError, getCsrf, getMe } from '../auth/api'
 import type { Account, FieldErrors } from '../auth/api'
@@ -20,6 +21,10 @@ type Submission = {
 }
 const loginNotice = 'ログインが切れました。ログイン後に記録一覧で保存されたか確認してください。同じ内容を新しい記録として自動保存することはありません。'
 export default function WorkoutScreen({ account, id, editing, initial, onIdentity, onBusy, onSaved, onClearSaved, onUncertain }: Props) {
+  const [photo, setPhoto] = useState<File | null>(null)
+  const [savedWithPhoto, setSavedWithPhoto] = useState(false)
+  const [imageBusy, setImageBusy] = useState(false)
+  const imageRefreshUsed = useRef(false)
   const [post, setPost] = useState<Workout | null>(initial)
   const [ready, setReady] = useState(false)
   const [missing, setMissing] = useState(false)
@@ -35,6 +40,7 @@ export default function WorkoutScreen({ account, id, editing, initial, onIdentit
   const alive = useRef(true)
   const generation = useRef(0)
   const controller = useRef<AbortController | null>(null)
+  const imageReadController = useRef<AbortController | null>(null)
   const sending = useRef(false)
   const lock = useRef(Symbol())
   const csrf = useRef('')
@@ -144,7 +150,7 @@ export default function WorkoutScreen({ account, id, editing, initial, onIdentit
     }
     window.addEventListener('focus', focus)
     return () => {
-      alive.current = false; operations.current++; abort.abort(); controller.current?.abort()
+      alive.current = false; operations.current++; abort.abort(); controller.current?.abort(); imageReadController.current?.abort()
       config.onBusy(token, false); config.onUncertain(token, false)
       window.removeEventListener('focus', focus)
     }
@@ -166,11 +172,12 @@ export default function WorkoutScreen({ account, id, editing, initial, onIdentit
       if (!await identityMatches() || !current(version)) return
       if (!csrf.current) csrf.current = await getCsrf()
       const payload = retry && previous ? previous.payload : data
-      submitted.current = { id: id ?? String(payload?.id), action: payload === null ? 'delete' : id ? 'update' : 'create', conflict: false, payload: payload === null ? null : structuredClone(payload), retried: retry, unknown: retry && previous?.unknown === true }
-      const result = await writeWorkout(id, account.id, csrf.current, payload, abort.signal)
+      const targetId = id ?? post?.id ?? null
+      submitted.current = { id: targetId ?? String(payload?.id), action: payload === null ? 'delete' : targetId ? 'update' : 'create', conflict: false, payload: payload === null ? null : structuredClone(payload), retried: retry, unknown: retry && previous?.unknown === true }
+      const result = await writeWorkout(targetId, account.id, csrf.current, payload, abort.signal)
       if (!current(version)) return
       markUncertain(false)
-      if (result) { setPost(result); onSaved(result); setMessage('記録を保存しました。'); destination = '#record/' + result.id }
+      if (result) { setPost(result); onSaved(result); setMessage('記録を保存しました。'); if (!id && photo) { setSavedWithPhoto(true); setMessage('記録は保存済みです。写真の保存結果は下に表示します。') } else destination = '#record/' + result.id }
       else { onClearSaved(); setPost(null); setMissing(true); destination = '#profile' }
       submitted.current = null; dismissDelete()
     } catch (error) { await failed(error, version) }
@@ -192,6 +199,7 @@ export default function WorkoutScreen({ account, id, editing, initial, onIdentit
       if (!value.is_owner) { submitted.current = null; markUncertain(false); setPost(null); setMissing(true); setMessage('この識別子は使用できません。新しい記録を作り直してください。'); return }
       setPost(value); markUncertain(false); dismissDelete(); setEpoch(v => v + 1); submitted.current = null
       if (submission.action === 'create') {
+        if (photo) { setSavedWithPhoto(true); setMessage('記録は保存済みです。写真の保存結果は下に表示します。'); return }
         onSaved(value); setMessage('記録を保存しました。'); onBusy(lock.current, false); location.hash = '#record/' + value.id
       } else setMessage(submission.action === 'delete' ? '保存済みの記録を表示しました。削除する場合はもう一度確認してください。' : '保存済みの記録を表示しました。変更が反映されているか確認してください。')
     } catch (error) {
@@ -211,11 +219,17 @@ export default function WorkoutScreen({ account, id, editing, initial, onIdentit
       } else await failed(error, version)
     } finally { sending.current = false; onBusy(lock.current, false); if (current(version)) setBusy(false) }
   }
+  async function refreshImage() {
+    if (imageRefreshUsed.current || !post) return
+    imageRefreshUsed.current = true
+    const version = generation.current; const abort = new AbortController(); imageReadController.current?.abort(); imageReadController.current = abort
+    try { const value = await getWorkout(post.id, account.id, abort.signal); if (current(version)) setPost(old => old ? { ...old, image: value.image?.id === old.image?.id ? value.image : old.image, author: { ...old.author, avatar: value.author.avatar?.id === old.author.avatar?.id ? value.author.avatar : old.author.avatar } } : old) } catch (error) { if (current(version)) { if (error instanceof ApiError && (error.status === 401 || error.code === 'RECORD_OWNER_CHANGED')) await failed(error, version); else setMessage('画像を表示できません。記録を開き直してください。') } }
+  }
   return <section className="workout-content">
     {message && <div role="alert"><p>{message}</p>{fields._form && <p>{fields._form.join(' ')}</p>}</div>}
-    {missing ? <a href="#profile">記録一覧へ戻る</a> : !ready ? !message && <p role="status">記録を読み込んでいます…</p> : (!id || editing && post?.is_owner && !viewOnly) ? <WorkoutEditor key={epoch} post={post} busy={busy || uncertain} fields={fields} health={health} onSave={v => { void perform(v) }} /> : post && <><WorkoutCard post={post} />{post.is_owner && !viewOnly && <div className="row"><a href={'#record-edit/' + post.id}>編集</a><button disabled={busy || uncertain} type="button" onClick={() => { setConfirmDelete(true) }}>記録を削除</button></div>}</>}
+    {missing ? <a href="#profile">記録一覧へ戻る</a> : !ready ? !message && <p role="status">記録を読み込んでいます…</p> : (!savedWithPhoto && (!id || editing && post?.is_owner && !viewOnly)) ? <WorkoutEditor key={epoch} post={post} photo={photo} onPhoto={setPhoto} busy={busy || imageBusy || uncertain} fields={fields} health={health} onSave={v => { void perform(v) }} /> : post && <><WorkoutCard post={post} onImageError={() => { void refreshImage() }} /><a href={"#record/" + post.id}>記録を開き直す</a>{post.is_owner && !viewOnly && <ImageEditor key={post.id} account={account} postId={post.id} image={post.image} initialFile={savedWithPhoto ? photo : null} disabled={busy} onImage={(image, mutation) => { onClearSaved(); if (mutation) imageRefreshUsed.current = false; setPost(old => old ? { ...old, image } : old); setPhoto(null) }} onIdentity={onIdentity} onBusy={onBusy} onWorking={setImageBusy} />}{post.is_owner && !viewOnly && <div className="row"><a href={'#record-edit/' + post.id}>編集</a><button disabled={busy || imageBusy || uncertain} type="button" onClick={() => { setConfirmDelete(true) }}>記録を削除</button></div>}</>}
     {uncertain && !missing && <button disabled={busy} type="button" onClick={() => { void recover() }}>保存状態を確認（入力を破棄して保存済みの記録を表示）</button>}
     {retryAvailable && !missing && <button disabled={busy} type="button" onClick={() => { void perform(submitted.current?.payload ?? null, true) }}>同じ内容で1回再送</button>}
-    {confirmDelete && <dialog ref={dialog} role="alertdialog" onClose={() => { setConfirmDelete(false) }} aria-label="記録の削除確認" className="delete-dialog" onCancel={event => { event.preventDefault(); if (!sending.current) dismissDelete() }}><p>この記録を削除しますか？削除すると元に戻せません。</p><p>{post?.performed_on} {post?.exercises[0]?.name}</p><button ref={cancelButton} type="button" disabled={busy} onClick={dismissDelete}>キャンセル</button><button type="button" disabled={busy || uncertain} onClick={() => { void perform(null) }}>削除する</button></dialog>}
+    {confirmDelete && <dialog ref={dialog} role="alertdialog" onClose={() => { setConfirmDelete(false) }} aria-label="記録の削除確認" className="delete-dialog" onCancel={event => { event.preventDefault(); if (!sending.current) dismissDelete() }}><p>この記録を削除しますか？削除すると元に戻せません。</p><p>{post?.performed_on} {post?.exercises[0]?.name}</p><button ref={cancelButton} type="button" disabled={busy} onClick={dismissDelete}>キャンセル</button><button type="button" disabled={busy || imageBusy || uncertain} onClick={() => { void perform(null) }}>削除する</button></dialog>}
   </section>
 }

@@ -1,3 +1,4 @@
+import PhotoPicker from '../upload/PhotoPicker'
 import { useState } from 'react'
 import type { FieldErrors } from '../auth/api'
 import { workoutEnergy } from './calories'
@@ -6,7 +7,7 @@ import type { Workout } from './types'
 
 type DraftExercise = { name: string; sets: { weight_kg: string; reps: string }[] }
 function today() { return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Tokyo' }).format(new Date()) }
-export default function WorkoutEditor({ post, busy, fields, health, onSave }: { post: Workout | null; busy: boolean; fields: FieldErrors; health: { weight: string | null; age: number | null }; onSave: (v: Record<string, unknown>) => void }) {
+export default function WorkoutEditor({ post, busy, fields, health, onSave, photo, onPhoto }: { post: Workout | null; busy: boolean; fields: FieldErrors; health: { weight: string | null; age: number | null }; onSave: (v: Record<string, unknown>) => void; photo: File | null; onPhoto: (v: File | null) => void }) {
   const [id] = useState(() => post?.id ?? crypto.randomUUID())
   const [day, setDay] = useState(post?.performed_on ?? today())
   const [note, setNote] = useState(post?.note ?? '')
@@ -46,6 +47,7 @@ export default function WorkoutEditor({ post, busy, fields, health, onSave }: { 
         <button type="button" disabled={ex.sets.length >= 20} onClick={() => { changeExercise(i, { ...ex, sets: [...ex.sets, { weight_kg: '', reps: '' }] }) }}>＋ セットを追加（{ex.sets.length}/20）</button><button type="button" disabled={exercises.length === 1} onClick={() => { setExercises(old => old.filter((_, index) => index !== i)) }}>種目{i + 1}を削除</button>
       </fieldset>)}
       <button type="button" disabled={exercises.length >= 10} onClick={() => { setExercises(old => [...old, { name: '', sets: [{ weight_kg: '', reps: '' }] }]) }}>＋ 種目を追加（{exercises.length}/10）</button>
+      {!post && <PhotoPicker file={photo} onFile={onPhoto} />}
       <label className="field">メモ<textarea aria-label="メモ" value={note} aria-describedby={described('note')} onChange={e => { setNote(e.target.value) }} />{error('note')}</label><div className="row"><a href={post ? '#record/' + post.id : '#profile'}>キャンセル</a><button type="submit">{busy ? '保存中…' : post ? '変更を保存' : '記録する'}</button></div>
     </fieldset>
   </form>

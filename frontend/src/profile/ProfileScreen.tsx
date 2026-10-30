@@ -1,3 +1,4 @@
+import ImageEditor from '../upload/ImageEditor'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, getCsrf, getMe } from '../auth/api'
 import type { Account, FieldErrors } from '../auth/api'
@@ -11,6 +12,8 @@ export default function ProfileScreen({ account, target, editing, onIdentity, on
   const [loaded, setLoaded] = useState<{ key: string; value: Profile } | null>(null)
   const [message, setMessage] = useState('')
   const [fields, setFields] = useState<FieldErrors>({})
+  const [imageBusy, setImageBusy] = useState(false)
+  const refreshUsed = useRef(false)
   const [busy, setBusy] = useState(false)
   const [draftEpoch, setDraftEpoch] = useState(0)
   const [reload, setReload] = useState(0)
@@ -21,6 +24,7 @@ export default function ProfileScreen({ account, target, editing, onIdentity, on
   const csrf = useRef('')
   const generation = useRef(0)
   const write = useRef<AbortController | null>(null)
+  const imageRead = useRef<AbortController | null>(null)
   const active = useCallback((version: number) => alive.current && generation.current === version, [])
   const invalidate = useCallback(() => { generation.current++ }, [])
   const key = `${account.id}:${target}:${String(editing)}:${String(reload)}`
@@ -29,12 +33,12 @@ export default function ProfileScreen({ account, target, editing, onIdentity, on
   useEffect(() => {
     alive.current = true
     const token = lockToken.current
-    return () => { alive.current = false; invalidate(); write.current?.abort(); csrf.current = ''; onBusy(token, false) }
+    return () => { alive.current = false; invalidate(); write.current?.abort(); imageRead.current?.abort(); csrf.current = ''; onBusy(token, false) }
   }, [onBusy, invalidate])
   useEffect(() => {
     const controller = new AbortController()
     const version = ++generation.current
-    setLoaded(null); setFields({}); setMessage(''); setUncertain(false)
+    setLoaded(null); setFields({}); setMessage(''); setUncertain(false); refreshUsed.current = false
     async function load() {
       try {
         const value = await getProfile(target, account.id, controller.signal)
@@ -42,6 +46,7 @@ export default function ProfileScreen({ account, target, editing, onIdentity, on
       } catch (error) {
         if (!active(version) || controller.signal.aborted) return
         if (error instanceof ApiError && error.status === 401) { setLoaded(null); onIdentity(null) }
+        else if (error instanceof ApiError && error.code === 'PROFILE_OWNER_CHANGED') { setLoaded(null); try { const me = await getMe(); if (active(version)) onIdentity(me) } catch { if (active(version)) onIdentity(null) } }
         else setMessage(error instanceof Error ? error.message : '接続できません。')
       }
     }
@@ -128,9 +133,17 @@ export default function ProfileScreen({ account, target, editing, onIdentity, on
       if (alive.current) setBusy(false)
     }
   }
+  async function refreshImage() {
+    if (refreshUsed.current || !profile) return
+    refreshUsed.current = true
+    const version = generation.current; const controller = new AbortController(); imageRead.current?.abort(); imageRead.current = controller
+    try { const value = await getProfile(target, account.id, controller.signal); if (active(version)) setLoaded(old => old ? { ...old, value: { ...old.value, avatar: old.value.avatar?.id === value.avatar?.id ? value.avatar : old.value.avatar } } : old) } catch (error) { if (!active(version)) return; if (error instanceof ApiError && error.status === 401) onIdentity(null); else if (error instanceof ApiError && error.code === 'PROFILE_OWNER_CHANGED') { setLoaded(null); try { const me = await getMe(); if (active(version)) onIdentity(me) } catch { if (active(version)) onIdentity(null) } } }
+  }
   return <div className="profile-content">
     {message && <p role="alert" className="form-error">{message}</p>}
-    {profile ? editing ? <ProfileEditor key={`${key}:${String(draftEpoch)}`} profile={profile} busy={busy} fields={fields} onSave={save} /> : <ProfileView profile={profile} /> : !message && <p role="status">プロフィールを読み込んでいます…</p>}
-    {(uncertain || (!profile && message)) && <button disabled={busy} type="button" onClick={() => { void recover() }}>{editing ? '保存状態を読み直す（入力を破棄）' : 'もう一度読み込む'}</button>}
+    {profile ? editing ? <ProfileEditor key={`${key}:${String(draftEpoch)}`} profile={profile} busy={busy || imageBusy} fields={fields} onSave={save} /> : <ProfileView profile={profile} onImageError={() => { void refreshImage() }} /> : !message && <p role="status">プロフィールを読み込んでいます…</p>}
+    {profile?.is_owner && <ImageEditor key={`${account.id}:${target}`} account={account} image={profile.avatar} disabled={busy} onImage={(avatar, mutation) => { if (mutation) refreshUsed.current = false; setLoaded(old => old ? { ...old, value: { ...old.value, avatar } } : old) }} onIdentity={onIdentity} onBusy={onBusy} onWorking={setImageBusy} />}
+    {profile && !editing && <button type="button" disabled={busy || imageBusy} onClick={() => { setReload(v => v + 1) }}>画像を再読み込み</button>}
+    {(uncertain || (!profile && message)) && <button disabled={busy || imageBusy} type="button" onClick={() => { void recover() }}>{editing ? '保存状態を読み直す（入力を破棄）' : 'もう一度読み込む'}</button>}
   </div>
 }

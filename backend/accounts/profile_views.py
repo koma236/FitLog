@@ -21,7 +21,7 @@ def profile(request: HttpRequest, username: str = "me") -> JsonResponse:
     if request.method not in allowed.split(", "):
         return method_error(request, allowed)
     if request.method == "GET":
-        users = User.objects.select_related("profile_health").filter(is_active=True)
+        users = User.objects.select_related("profile_health", "avatar_attachment__object").filter(is_active=True)
         if username == "me":
             user = users.filter(pk=request.user.pk).first()
         else:

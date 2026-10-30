@@ -1,0 +1,8 @@
+"""Image boundary failures carry only fixed, public error codes."""
+
+
+class ImageError(Exception):
+    def __init__(self, status: int, code: str) -> None:
+        self.status = status
+        self.code = code
+        super().__init__(code)

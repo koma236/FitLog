@@ -41,6 +41,16 @@ def error_response(
         message = "ログインしているユーザーが変わりました。プロフィールを開き直してください。"
     elif code == "RECORD_OWNER_CHANGED":
         message = "ログインしているユーザーが変わりました。記録を開き直してください。"
+    elif code == "IMAGE_OPERATION_CONFLICT":
+        message = "この画像操作は再利用できません。現在の画像を確認してください。"
+    elif code == "IMAGE_OPERATION_PENDING":
+        message = "画像を処理中です。少し待って保存状態を確認してください。"
+    elif code == "IMAGE_PROCESSING_BUSY":
+        message = "画像の処理が混み合っています。少し待って再試行してください。"
+    elif code == "INVALID_IMAGE":
+        message = "JPEGまたはPNGの画像を選択してください。"
+    elif code == "STORAGE_UNAVAILABLE":
+        message = "画像の保存先に接続できません。保存状態を確認してください。"
     elif code == "POST_ID_CONFLICT":
         message = "この識別子は使用できません。保存状態を確認してください。"
     elif code == "INVALID_CURSOR":

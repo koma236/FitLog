@@ -6,6 +6,7 @@ from django.db import transaction
 
 from accounts.models import ProfileHealth, User
 from accounts.profile_validation import ENERGY_KEYS, HEALTH_KEYS, PROFILE_KEYS, ProfileUpdate
+from media_assets.presentation import avatar
 
 
 def energy(health: ProfileHealth) -> dict[str, int | None]:
@@ -32,7 +33,7 @@ def profile_response(user: User, actor: User) -> dict[str, Any]:
               "weight": f"{health.weight_kg:.1f}" if health.weight_kg is not None else None,
               "age": health.age, "formula": health.formula, "activity": health.activity}
     flags = {key: bool(getattr(health, key + "_public")) for key in PROFILE_KEYS}
-    response: dict[str, Any] = {"id": str(user.pk), "username": user.username, "display_name": user.display_name,
+    response: dict[str, Any] = {"viewer_id": str(actor.pk), "avatar": avatar(user), "id": str(user.pk), "username": user.username, "display_name": user.display_name,
                                 "bio": user.bio, "is_owner": owner,
                                 "health": {key: values[key] for key in HEALTH_KEYS if owner or flags[key]},
                                 "energy": {key: value for key, value in energy(health).items() if owner or flags[key]}}
