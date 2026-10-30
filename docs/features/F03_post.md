@@ -41,3 +41,10 @@ MET×体重kg×分÷60をDecimalで計算し、最終値だけROUND_HALF_UP。ge
 画像変更はsession/CSRF/X-Record-Ownerで本人確認し、X-Image-Operationは論理操作ごとのUUIDv4。原本のファイル名・EXIF/GPS等は保存/出力しない。JPEG/PNGを実デコードして向きを補正し再エンコード。ICCの色域変換は行わず色味変化を許容する。署名URLは300秒、URLを知る者は期限内に取得できる。
 
 FL-05はlocal専用private filesystemと期限付き配信を実装する。S3 adapter/実接続はFL-09。ローカル処理枠1、画像PUTのclient期限45秒、混雑時は2秒後に明示再試行する。server側の受信総期限は未実装で、遅い送信が画像処理枠を占有するLow制約をFL-09公開前に検証・対処する。
+
+
+## FL-06 コメント・いいね
+
+全Post DTO（本人/他人、一覧/詳細/作成/更新、画像PUT成功）にcomment_count/like_count/is_likedを必須追加する。件数はactiveなコメント本人・いいね会員の行から、is_likedはviewer_idの会員に束縛して算出する。親Post作者もactiveであることを前提にし、同一snapshotで返す。独立集計/Existsで複数JOINの積とN+1を避ける。
+
+カードにハートとコメント件数、詳細にコメント欄。交流操作はPostの本文/created_at/updated_at/画像/energy/公開フラグを変えない。Post削除でComment/LikeをCASCADEし、本文を含まないCommentIdentityを残す。詳細は[F04](F04_comment.md)/[F05](F05_like.md)と[OpenAPI](../api/openapi.json)。

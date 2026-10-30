@@ -8,26 +8,27 @@ import WorkoutFeed from './workouts/WorkoutFeed'
 import type { Workout } from './workouts/types'
 
 export default function App() {
-  const profileLock = useRef<{ token: symbol; hash: string } | null>(null)
+  const profileLock = useRef(new Map<symbol, string>())
   const [profileSaving, setProfileSaving] = useState(false)
   const profileBusy = useCallback((token: symbol, saving: boolean) => {
-    if (!saving && profileLock.current !== null && profileLock.current.token !== token) return
-    profileLock.current = saving ? { token, hash: location.hash } : null
-    setProfileSaving(saving)
+    if (saving) { if (!profileLock.current.has(token)) profileLock.current.set(token, location.hash) }
+    else profileLock.current.delete(token)
+    setProfileSaving(profileLock.current.size > 0)
   }, [])
   const [hash, setHash] = useState(location.hash)
   useEffect(() => {
     const changed = () => {
-      if (profileLock.current !== null && location.hash !== profileLock.current.hash) history.replaceState(null, '', profileLock.current.hash)
+      const lockedHash = profileLock.current.values().next().value
+      if (lockedHash !== undefined && location.hash !== lockedHash) history.replaceState(null, '', location.pathname + location.search + lockedHash)
       setHash(location.hash)
     }
     window.addEventListener('hashchange', changed)
     return () => { window.removeEventListener('hashchange', changed) }
   }, [])
-  const workoutUnknown = useRef<symbol | null>(null)
+  const workoutUnknown = useRef(new Set<symbol>())
   const workoutUncertain = useCallback((token: symbol, value: boolean) => {
-    if (value) workoutUnknown.current = token
-    else if (workoutUnknown.current === token) workoutUnknown.current = null
+    if (value) workoutUnknown.current.add(token)
+    else workoutUnknown.current.delete(token)
   }, [])
   const [savedWorkout, setSavedWorkout] = useState<Workout | null>(null)
   const clearSavedWorkout = useCallback(() => { setSavedWorkout(null) }, [])
@@ -41,7 +42,7 @@ export default function App() {
   const operation = useRef(0)
   const alive = useRef(true)
 
-  const onIdentity = useCallback((next: Account | null, notice?: string) => { operation.current += 1; workoutUnknown.current = null; setSavedWorkout(null); if (notice) setMessage(notice); csrf.current = ''; profileLock.current = null; setProfileSaving(false); setUser(next) }, [])
+  const onIdentity = useCallback((next: Account | null, notice?: string) => { operation.current += 1; workoutUnknown.current.clear(); setSavedWorkout(null); if (notice) setMessage(notice); csrf.current = ''; profileLock.current.clear(); setProfileSaving(false); setUser(next) }, [])
   const onName = useCallback((id: string, name: string) => { setUser(previous => previous?.id === id ? { ...previous, display_name: name } : previous) }, [])
   const showProfile = hash === '#profile' || hash === '#profile-edit' || hash.startsWith('#profile/')
   const showWorkout = hash === '#record-new' || hash.startsWith('#record/') || hash.startsWith('#record-edit/')
@@ -83,13 +84,13 @@ export default function App() {
       } catch (error) {
         if (!alive.current || version !== operation.current) return
         if (error instanceof ApiError && error.status === 401) {
-          onIdentity(null, workoutUnknown.current ? 'ログインが切れました。ログイン後に記録一覧で保存されたか確認してください。同じ内容を新しい記録として自動保存することはありません。' : 'セッションの有効期限が切れました。ログインしてください。')
+          onIdentity(null, workoutUnknown.current.size > 0 ? 'ログインが切れました。ログイン後に記録一覧で保存されたか確認してください。同じ内容を新しい記録として自動保存することはありません。' : 'セッションの有効期限が切れました。ログインしてください。')
           csrf.current = ''
         } else setMessage(error instanceof Error ? error.message : '接続できません。')
       }
     }
     if (!user) return
-    const onFocus = () => { if (!sending.current && profileLock.current === null) void checkSession() }
+    const onFocus = () => { if (!sending.current && profileLock.current.size === 0) void checkSession() }
     window.addEventListener('focus', onFocus)
     return () => { window.removeEventListener('focus', onFocus) }
   }, [user, onIdentity])
@@ -142,7 +143,7 @@ export default function App() {
           }) }}>{busy ? '送信中…' : 'ログアウト'}</button>
           {showWorkout && <WorkoutScreen key={`${user.id}:${hash}`} account={user} id={workoutId} editing={hash.startsWith("#record-edit/")} initial={savedWorkout?.id === workoutId && savedWorkout.viewer_id === user.id ? savedWorkout : null} onIdentity={onIdentity} onBusy={profileBusy} onSaved={setSavedWorkout} onClearSaved={clearSavedWorkout} onUncertain={workoutUncertain} />}
           {showProfile && <ProfileScreen key={user.id} account={user} target={target} editing={hash === '#profile-edit'} onIdentity={onIdentity} onName={onName} onBusy={profileBusy} />}
-          {!showWorkout && hash !== "#profile-edit" && <WorkoutFeed key={`${user.id}:${target}:${hash}`} account={user} username={target === "me" ? user.username : target} onIdentity={onIdentity} />}
+          {!showWorkout && hash !== "#profile-edit" && <WorkoutFeed key={`${user.id}:${target}:${hash}`} account={user} username={target === "me" ? user.username : target} onIdentity={onIdentity} onBusy={profileBusy} onUncertain={workoutUncertain} />}
         </section>
       ) : <AuthForm busy={busy} fields={fields} onSubmit={authenticate} onSwitch={() => { setMessage(''); setFields({}) }} />}
       {!loading && message && <button className="text-button" disabled={busy} onClick={() => {

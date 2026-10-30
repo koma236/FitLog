@@ -41,6 +41,10 @@ def error_response(
         message = "ログインしているユーザーが変わりました。プロフィールを開き直してください。"
     elif code == "RECORD_OWNER_CHANGED":
         message = "ログインしているユーザーが変わりました。記録を開き直してください。"
+    elif code == "SOCIAL_OWNER_CHANGED":
+        message = "ログインしているユーザーが変わりました。コメント・いいねの状態を確認してください。"
+    elif code == "COMMENT_ID_CONFLICT":
+        message = "このコメントIDは使用済みです。保存状態を確認してください。"
     elif code == "IMAGE_OPERATION_CONFLICT":
         message = "この画像操作は再利用できません。現在の画像を確認してください。"
     elif code == "IMAGE_OPERATION_PENDING":

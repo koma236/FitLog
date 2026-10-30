@@ -3,7 +3,7 @@
   "info": {
     "title": "FitLog API",
     "version": "0.1.0-draft",
-    "description": "health, FL-02 auth, FL-03 profile, FL-04 workouts and FL-05 local images are implemented. Social/timeline/production S3 and infrastructure remain future contracts."
+    "description": "health, FL-02 auth, FL-03 profile, FL-04 workouts, FL-05 local images and FL-06 comments/likes are implemented. Follow/search/global timeline and production infrastructure remain future contracts."
   },
   "servers": [
     {
@@ -1192,7 +1192,7 @@
       "post": {
         "operationId": "createPost",
         "summary": "筋トレ記録を作成",
-        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Post DTOs include the FL-05 image and required FL-06 comment_count, like_count and is_liked fields. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -1591,7 +1591,7 @@
       "get": {
         "operationId": "getPost",
         "summary": "記録詳細",
-        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Post DTOs include the FL-05 image and required FL-06 comment_count, like_count and is_liked fields. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -1969,7 +1969,7 @@
       "put": {
         "operationId": "updatePost",
         "summary": "自分の記録を全置換",
-        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Post DTOs include the FL-05 image and required FL-06 comment_count, like_count and is_liked fields. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -2375,7 +2375,7 @@
       "delete": {
         "operationId": "deletePost",
         "summary": "自分の記録を削除",
-        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Post DTOs include the FL-05 image and required FL-06 comment_count, like_count and is_liked fields. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "posts"
         ],
@@ -3460,15 +3460,58 @@
       "get": {
         "operationId": "listComments",
         "summary": "コメント一覧",
-        "description": "created_at ASC,id ASC。",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters. created_at ASC,id ASC; default20,max50. Cursor signed for viewer/post/last timestamp+UUID, TTL24h. Page-to-page changes are live, not a fixed dataset snapshot.",
         "tags": [
-          "posts"
+          "social"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "schema": {
+              "type": "string",
+              "maxLength": 2048
+            }
+          }
         ],
         "responses": {
           "200": {
             "description": "成功",
             "headers": {
               "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
                 "schema": {
                   "type": "string"
                 }
@@ -3482,62 +3525,29 @@
               }
             }
           },
-          "400": {
-            "$ref": "#/components/responses/Error400"
-          },
           "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error500"
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "postId",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
-            }
-          },
-          {
-            "in": "query",
-            "name": "cursor",
-            "schema": {
-              "type": "string",
-              "maxLength": 1024
-            },
-            "description": "不透明なカーソル。他の一覧・検索条件のカーソルは流用不可。"
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 50,
-              "default": 20
-            }
-          }
-        ]
-      },
-      "post": {
-        "operationId": "createComment",
-        "summary": "コメントを作成",
-        "description": "コメントを作成",
-        "tags": [
-          "posts"
-        ],
-        "responses": {
-          "201": {
-            "description": "作成済み",
+            "description": "AUTH_REQUIRED.",
             "headers": {
               "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
                 "schema": {
                   "type": "string"
                 }
@@ -3546,27 +3556,183 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Comment"
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, POST"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INVALID_CURSOR: unknown/duplicate query, limit invalid, or cursor signature/expiry/viewer/post/shape invalid.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        },
+        }
+      },
+      "post": {
+        "operationId": "createComment",
+        "summary": "コメントを追加",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters. CRLF→LF, reject loneCR/controls except LF/TAB and DEL/surrogates, Python-strip leading/trailing whitespace, then count Unicode code points. No NFC/NFKC normalization. Text is rendered literally. No automatic retry with a new ID.",
+        "tags": [
+          "social"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -3579,20 +3745,386 @@
           },
           {
             "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Member at operation start, not a target author or authentication credential."
+          },
+          {
+            "in": "header",
             "name": "X-CSRFToken",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "Obtain from /api/auth/csrf and send the session cookie."
           }
         ],
+        "responses": {
+          "201": {
+            "description": "成功",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, POST"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: owner header. VALIDATION_ERROR: JSON/body/id invalid, duplicate/unknown keys, depth>4, disallowed controls/surrogate or normalized body outside1..500 code points.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SOCIAL_OWNER_CHANGED or COMMENT_ID_CONFLICT. A used/deleted client UUID cannot create another comment.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE: raw JSON exceeds 16KiB.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE: UTF-8 application/json required.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/CommentInput"
+                "$ref": "#/components/schemas/CommentCreate"
               }
             }
           }
@@ -3600,12 +4132,23 @@
       }
     },
     "/api/comments/{id}": {
-      "put": {
-        "operationId": "updateComment",
-        "summary": "自分のコメントを編集",
-        "description": "自分のコメントを編集",
+      "get": {
+        "operationId": "getComment",
+        "summary": "コメントの保存状態を取得",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters.",
         "tags": [
-          "comments"
+          "social"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
         ],
         "responses": {
           "200": {
@@ -3615,32 +4158,238 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Comment"
+                  "$ref": "#/components/schemas/CommentResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, PUT, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INVALID_CURSOR: query parameters are not accepted.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        },
+        }
+      },
+      "put": {
+        "operationId": "updateComment",
+        "summary": "本人のコメントを編集",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters. Same body normalization as createComment. Author/parent/created_at are immutable. Concurrent edits by the same member are last writer wins in lock acquisition order.",
+        "tags": [
+          "social"
+        ],
         "parameters": [
           {
             "in": "path",
@@ -3653,14 +4402,380 @@
           },
           {
             "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Member at operation start, not a target author or authentication credential."
+          },
+          {
+            "in": "header",
             "name": "X-CSRFToken",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "Obtain from /api/auth/csrf and send the session cookie."
           }
         ],
+        "responses": {
+          "200": {
+            "description": "成功",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CommentResult"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, PUT, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: owner header. VALIDATION_ERROR: JSON/body invalid, duplicate/unknown keys, depth>4, disallowed controls/surrogate or normalized body outside1..500 code points.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED or FORBIDDEN: another member cannot edit/delete this comment, including the post author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SOCIAL_OWNER_CHANGED: current session differs from the edit-start member.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "PAYLOAD_TOO_LARGE: raw JSON exceeds 16KiB.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "415": {
+            "description": "UNSUPPORTED_MEDIA_TYPE: UTF-8 application/json required.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -3674,35 +4789,11 @@
       },
       "delete": {
         "operationId": "deleteComment",
-        "summary": "自分のコメントを削除",
-        "description": "自分のコメントを削除",
+        "summary": "本人のコメントを削除",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters.",
         "tags": [
-          "comments"
+          "social"
         ],
-        "responses": {
-          "204": {
-            "description": "成功（本文なし）",
-            "headers": {
-              "X-Request-Id": {
-                "schema": {
-                  "type": "string"
-                }
-              }
-            }
-          },
-          "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error500"
-          }
-        },
         "parameters": [
           {
             "in": "path",
@@ -3715,29 +4806,370 @@
           },
           {
             "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Member at operation start, not a target author or authentication credential."
+          },
+          {
+            "in": "header",
             "name": "X-CSRFToken",
             "required": true,
             "schema": {
               "type": "string"
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "description": "Obtain from /api/auth/csrf and send the session cookie."
           }
-        ]
+        ],
+        "responses": {
+          "204": {
+            "description": "成功（本文なし）",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "AUTH_REQUIRED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET, PUT, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: missing/malformed X-Social-Owner.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED or FORBIDDEN: another member cannot edit/delete this comment, including the post author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SOCIAL_OWNER_CHANGED: current session differs from the edit-start member.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/api/posts/{postId}/like": {
       "post": {
-        "operationId": "postLike",
-        "summary": "いいね付与",
-        "description": "同じ操作を再送しても重複・負数にならない。結果は最新の件数と自分の状態。",
+        "operationId": "addLike",
+        "summary": "いいねを付ける",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters. Body must be zero bytes; Content-Type is not required. Repeated requests are idempotent; use the server count and member state. Own posts may be liked. No Retry-After header is emitted.",
         "tags": [
-          "posts"
+          "social"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Member at operation start, not a target author or authentication credential."
+          },
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Obtain from /api/auth/csrf and send the session cookie."
+          }
         ],
         "responses": {
           "200": {
             "description": "成功",
             "headers": {
               "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
                 "schema": {
                   "type": "string"
                 }
@@ -3752,51 +5184,324 @@
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error500"
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "postId",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
+            "description": "AUTH_REQUIRED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
-          {
-            "in": "header",
-            "name": "X-CSRFToken",
-            "required": true,
-            "schema": {
-              "type": "string"
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "POST, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: owner header missing/malformed or body is nonempty.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SOCIAL_OWNER_CHANGED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        ]
+        }
       },
       "delete": {
-        "operationId": "deleteLike",
-        "summary": "いいね解除",
-        "description": "同じ操作を再送しても重複・負数にならない。結果は最新の件数と自分の状態。",
+        "operationId": "removeLike",
+        "summary": "いいねを解除",
+        "description": "Implemented FL-06 member API. no-store / Vary: Cookie. Global CSRF rejects unsafe methods before view processing. Read/write responses are bound to viewer_id. Inactive post authors and comment authors are hidden; counts use the same active filters. Body must be zero bytes; Content-Type is not required. Repeated requests are idempotent; use the server count and member state. Own posts may be liked. No Retry-After header is emitted.",
         "tags": [
-          "posts"
+          "social"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "postId",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Member at operation start, not a target author or authentication credential."
+          },
+          {
+            "in": "header",
+            "name": "X-CSRFToken",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Obtain from /api/auth/csrf and send the session cookie."
+          }
         ],
         "responses": {
           "200": {
             "description": "成功",
             "headers": {
               "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
                 "schema": {
                   "type": "string"
                 }
@@ -3811,38 +5516,267 @@
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
-          },
-          "403": {
-            "$ref": "#/components/responses/Error403"
-          },
-          "404": {
-            "$ref": "#/components/responses/Error404"
-          },
-          "500": {
-            "$ref": "#/components/responses/Error500"
-          }
-        },
-        "parameters": [
-          {
-            "in": "path",
-            "name": "postId",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid"
+            "description": "AUTH_REQUIRED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
             }
           },
-          {
-            "in": "header",
-            "name": "X-CSRFToken",
-            "required": true,
-            "schema": {
-              "type": "string"
+          "404": {
+            "description": "NOT_FOUND: absent or inactive target/comment author.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
             },
-            "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "POST, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "INTERNAL_ERROR: unexpected failure; no internal details.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: database/session failure; session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: owner header missing/malformed or body is nonempty.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "CSRF_FAILED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "SOCIAL_OWNER_CHANGED.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "description": "Includes Cookie.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
-        ]
+        }
       }
     },
     "/api/users/search": {
@@ -4178,7 +6112,7 @@
       "get": {
         "operationId": "listUserPosts",
         "summary": "利用者の記録一覧",
-        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Images/social are later. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
+        "description": "Implemented FL-04. Logged-in members only; no-store. Owner-only writes, atomic full replacement. Post DTOs include the FL-05 image and required FL-06 comment_count, like_count and is_liked fields. JSON body max 32KiB, UTF-8, depth 8. GET materializes parent/children in a short PostgreSQL REPEATABLE READ READ ONLY transaction.",
         "tags": [
           "users"
         ],
@@ -6249,7 +8183,9 @@
               "INVALID_REQUEST",
               "IMAGE_OPERATION_CONFLICT",
               "IMAGE_OPERATION_PENDING",
-              "IMAGE_PROCESSING_BUSY"
+              "IMAGE_PROCESSING_BUSY",
+              "SOCIAL_OWNER_CHANGED",
+              "COMMENT_ID_CONFLICT"
             ]
           },
           "message": {
@@ -6638,7 +8574,7 @@
           "body": {
             "type": "string",
             "minLength": 1,
-            "maxLength": 500
+            "description": "CRLF is converted to LF; lone CR, disallowed C0 controls, DEL and surrogates are rejected; Python strip is applied, then length must be 1..500 Unicode code points. This is a normalized-length limit, not a raw-string maxLength. Raw JSON is capped at 16KiB. No NFC/NFKC conversion. BIDI/C1/zero-width characters are not otherwise filtered in this local implementation."
           }
         }
       },
@@ -6649,6 +8585,7 @@
           "id",
           "post_id",
           "author",
+          "is_owner",
           "body",
           "created_at",
           "updated_at"
@@ -6664,6 +8601,9 @@
           },
           "author": {
             "$ref": "#/components/schemas/UserSummary"
+          },
+          "is_owner": {
+            "type": "boolean"
           },
           "body": {
             "type": "string",
@@ -6766,10 +8706,20 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "viewer_id",
+          "post_id",
           "is_liked",
           "like_count"
         ],
         "properties": {
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "post_id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "is_liked": {
             "type": "boolean"
           },
@@ -6859,12 +8809,28 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "viewer_id",
+          "post_id",
+          "comment_count",
           "items",
           "next_cursor"
         ],
         "properties": {
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "post_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment_count": {
+            "type": "integer",
+            "minimum": 0
+          },
           "items": {
             "type": "array",
+            "maxItems": 50,
             "items": {
               "$ref": "#/components/schemas/Comment"
             }
@@ -7733,6 +9699,17 @@
               }
             },
             "nullable": true
+          },
+          "comment_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "like_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "is_liked": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -7748,7 +9725,10 @@
           "energy",
           "energy_input",
           "visibility",
-          "image"
+          "image",
+          "comment_count",
+          "like_count",
+          "is_liked"
         ]
       },
       "PublicPost": {
@@ -7975,6 +9955,17 @@
               }
             },
             "nullable": true
+          },
+          "comment_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "like_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "is_liked": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -7989,8 +9980,58 @@
           "exercises",
           "energy",
           "energy_input",
-          "image"
+          "image",
+          "comment_count",
+          "like_count",
+          "is_liked"
         ]
+      },
+      "CommentCreate": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "body"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Stable client UUIDv4; never recycle or auto-create a new ID after an unknown result."
+          },
+          "body": {
+            "type": "string",
+            "minLength": 1,
+            "description": "CRLF is converted to LF; lone CR, disallowed C0 controls, DEL and surrogates are rejected; Python strip is applied, then length must be 1..500 Unicode code points. This is a normalized-length limit, not a raw-string maxLength. Raw JSON is capped at 16KiB. No NFC/NFKC conversion. BIDI/C1/zero-width characters are not otherwise filtered in this local implementation."
+          }
+        }
+      },
+      "CommentResult": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "viewer_id",
+          "post_id",
+          "comment",
+          "comment_count"
+        ],
+        "properties": {
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "post_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "comment": {
+            "$ref": "#/components/schemas/Comment"
+          },
+          "comment_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     },
     "responses": {
@@ -8069,7 +10110,7 @@
         }
       },
       "Error409": {
-        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED, RECORD_OWNER_CHANGED, POST_ID_CONFLICT, IMAGE_OPERATION_CONFLICT, IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING.",
+        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED, RECORD_OWNER_CHANGED, POST_ID_CONFLICT, IMAGE_OPERATION_CONFLICT, IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING. SOCIAL_OWNER_CHANGED and COMMENT_ID_CONFLICT apply to FL-06 operations.",
         "headers": {
           "X-Request-Id": {
             "schema": {

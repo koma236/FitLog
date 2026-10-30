@@ -14,6 +14,7 @@ from django.utils import timezone
 
 from accounts.models import ProfileHealth, User
 from media_assets.presentation import avatar, post_image
+from social.presentation import post_fields, with_social
 from workouts.calories import calculate
 from workouts.models import Post, PostIdentity, WorkoutExercise, WorkoutSet
 
@@ -66,14 +67,15 @@ def dto(post: Post, actor: User) -> dict[str, Any]:
         result["visibility"] = {
             k: "public" if getattr(post, k + "_public") else "private" for k in ("minutes", "kind")
         }
+    result.update(post_fields(post))
     return result
 
 
-def posts() -> QuerySet[Post]:
-    return (
+def posts(actor: User) -> QuerySet[Post]:
+    return with_social(
         Post.objects.select_related("user", "user__avatar_attachment__object", "image_attachment__object")
         .prefetch_related("exercises__sets")
-        .filter(user__is_active=True)
+        .filter(user__is_active=True), actor,
     )
 
 
@@ -87,7 +89,7 @@ def snapshot() -> Iterator[None]:
 
 def detail(identity: UUID, actor: User) -> dict[str, Any]:
     with snapshot():
-        post = posts().filter(pk=identity).first()
+        post = posts(actor).filter(pk=identity).first()
         if post is None:
             raise RecordError(404)
         return dto(post, actor)
@@ -167,7 +169,7 @@ def write(
                 ]
             )
         # All children and the saved response are read under the same write transaction.
-        result = dto(posts().get(pk=post.pk), user)
+        result = dto(posts(user).get(pk=post.pk), user)
     return result
 
 
@@ -181,7 +183,7 @@ def listing(username: str, actor: User, limit_text: str, cursor_text: str | None
         user = User.objects.filter(username=username, is_active=True).first()
         if user is None:
             raise RecordError(404)
-        query = posts().filter(user=user).order_by("-created_at", "-identity_id")
+        query = posts(actor).filter(user=user).order_by("-created_at", "-identity_id")
         if cursor_text is not None:
             try:
                 if len(cursor_text) > 2048:
