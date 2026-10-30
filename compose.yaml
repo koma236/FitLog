@@ -20,6 +20,9 @@ services:
 
   backend:
     image: fitlog-dev-backend
+    mem_limit: 1g
+    volumes:
+      - private-images:/app/media_assets/private
     build:
       context: .
       dockerfile: backend/Dockerfile
@@ -61,3 +64,4 @@ services:
 
 volumes:
   postgres-data:
+  private-images:

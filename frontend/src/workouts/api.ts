@@ -1,12 +1,13 @@
+import { validImage } from '../upload/types'
 import { ApiError } from '../auth/api'
 import type { Page, Workout } from './types'
 
 function object(v: unknown): v is Record<string, unknown> { return typeof v === 'object' && v !== null && !Array.isArray(v) }
 function keys(v: Record<string, unknown>, allowed: string[], required = allowed) { return Object.keys(v).every(k => allowed.includes(k)) && required.every(k => Object.hasOwn(v, k)) }
-function validPost(v: unknown, actor: string): v is Workout {
-  if (!object(v) || !object(v.author) || !keys(v.author, ['id', 'username', 'display_name']) || !Object.values(v.author).every(x => typeof x === 'string')) return false
+export function validPost(v: unknown, actor: string): v is Workout {
+  if (!object(v) || !object(v.author) || !keys(v.author, ['id', 'username', 'display_name', 'avatar']) || !['id', 'username', 'display_name'].every(k => typeof v.author === 'object' && v.author !== null && typeof (v.author as Record<string, unknown>)[k] === 'string') || !validImage(v.author.avatar) || !validImage(v.image)) return false
   const owner = v.author.id === actor
-  if (!keys(v, ['viewer_id', 'id', 'author', 'is_owner', 'performed_on', 'note', 'created_at', 'updated_at', 'exercises', 'energy', 'energy_input', ...(owner ? ['visibility'] : [])]) || v.is_owner !== owner || v.viewer_id !== actor) return false
+  if (!keys(v, ['image', 'viewer_id', 'id', 'author', 'is_owner', 'performed_on', 'note', 'created_at', 'updated_at', 'exercises', 'energy', 'energy_input', ...(owner ? ['visibility'] : [])]) || v.is_owner !== owner || v.viewer_id !== actor) return false
   if (!['id', 'performed_on', 'note', 'created_at', 'updated_at'].every(k => typeof v[k] === 'string') || !object(v.energy_input) || !keys(v.energy_input, ['minutes', 'kind'], owner ? ['minutes', 'kind'] : [])) return false
   const { minutes, kind } = v.energy_input
   if (minutes !== undefined && minutes !== null && (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 1 || minutes > 240)) return false

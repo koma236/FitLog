@@ -9,7 +9,7 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); locati
 const owner: Account = { id: '4990c687-5a30-4a83-beb1-30ec8a65d367', username: 'river_user', display_name: 'River', email: 'river@example.test' }
 const other: Account = { id: '5990c687-5a30-4a83-beb1-30ec8a65d367', username: 'other_user', display_name: '別利用者', email: 'other@example.test' }
 function profile(account = owner): Profile {
-  return { id: account.id, username: account.username, display_name: account.display_name, bio: '自己紹介', is_owner: true,
+  return { viewer_id: account.id, avatar: null, id: account.id, username: account.username, display_name: account.display_name, bio: '自己紹介', is_owner: true,
     health: { height: null, weight: null, age: null, formula: null, activity: null }, energy: { bmr: null, tdee: null, intake: null }, visibility: privateFlags() }
 }
 function reply(status: number, data: unknown): Response { return new Response(JSON.stringify(data), { status }) }
@@ -38,7 +38,7 @@ it('opens the authenticated owners profile from home', async () => {
 })
 it('renders only the public sparse response and has no editing link', async () => {
   location.hash = '#profile/other_user'
-  setup({ get: () => reply(200, { id: other.id, username: other.username, display_name: other.display_name, bio: '<img src=x onerror=alert(1)>', is_owner: false, health: {}, energy: { bmr: 1500 } }) })
+  setup({ get: () => reply(200, { viewer_id: owner.id, avatar: null, id: other.id, username: other.username, display_name: other.display_name, bio: '<img src=x onerror=alert(1)>', is_owner: false, health: {}, energy: { bmr: 1500 } }) })
   render(<App />)
   expect(await screen.findByText('1,500 kcal/日')).toBeVisible()
   expect(screen.queryByText('非公開')).not.toBeInTheDocument()
@@ -120,7 +120,7 @@ it('does not erase a draft when recovering saved state fails', async () => {
 it('discards a delayed owners response after changing the target', async () => {
   let finish: ((value: Response) => void) | undefined
   location.hash = '#profile'
-  setup({ get: target => target.endsWith('/me') ? new Promise<Response>(resolve => { finish = resolve }) : reply(200, { ...profile(other), is_owner: false, visibility: undefined, health: {}, energy: {} }) })
+  setup({ get: target => target.endsWith('/me') ? new Promise<Response>(resolve => { finish = resolve }) : reply(200, { ...profile(other), viewer_id: owner.id, is_owner: false, visibility: undefined, health: {}, energy: {} }) })
   render(<App />)
   await waitFor(() => { expect(finish).toBeDefined() })
   act(() => { location.hash = '#profile/other_user'; window.dispatchEvent(new HashChangeEvent('hashchange')) })

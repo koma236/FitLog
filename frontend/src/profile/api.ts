@@ -1,3 +1,4 @@
+import { validImage } from '../upload/types'
 import { ApiError } from '../auth/api'
 import { energyKeys, healthKeys, profileKeys } from './types'
 import type { Profile } from './types'
@@ -8,10 +9,10 @@ function record(value: unknown): value is Record<string, unknown> {
 function exactKeys(value: Record<string, unknown>, allowed: readonly string[], required = allowed): boolean {
   return Object.keys(value).every(key => allowed.includes(key)) && required.every(key => Object.hasOwn(value, key))
 }
-function validProfile(value: unknown, actor: string): value is Profile {
+export function validProfile(value: unknown, actor: string): value is Profile {
   if (!record(value) || typeof value.is_owner !== 'boolean') return false
-  const keys = ['id', 'username', 'display_name', 'bio', 'is_owner', 'health', 'energy', ...(value.is_owner ? ['visibility'] : [])]
-  if (!exactKeys(value, keys) || !['id', 'username', 'display_name', 'bio'].every(key => typeof value[key] === 'string') || value.is_owner !== (value.id === actor)) return false
+  const keys = ['viewer_id', 'avatar', 'id', 'username', 'display_name', 'bio', 'is_owner', 'health', 'energy', ...(value.is_owner ? ['visibility'] : [])]
+  if (value.viewer_id !== actor || !validImage(value.avatar) || !exactKeys(value, keys) || !['id', 'username', 'display_name', 'bio'].every(key => typeof value[key] === 'string') || value.is_owner !== (value.id === actor)) return false
   if (!record(value.health) || !record(value.energy) || !exactKeys(value.health, healthKeys, value.is_owner ? healthKeys : []) || !exactKeys(value.energy, energyKeys, value.is_owner ? energyKeys : [])) return false
   for (const [key, item] of Object.entries(value.health)) {
     if (item === null) continue
@@ -41,6 +42,7 @@ async function request(target: string, actor: string, init: RequestInit, signal?
       }
       throw new ApiError(response.status, record(value) && typeof value.code === 'string' ? value.code : '', record(value) && typeof value.message === 'string' ? value.message : '応答を確認できません。', fields)
     }
+    if (record(value) && typeof value.viewer_id === 'string' && value.viewer_id !== actor) throw new ApiError(409, 'PROFILE_OWNER_CHANGED', 'ログインしているユーザーが変わりました。')
     if (response.status !== 200 || !validProfile(value, actor)) throw new ApiError(response.status, 'INVALID_RESPONSE', '応答を確認できません。')
     return value
   } catch (error) {

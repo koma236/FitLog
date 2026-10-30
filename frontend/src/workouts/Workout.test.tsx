@@ -11,7 +11,7 @@ import type { Workout } from './types'
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); location.hash = '' })
 const owner: Account = { id: '11111111-1111-4111-8111-111111111111', username: 'river_user', display_name: 'River', email: 'river@example.test' }
 const other: Account = { ...owner, id: '22222222-2222-4222-8222-222222222222', username: 'other_user' }
-const base: Workout = { viewer_id: owner.id, id: '33333333-3333-4333-8333-333333333333', author: { id: owner.id, username: owner.username, display_name: owner.display_name }, is_owner: true, performed_on: '2024-02-29', note: '記録メモ', created_at: '2024-02-29T00:00:00.123456Z', updated_at: '2024-02-29T00:00:00.123456Z', exercises: [{ name: 'ベンチプレス', sets: [{ weight_kg: '60.00', reps: 10 }] }], energy: { kcal: 105, method: 'met-gross-v1' }, energy_input: { minutes: 30, kind: 'general' }, visibility: { minutes: 'private', kind: 'private' } }
+const base: Workout = { image: null, viewer_id: owner.id, id: '33333333-3333-4333-8333-333333333333', author: { id: owner.id, username: owner.username, display_name: owner.display_name, avatar: null }, is_owner: true, performed_on: '2024-02-29', note: '記録メモ', created_at: '2024-02-29T00:00:00.123456Z', updated_at: '2024-02-29T00:00:00.123456Z', exercises: [{ name: 'ベンチプレス', sets: [{ weight_kg: '60.00', reps: 10 }] }], energy: { kcal: 105, method: 'met-gross-v1' }, energy_input: { minutes: 30, kind: 'general' }, visibility: { minutes: 'private', kind: 'private' } }
 function reply(status: number, value: unknown): Response { return new Response(status === 204 ? null : JSON.stringify(value), { status }) }
 function mock(options: { write?: (init: RequestInit) => Response | Promise<Response>; read?: (url: string) => Response | Promise<Response>; me?: () => Account | Response | Promise<Account | Response> } = {}) {
   const count = { writes: 0, csrf: 0 }
@@ -19,7 +19,7 @@ function mock(options: { write?: (init: RequestInit) => Response | Promise<Respo
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (url === '/api/auth/me') { const me = await (options.me?.() ?? owner); return me instanceof Response ? me : reply(200, me) }
     if (url === '/api/auth/csrf') { count.csrf++; return reply(200, { csrf_token: 'csrf' }) }
-    if (url === '/api/users/me') return reply(200, { id: owner.id, username: owner.username, display_name: owner.display_name, bio: '', is_owner: true, health: { height: null, weight: '60.0', age: 30, formula: null, activity: null }, energy: { bmr: null, tdee: null, intake: null }, visibility: privateFlags() })
+    if (url === '/api/users/me') return reply(200, { viewer_id: owner.id, avatar: null, id: owner.id, username: owner.username, display_name: owner.display_name, bio: '', is_owner: true, health: { height: null, weight: '60.0', age: 30, formula: null, activity: null }, energy: { bmr: null, tdee: null, intake: null }, visibility: privateFlags() })
     if (init?.method && init.method !== 'GET') { count.writes++; return await (options.write?.(init) ?? reply(200, base)) }
     return await (options.read?.(url) ?? reply(200, base))
   }))

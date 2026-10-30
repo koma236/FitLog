@@ -3,7 +3,7 @@
   "info": {
     "title": "FitLog API",
     "version": "0.1.0-draft",
-    "description": "health, FL-02 auth, FL-03 profile and FL-04 workouts are implemented. Images/social/timeline/infra remain draft contracts."
+    "description": "health, FL-02 auth, FL-03 profile, FL-04 workouts and FL-05 local images are implemented. Social/timeline/production S3 and infrastructure remain future contracts."
   },
   "servers": [
     {
@@ -106,7 +106,7 @@
             }
           },
           "503": {
-            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "description": "SERVICE_UNAVAILABLE: session/authentication database unavailable.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -337,7 +337,7 @@
             }
           },
           "503": {
-            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "description": "SERVICE_UNAVAILABLE: session/authentication database unavailable.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -362,7 +362,7 @@
             }
           },
           "413": {
-            "description": "PAYLOAD_TOO_LARGE（認証JSONは16KiBまで）, IMAGE_TOO_LARGE（将来API）",
+            "description": "PAYLOAD_TOO_LARGE: authentication JSON exceeds 16KiB.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -387,7 +387,7 @@
             }
           },
           "415": {
-            "description": "UNSUPPORTED_MEDIA_TYPE, INVALID_IMAGE（将来API）",
+            "description": "UNSUPPORTED_MEDIA_TYPE: JSON requests require application/json.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -645,7 +645,7 @@
             }
           },
           "503": {
-            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "description": "SERVICE_UNAVAILABLE: session/authentication database unavailable.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -670,7 +670,7 @@
             }
           },
           "413": {
-            "description": "PAYLOAD_TOO_LARGE（認証JSONは16KiBまで）, IMAGE_TOO_LARGE（将来API）",
+            "description": "PAYLOAD_TOO_LARGE: authentication JSON exceeds 16KiB.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -695,7 +695,7 @@
             }
           },
           "415": {
-            "description": "UNSUPPORTED_MEDIA_TYPE, INVALID_IMAGE（将来API）",
+            "description": "UNSUPPORTED_MEDIA_TYPE: JSON requests require application/json.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -883,7 +883,7 @@
             }
           },
           "503": {
-            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "description": "SERVICE_UNAVAILABLE: session/authentication database unavailable.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -1043,7 +1043,7 @@
             }
           },
           "503": {
-            "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+            "description": "SERVICE_UNAVAILABLE: session/authentication database unavailable.",
             "headers": {
               "X-Request-Id": {
                 "schema": {
@@ -2766,7 +2766,7 @@
       "put": {
         "operationId": "setPostImage",
         "summary": "記録の画像を置換",
-        "description": "本人のみ。JPEG/PNG、5242880 bytes以下、decode後2000万画素以下。EXIF除去と再エンコード。S3保存失敗時は旧画像を保持。",
+        "description": "FL-05 local private storage. Authenticated owner only. Signed capability TTL300; no-store. Image mutations do not change body/energy. JPEG/PNG only, no APNG/16-bit, EXIF/metadata stripped. Storage/commit unknown results require explicit GET confirmation.",
         "tags": [
           "posts"
         ],
@@ -2778,6 +2778,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
               }
             },
             "content": {
@@ -2789,28 +2803,307 @@
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "INVALID_REQUEST: owner header missing/malformed, operation UUID invalid, or multipart is not exactly one image file. No fieldErrors. Image pixel/byte caps return 413; invalid image returns 415.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED: session absent, expired or actor inactive.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "認証APIはSessionを返す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "413": {
-            "$ref": "#/components/responses/Error413"
+            "description": "PAYLOAD_TOO_LARGE: JSON byte cap, multipart byte cap, image input/output byte cap or 20MP pixel cap exceeded.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "415": {
-            "$ref": "#/components/responses/Error415"
+            "description": "UNSUPPORTED_MEDIA_TYPE or INVALID_IMAGE: JPEG/PNG decode/type, animation or 16-bit PNG rejected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "503": {
-            "$ref": "#/components/responses/Error503"
+            "description": "SERVICE_UNAVAILABLE, STORAGE_UNAVAILABLE or IMAGE_PROCESSING_BUSY. Retry-After: 2 only for IMAGE_PROCESSING_BUSY. Storage/capability failures do not clear session cookies; authenticated API session/database failures may clear them.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "2 seconds, only for IMAGE_PROCESSING_BUSY",
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    2
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED or IMAGE_OPERATION_CONFLICT / IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "2 seconds, only for IMAGE_OPERATION_PENDING",
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    2
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -2831,6 +3124,26 @@
               "type": "string"
             },
             "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+          },
+          {
+            "in": "header",
+            "name": "X-Record-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Actor at edit start; guard against another tab changing identity."
+          },
+          {
+            "in": "header",
+            "name": "X-Image-Operation",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Stable client UUIDv4 for this logical image operation; resumable, never recycled."
           }
         ],
         "requestBody": {
@@ -2858,7 +3171,7 @@
       "delete": {
         "operationId": "deletePostImage",
         "summary": "記録の画像を削除",
-        "description": "投稿が存在し本人なら未添付でも204。S3削除失敗は追跡して再試行する。",
+        "description": "FL-05 local private storage. Authenticated owner only. Signed capability TTL300; no-store. Image mutations do not change body/energy. JPEG/PNG only, no APNG/16-bit, EXIF/metadata stripped. Storage/commit unknown results require explicit GET confirmation.",
         "tags": [
           "posts"
         ],
@@ -2870,20 +3183,245 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
               }
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED: session absent, expired or actor inactive.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "認証APIはSessionを返す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: owner header missing/malformed.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "RECORD_OWNER_CHANGED: current session differs from edit-start owner.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: session/database unavailable; the session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -2904,6 +3442,16 @@
               "type": "string"
             },
             "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+          },
+          {
+            "in": "header",
+            "name": "X-Record-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Actor at edit start; guard against another tab changing identity."
           }
         ]
       }
@@ -4653,7 +5201,7 @@
       "put": {
         "operationId": "setAvatar",
         "summary": "自分のプロフィール画像を置換",
-        "description": "本人のみ。JPEG/PNG、2097152 bytes以下、decode後2000万画素以下。EXIF除去と再エンコード。S3保存失敗時は旧画像を保持。",
+        "description": "FL-05 local private storage. Authenticated owner only. Signed capability TTL300; no-store. Image mutations do not change body/energy. JPEG/PNG only, no APNG/16-bit, EXIF/metadata stripped. Storage/commit unknown results require explicit GET confirmation.",
         "tags": [
           "users"
         ],
@@ -4665,39 +5213,332 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
               }
             },
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Me"
+                  "$ref": "#/components/schemas/Profile"
                 }
               }
             }
           },
           "400": {
-            "$ref": "#/components/responses/Error400"
+            "description": "INVALID_REQUEST: owner header missing/malformed, operation UUID invalid, or multipart is not exactly one image file. No fieldErrors. Image pixel/byte caps return 413; invalid image returns 415.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED: session absent, expired or actor inactive.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "認証APIはSessionを返す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "404": {
-            "$ref": "#/components/responses/Error404"
+            "description": "NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "413": {
-            "$ref": "#/components/responses/Error413"
+            "description": "PAYLOAD_TOO_LARGE: JSON byte cap, multipart byte cap, image input/output byte cap or 20MP pixel cap exceeded.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "415": {
-            "$ref": "#/components/responses/Error415"
+            "description": "UNSUPPORTED_MEDIA_TYPE or INVALID_IMAGE: JPEG/PNG decode/type, animation or 16-bit PNG rejected.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "503": {
-            "$ref": "#/components/responses/Error503"
+            "description": "SERVICE_UNAVAILABLE, STORAGE_UNAVAILABLE or IMAGE_PROCESSING_BUSY. Retry-After: 2 only for IMAGE_PROCESSING_BUSY. Storage/capability failures do not clear session cookies; authenticated API session/database failures may clear them.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "2 seconds, only for IMAGE_PROCESSING_BUSY",
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    2
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PROFILE_OWNER_CHANGED or IMAGE_OPERATION_CONFLICT / IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Retry-After": {
+                "description": "2 seconds, only for IMAGE_OPERATION_PENDING",
+                "schema": {
+                  "type": "integer",
+                  "enum": [
+                    2
+                  ]
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -4709,6 +5550,26 @@
               "type": "string"
             },
             "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+          },
+          {
+            "in": "header",
+            "name": "X-Profile-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Actor at edit start; guard against another tab changing identity."
+          },
+          {
+            "in": "header",
+            "name": "X-Image-Operation",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Stable client UUIDv4 for this logical image operation; resumable, never recycled."
           }
         ],
         "requestBody": {
@@ -4736,7 +5597,7 @@
       "delete": {
         "operationId": "deleteAvatar",
         "summary": "自分のプロフィール画像を削除",
-        "description": "未設定でも204。S3削除失敗は追跡して再試行する。",
+        "description": "FL-05 local private storage. Authenticated owner only. Signed capability TTL300; no-store. Image mutations do not change body/energy. JPEG/PNG only, no APNG/16-bit, EXIF/metadata stripped. Storage/commit unknown results require explicit GET confirmation.",
         "tags": [
           "users"
         ],
@@ -4748,17 +5609,214 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
               }
             }
           },
           "401": {
-            "$ref": "#/components/responses/Error401"
+            "description": "AUTH_REQUIRED: session absent, expired or actor inactive.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "WWW-Authenticate": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "認証APIはSessionを返す。"
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "403": {
-            "$ref": "#/components/responses/Error403"
+            "description": "FORBIDDEN, CSRF_FAILED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           },
           "500": {
-            "$ref": "#/components/responses/Error500"
+            "description": "INTERNAL_ERROR",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "INVALID_REQUEST: owner header missing/malformed.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "PROFILE_OWNER_CHANGED: current session differs from edit-start owner.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE: session/database unavailable; the session cookie is cleared.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Includes Cookie."
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "parameters": [
@@ -4770,6 +5828,16 @@
               "type": "string"
             },
             "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+          },
+          {
+            "in": "header",
+            "name": "X-Profile-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "Actor at edit start; guard against another tab changing identity."
           }
         ]
       }
@@ -4982,6 +6050,155 @@
         },
         "security": []
       }
+    },
+    "/api/media/content/{token}": {
+      "get": {
+        "operationId": "getSignedImage",
+        "summary": "期限付き画像を取得",
+        "security": [],
+        "description": "Local-only private filesystem capability. Token signature and age<=300, future tokens rejected; asset must still be attached. URL holder can fetch without session within validity. S3 adapter and real AWS checks are FL-09. no-store/nosniff/no-referrer.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "token",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 512
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Normalized image bytes",
+            "content": {
+              "image/jpeg": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "image/png": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            },
+            "headers": {
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "X-Content-Type-Options": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "nosniff"
+                  ]
+                }
+              },
+              "Referrer-Policy": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-referrer"
+                  ]
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "NOT_FOUND",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "405": {
+            "description": "許可されないHTTPメソッド",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "SERVICE_UNAVAILABLE or STORAGE_UNAVAILABLE. Does not clear session cookies.",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -5016,7 +6233,6 @@
               "NOT_FOUND",
               "DUPLICATE_USERNAME",
               "DUPLICATE_EMAIL",
-              "IMAGE_TOO_LARGE",
               "INVALID_IMAGE",
               "RATE_LIMITED",
               "INTERNAL_ERROR",
@@ -5030,7 +6246,10 @@
               "PROFILE_OWNER_CHANGED",
               "RECORD_OWNER_CHANGED",
               "POST_ID_CONFLICT",
-              "INVALID_REQUEST"
+              "INVALID_REQUEST",
+              "IMAGE_OPERATION_CONFLICT",
+              "IMAGE_OPERATION_PENDING",
+              "IMAGE_PROCESSING_BUSY"
             ]
           },
           "message": {
@@ -5057,7 +6276,7 @@
           "id",
           "username",
           "display_name",
-          "avatar_url"
+          "avatar"
         ],
         "properties": {
           "id": {
@@ -5081,9 +6300,48 @@
             "minLength": 1,
             "maxLength": 50
           },
-          "avatar_url": {
-            "type": "string",
-            "format": "uri",
+          "avatar": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "expires_at",
+              "width",
+              "height",
+              "content_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "content_type": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              }
+            },
             "nullable": true
           }
         }
@@ -5321,20 +6579,35 @@
         "type": "object",
         "additionalProperties": false,
         "required": [
+          "id",
           "url",
           "expires_at",
-          "content_type",
-          "byte_size"
+          "width",
+          "height",
+          "content_type"
         ],
         "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
           "url": {
             "type": "string",
-            "format": "uri",
-            "description": "取得用の署名付きURL。発行から300秒有効。"
+            "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
           },
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "width": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20000000
+          },
+          "height": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 20000000
           },
           "content_type": {
             "type": "string",
@@ -5342,10 +6615,6 @@
               "image/jpeg",
               "image/png"
             ]
-          },
-          "byte_size": {
-            "type": "integer",
-            "minimum": 1
           }
         }
       },
@@ -5898,7 +7167,9 @@
           "is_owner",
           "health",
           "energy",
-          "visibility"
+          "visibility",
+          "viewer_id",
+          "avatar"
         ],
         "properties": {
           "id": {
@@ -5934,6 +7205,54 @@
           },
           "visibility": {
             "$ref": "#/components/schemas/ProfileVisibility"
+          },
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "avatar": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "expires_at",
+              "width",
+              "height",
+              "content_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "content_type": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              }
+            },
+            "nullable": true
           }
         }
       },
@@ -5947,7 +7266,9 @@
           "bio",
           "is_owner",
           "health",
-          "energy"
+          "energy",
+          "viewer_id",
+          "avatar"
         ],
         "properties": {
           "id": {
@@ -5980,6 +7301,54 @@
           },
           "energy": {
             "$ref": "#/components/schemas/PublicProfileEnergy"
+          },
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "avatar": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "expires_at",
+              "width",
+              "height",
+              "content_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "content_type": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              }
+            },
+            "nullable": true
           }
         }
       },
@@ -6132,12 +7501,57 @@
               },
               "display_name": {
                 "type": "string"
+              },
+              "avatar": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "url",
+                  "expires_at",
+                  "width",
+                  "height",
+                  "content_type"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20000000
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20000000
+                  },
+                  "content_type": {
+                    "type": "string",
+                    "enum": [
+                      "image/jpeg",
+                      "image/png"
+                    ]
+                  }
+                },
+                "nullable": true
               }
             },
             "required": [
               "id",
               "username",
-              "display_name"
+              "display_name",
+              "avatar"
             ]
           },
           "is_owner": {
@@ -6275,6 +7689,50 @@
               "minutes",
               "kind"
             ]
+          },
+          "image": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "expires_at",
+              "width",
+              "height",
+              "content_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "content_type": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              }
+            },
+            "nullable": true
           }
         },
         "required": [
@@ -6289,7 +7747,8 @@
           "exercises",
           "energy",
           "energy_input",
-          "visibility"
+          "visibility",
+          "image"
         ]
       },
       "PublicPost": {
@@ -6317,12 +7776,57 @@
               },
               "display_name": {
                 "type": "string"
+              },
+              "avatar": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "id",
+                  "url",
+                  "expires_at",
+                  "width",
+                  "height",
+                  "content_type"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  "url": {
+                    "type": "string",
+                    "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+                  },
+                  "expires_at": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "width": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20000000
+                  },
+                  "height": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 20000000
+                  },
+                  "content_type": {
+                    "type": "string",
+                    "enum": [
+                      "image/jpeg",
+                      "image/png"
+                    ]
+                  }
+                },
+                "nullable": true
               }
             },
             "required": [
               "id",
               "username",
-              "display_name"
+              "display_name",
+              "avatar"
             ]
           },
           "is_owner": {
@@ -6427,6 +7931,50 @@
                 ]
               }
             }
+          },
+          "image": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "expires_at",
+              "width",
+              "height",
+              "content_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "content_type": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              }
+            },
+            "nullable": true
           }
         },
         "required": [
@@ -6440,7 +7988,8 @@
           "updated_at",
           "exercises",
           "energy",
-          "energy_input"
+          "energy_input",
+          "image"
         ]
       }
     },
@@ -6520,11 +8069,20 @@
         }
       },
       "Error409": {
-        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED",
+        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED, RECORD_OWNER_CHANGED, POST_ID_CONFLICT, IMAGE_OPERATION_CONFLICT, IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING.",
         "headers": {
           "X-Request-Id": {
             "schema": {
               "type": "string"
+            }
+          },
+          "Retry-After": {
+            "description": "2 seconds, only for IMAGE_OPERATION_PENDING",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                2
+              ]
             }
           }
         },
@@ -6537,7 +8095,7 @@
         }
       },
       "Error413": {
-        "description": "PAYLOAD_TOO_LARGE（認証JSONは16KiBまで）, IMAGE_TOO_LARGE（将来API）",
+        "description": "PAYLOAD_TOO_LARGE: JSON byte cap, multipart byte cap, image input/output byte cap or 20MP pixel cap exceeded.",
         "headers": {
           "X-Request-Id": {
             "schema": {
@@ -6554,7 +8112,7 @@
         }
       },
       "Error415": {
-        "description": "UNSUPPORTED_MEDIA_TYPE, INVALID_IMAGE（将来API）",
+        "description": "UNSUPPORTED_MEDIA_TYPE or INVALID_IMAGE: JPEG/PNG decode/type, animation or 16-bit PNG rejected.",
         "headers": {
           "X-Request-Id": {
             "schema": {
@@ -6612,11 +8170,20 @@
         }
       },
       "Error503": {
-        "description": "SERVICE_UNAVAILABLE（DB/セッション障害。結果不明。自動再送しない）, STORAGE_UNAVAILABLE（将来API）",
+        "description": "SERVICE_UNAVAILABLE, STORAGE_UNAVAILABLE or IMAGE_PROCESSING_BUSY. Retry-After: 2 only for IMAGE_PROCESSING_BUSY. Storage/capability failures do not clear session cookies; authenticated API session/database failures may clear them.",
         "headers": {
           "X-Request-Id": {
             "schema": {
               "type": "string"
+            }
+          },
+          "Retry-After": {
+            "description": "2 seconds, only for IMAGE_PROCESSING_BUSY",
+            "schema": {
+              "type": "integer",
+              "enum": [
+                2
+              ]
             }
           }
         },

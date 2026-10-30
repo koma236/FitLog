@@ -13,6 +13,7 @@ from django.db.models import Q, QuerySet
 from django.utils import timezone
 
 from accounts.models import ProfileHealth, User
+from media_assets.presentation import avatar, post_image
 from workouts.calories import calculate
 from workouts.models import Post, PostIdentity, WorkoutExercise, WorkoutSet
 
@@ -31,8 +32,10 @@ def dto(post: Post, actor: User) -> dict[str, Any]:
             "id": str(post.user_id),
             "username": post.user.username,
             "display_name": post.user.display_name,
+            "avatar": avatar(post.user),
         },
         "is_owner": owner,
+        "image": post_image(post),
         "performed_on": post.performed_on.isoformat(),
         "note": post.note,
         "created_at": post.created_at.astimezone(UTC)
@@ -68,7 +71,7 @@ def dto(post: Post, actor: User) -> dict[str, Any]:
 
 def posts() -> QuerySet[Post]:
     return (
-        Post.objects.select_related("user")
+        Post.objects.select_related("user", "user__avatar_attachment__object", "image_attachment__object")
         .prefetch_related("exercises__sets")
         .filter(user__is_active=True)
     )

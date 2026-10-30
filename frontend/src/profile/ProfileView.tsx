@@ -1,3 +1,4 @@
+import Photo from '../upload/Photo'
 import { activities, energyKeys, formulas, healthKeys, labels } from './types'
 import type { Energy, Profile, Visibility } from './types'
 
@@ -14,7 +15,7 @@ export function EnergyCards({ energy, visibility, owner }: { energy: Partial<Ene
     {owner && visibility?.[key] === 'private' && <small>非公開</small>}
   </div>)}</div>
 }
-export default function ProfileView({ profile }: { profile: Profile }) {
+export default function ProfileView({ profile, onImageError }: { profile: Profile; onImageError?: () => void }) {
   const health = profile.health
   const fields = healthKeys.filter(key => Object.hasOwn(health, key))
   function text(key: typeof healthKeys[number]): string {
@@ -25,7 +26,7 @@ export default function ProfileView({ profile }: { profile: Profile }) {
     return `${String(value)} ${key === 'height' ? 'cm' : key === 'weight' ? 'kg' : '歳'}`
   }
   return <>
-    <section className="profile-card"><div className="profile-heading"><div><h1>{profile.display_name}</h1><p className="muted">@{profile.username}</p></div>
+    <section className="profile-card"><div className="profile-heading"><Photo image={profile.avatar} avatar alt={profile.display_name} onError={onImageError} /><div><h1>{profile.display_name}</h1><p className="muted">@{profile.username}</p></div>
       {profile.is_owner && <a className="button-link" href="#profile-edit">プロフィールを編集</a>}</div>
       <p className="bio">{profile.bio || '自己紹介はまだありません。'}</p>
     </section>

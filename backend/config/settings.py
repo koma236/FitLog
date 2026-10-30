@@ -1,5 +1,6 @@
 """FitLogの環境設定。実認証情報を保存しない。"""
 import os
+from pathlib import Path
 from typing import Any
 
 from django.core.exceptions import ImproperlyConfigured
@@ -7,6 +8,10 @@ from django.core.exceptions import ImproperlyConfigured
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "")
 if not SECRET_KEY.strip():
     raise ImproperlyConfigured("DJANGO_SECRET_KEY is required")
+
+# The image API accepts exactly one file; its raw byte cap is enforced separately.
+DATA_UPLOAD_MAX_NUMBER_FILES = 1
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 16
 DEBUG = os.environ.get("DJANGO_DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "backend"]
 ROOT_URLCONF = "config.urls"
@@ -18,6 +23,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "accounts",
     "workouts",
+    "media_assets.apps.MediaAssetsConfig",
 ]
 MIDDLEWARE = [
     "common.middleware.ApiBoundaryMiddleware",
@@ -67,6 +73,7 @@ LOGGING = {
     "loggers": {
         "django": {"handlers": ["null"], "propagate": False},
         "django.db.backends": {"handlers": ["null"], "propagate": False},
+        "django.server": {"handlers": ["null"], "propagate": False},
         "fitlog.api": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
@@ -105,3 +112,7 @@ AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
 ]
+
+# Local private storage is never a publicly mapped MEDIA_URL.
+PRIVATE_MEDIA_ROOT = Path(os.environ.get("PRIVATE_MEDIA_ROOT", "/app/media_assets/private"))
+PRIVATE_MEDIA_BACKEND = "local"

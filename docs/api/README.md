@@ -1,6 +1,6 @@
 # API共通契約・エラー一覧
 
-> health・FL-02認証・FL-03プロフィール・FL-04記録の実装契約。画像・交流・全体タイムラインなどは将来の契約案。検証結果は別途記録する。
+> health・FL-02認証・FL-03プロフィール・FL-04記録・FL-05ローカル画像の実装契約。交流・全体タイムラインなどは将来の契約案。検証結果は別途記録する。
 
 正本は [OpenAPI](openapi.json)。JSONのデータ項目はsnake_case、既存の共通エラー項目のみfieldErrors/requestIdという名前を使う。すべてのAPI応答にX-Request-Idを付ける。
 
@@ -18,16 +18,13 @@ limitは1〜50、既定20。不正値・不透明カーソルの改ざん・一�
 PUTは対象データの全置換。記録PUTは画像・コメント・いいねを変更しない。同時編集は後勝ちとし履歴・競合解決UIは初版外。POSTの記録・コメント作成は自動再試行せず、結果不明時は再取得して確認する。いいね・フォローは冪等。
 
 ## 画像
-記録保存と画像添付は別API。画像失敗時は「記録は保存済み、画像は未保存」として再試行できる。multipartのimageは1個のみ。JPEG/PNGを実デコード、画素数と入力サイズを検査し、EXIFを除去して再エンコードする。入力5MiB（avatar2MiB）以下、2000万画素以下。再エンコード後も同じサイズ上限を適用する。SVG/GIFや偽装画像は拒否する。
-画像は非公開S3へサーバー生成キーで保存し、DBはキーだけ保持。署名付き取得URLは300秒。URLを知る者は期限内に取得できるため、URL失効前の即時アクセス取消は保証しない。投稿APIを再取得して期限切れURLを更新する。
-新画像保存→DB切替→旧画像削除の順。DB切替前に失敗すれば旧画像は残す。新画像のDB登録に失敗した場合は新オブジェクトの補償削除を試みる。削除失敗は専用のcleanup記録にキーと操作IDを残し、運用コマンドで再試行する。DBも利用不能で記録できない場合は孤立キーをマスク不要の内部運用ログに残し、S3とDBの照合で再回収する。本文・URL・画像内容はログに残さない。
-同じ投稿／avatarの画像変更はDB行ロック等で直列化し、操作ごとに別キーを使う。他の更新が採用したキーを補償削除しない。S3 DeleteObjectの再実行は許容する。処理中のアップロードを消さないよう孤立照合では最低1時間の猶予を置く。
+FL-05の現行契約は下記「FL-05 実装契約」とOpenAPIを参照する。投稿保存と画像添付は別APIで、画像失敗時も投稿は保存済みとして画像だけ再試行できる。現在はprivate filesystemへの保存であり、S3保存・補償削除・孤立キーのログ出力は実装していない。S3の整合性・清掃方式はFL-09で別途設計・検証する。
 
 ## エラーコード
 | HTTP | code | 用途 |
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | 入力値・未知項目・形式 |
-| 400 | `INVALID_REQUEST` | 本人ヘッダーの欠落／形式不正 |
+| 400 | `INVALID_REQUEST` | 本人/画像操作ヘッダーの欠落・形式不正、multipart構造不正 |
 | 400 | `INVALID_CURSOR` | カーソル不正／他条件の流用 |
 | 400 | `SELF_FOLLOW` | 自己フォロー |
 | 401 | `AUTH_REQUIRED` | ログインが必要 |
@@ -44,11 +41,13 @@ PUTは対象データの全置換。記録PUTは画像・コメント・いい�
 | 409 | `POST_ID_CONFLICT` | 使用済み／削除済みの記録ID。保存状態を確認する |
 | 409 | `PROFILE_OWNER_CHANGED` | 編集開始時と現在の本人が異なる。更新しない |
 | 409 | `ALREADY_AUTHENTICATED` | すでにログイン中。meを確認 |
-| 413 | `PAYLOAD_TOO_LARGE` | 認証・プロフィールJSONが16KiB超、または記録JSONが32KiB超 |
-| 413 | `IMAGE_TOO_LARGE` | ファイルサイズまたは画素数超過 |
+| 409 | `IMAGE_OPERATION_CONFLICT` | 同じ画像操作IDの内容・対象不一致、または退役済み |
+| 409 | `IMAGE_OPERATION_PENDING` | 同じ画像操作が処理中。Retry-After: 2 |
+| 413 | `PAYLOAD_TOO_LARGE` | JSONの16/32KiB上限、画像の入出力2/5MiB・20MP上限、またはmultipart全体上限の超過 |
 | 415 | `INVALID_IMAGE` | 画像形式・デコード不正 |
 | 429 | `RATE_LIMITED` | 認証試行制限 |
 | 500 | `INTERNAL_ERROR` | 予期しない失敗。内部例外は公開しない |
+| 503 | `IMAGE_PROCESSING_BUSY` | 画像処理枠が使用中、未処理。Retry-After: 2 |
 | 503 | `STORAGE_UNAVAILABLE` | 画像保存失敗 |
 | 503 | `SERVICE_UNAVAILABLE` | 依存サービス停止 |
 
@@ -71,3 +70,21 @@ POST /api/posts、GET/PUT/DELETE /api/posts/{id}、GET /api/users/{username}/pos
 記録JSON上限32KiB・深さ8、UTF-8、厳密な数値/文字列と既知キーだけを受理。413 PAYLOAD_TOO_LARGEは記録のbody上限にも適用。全応答no-store/Vary:Cookie/request-id。本人向けPostだけトップレベルvisibilityを持ち、他人向けenergy_inputは公開かつ非nullのキーだけ（なければ{}）。viewer_idは実際の閲覧会員を示し、クライアントは期待する本人と照合する。
 
 固定METのカロリーと保持/再計算規則、同一snapshotの読取り、削除済みid保護はF03参照。GitHub Actions CIは未実装で、品質checksはローカルDockerで実行する。
+
+## FL-05 実装契約
+
+ローカルのprivate filesystemのみ実装し、S3 adapterと実AWS検証はFL-09に行う。FITLOG_ENV=local以外ではlocal adapterの起動を拒否し、storage操作時にも拒否する。専用Docker volumeを使用し、MEDIA_URL/staticで直接配信しない。S3はFL-09の対象であり、FL-05の実S3確認完了を意味しない。
+
+PUT `/api/posts/{id}/image` と `/api/users/me/avatar` はmultipart field `image`を厳密に1個、owner header（X-Record-Owner/X-Profile-Owner）、X-CSRFToken、X-Image-Operation(UUIDv4)を要求する。DELETEは画像だけを削除し未設定も204。PUT成功はPostまたはProfile DTO、viewer_idとnullable image/avatarを返す。author.avatarも同じ形。画像情報はid/url/expires_at/width/height/content_typeだけでkey/digest/原本filenameは返さない。
+
+JPEG/PNGの入力と再エンコード後の両方にpost5MiB/avatar2MiB上限、全画素20MPまで。16bit PNG/APNG等は415。EXIF向き補正後pixelから新規画像を作って全metadataを除去、JPEG85/PNG6、透過保持、ICC色変換なし。upload原本はbounded memory handlerに限定する。raw multipartはファイル上限+64KiB、複数/未知fieldは400。既存JSONの16/32KiB上限を緩めない。
+
+操作はpending予約を確定→immutable object保存→User/Post/ImageObject順にlockして添付を確定する。pendingは同binding/digestの再要求で再開可能。同IDの現在添付は200、退役済み/内容不一致/別対象は409 IMAGE_OPERATION_CONFLICT。新objectのlockを取得できない場合は409 IMAGE_OPERATION_PENDING/Retry-After2。process単位の処理枠1を取得できない場合は503 IMAGE_PROCESSING_BUSY/Retry-After2（未処理）。保存先障害503 STORAGE_UNAVAILABLEはsession DB障害と区別し、単に保存先失敗だけでsession cookieを消さない。
+
+GET `/api/media/content/{token}` は300秒のcapability URL。tokenにはopaque asset UUIDと発行時刻のみ。署名・未来/期限・attached stateを確認し正規化画像だけを返す。no-store/nosniff/no-referrer、固定filename。URLを持つ者はsessionなしで期限内取得できる。削除後のlocal早期失効は本番S3の保証にしない。失敗時のURL再取得は画面の取得ページ/generation単位にGET1回まで集約する。
+
+`cleanup_images --limit 100` はretired job、1時間以上放棄されたpending、管理prefix内のaged orphan/retired fileを回収する。完了jobもprefix照合から除外せず、遅延writeを次の巡回で回収。attachedは保護する。checkpointで有限ページを巡回、tempもactive flockと1h猶予で保護。FL-05は手動清掃、定期実行はFL-08/09で接続する。
+
+画像PUTはclient45秒/明示中止に対応、server側総受信期限は現行local構成ではLow保留。127.0.0.1限定の開発機能で公開配置せず、FL-09公開前に受信期限・接続数・worker合計memoryを検証する。画像を無限に自動再送しない。
+
+署名URLの取得は認証処理と独立しており、DB障害でもsession cookieを破棄せず固定503/no-storeを返す。署名の安全性はSECRET_KEYの機密性に依存する。composeの公開サンプル鍵はローカル確認専用で、FL-09公開前には本番でサンプルSECRET_KEYを拒否する検査を追加し、秘密鍵を別途設定する。Django multipartのFILES=1/FIELDS=16を明示し、画像経路ではさらにimageだけ1パートに制限する。
