@@ -24,6 +24,7 @@ INSTALLED_APPS = [
     "accounts",
     "workouts",
     "media_assets.apps.MediaAssetsConfig",
+    "social.apps.SocialConfig",
 ]
 MIDDLEWARE = [
     "common.middleware.ApiBoundaryMiddleware",

@@ -1,6 +1,6 @@
 # API共通契約・エラー一覧
 
-> health・FL-02認証・FL-03プロフィール・FL-04記録・FL-05ローカル画像の実装契約。交流・全体タイムラインなどは将来の契約案。検証結果は別途記録する。
+> health・FL-02認証・FL-03プロフィール・FL-04記録・FL-05ローカル画像・FL-06コメント/いいねの実装契約。フォロー・全体タイムラインなどは将来の契約案。検証結果は別途記録する。
 
 正本は [OpenAPI](openapi.json)。JSONのデータ項目はsnake_case、既存の共通エラー項目のみfieldErrors/requestIdという名前を使う。すべてのAPI応答にX-Request-Idを付ける。
 
@@ -41,6 +41,8 @@ FL-05の現行契約は下記「FL-05 実装契約」とOpenAPIを参照する�
 | 409 | `POST_ID_CONFLICT` | 使用済み／削除済みの記録ID。保存状態を確認する |
 | 409 | `PROFILE_OWNER_CHANGED` | 編集開始時と現在の本人が異なる。更新しない |
 | 409 | `ALREADY_AUTHENTICATED` | すでにログイン中。meを確認 |
+| 409 | `SOCIAL_OWNER_CHANGED` | コメント/いいね開始時と現在の本人が異なる |
+| 409 | `COMMENT_ID_CONFLICT` | 使用済み/削除済みのコメントID。POSTを自動再送せず保存状態を確認 |
 | 409 | `IMAGE_OPERATION_CONFLICT` | 同じ画像操作IDの内容・対象不一致、または退役済み |
 | 409 | `IMAGE_OPERATION_PENDING` | 同じ画像操作が処理中。Retry-After: 2 |
 | 413 | `PAYLOAD_TOO_LARGE` | JSONの16/32KiB上限、画像の入出力2/5MiB・20MP上限、またはmultipart全体上限の超過 |
@@ -88,3 +90,14 @@ GET `/api/media/content/{token}` は300秒のcapability URL。tokenにはopaque 
 画像PUTはclient45秒/明示中止に対応、server側総受信期限は現行local構成ではLow保留。127.0.0.1限定の開発機能で公開配置せず、FL-09公開前に受信期限・接続数・worker合計memoryを検証する。画像を無限に自動再送しない。
 
 署名URLの取得は認証処理と独立しており、DB障害でもsession cookieを破棄せず固定503/no-storeを返す。署名の安全性はSECRET_KEYの機密性に依存する。composeの公開サンプル鍵はローカル確認専用で、FL-09公開前には本番でサンプルSECRET_KEYを拒否する検査を追加し、秘密鍵を別途設定する。Django multipartのFILES=1/FIELDS=16を明示し、画像経路ではさらにimageだけ1パートに制限する。
+
+
+## FL-06 コメント・いいね
+
+[F04](../features/F04_comment.md)/[F05](../features/F05_like.md)とOpenAPIが正本。全経路会員向け、全応答no-store/Vary:Cookie/request-id。書込みはCSRFとX-Social-Ownerで本人変更を拒否し、実際の主体はrequest.user。コメントはPOST{id UUIDv4,body}201、GET/PUT200、DELETE204。いいねPOST/DELETEは0bytes bodyで常に200のstate/countを返し、再送は冪等。
+
+Postの全成功DTOにcomment_count/like_count/is_likedを必須追加。コメント/Likeはactive条件を一覧/単体/件数に揃え、無効な本人コメントは他人のPUT/DELETEでも404。parent/user削除はComment/Like CASCADE、本文なしCommentIdentityは保持。User→Post→Comment順で最新値を再検査し、同IDの削除後復活を拒否する。既存の画像・本文・energy・private射影は変えない。
+
+コメントはUTF-8 JSON raw16KiB/深さ4、CRLF→LF、単独CR/control/surrogate拒否、Python strip、1..500 code points。HTMLはテキスト、NFC/NFKCなし。ASCの署名cursorはviewer/postに束縛し24h/2048bytes、limit20既定/50最大、未知/重複queryもINVALID_CURSOR。
+
+新コードSOCIAL_OWNER_CHANGEDは全social書込み、COMMENT_ID_CONFLICTはコメントPOSTだけ。DELETEへ本文検証や画像処理のエラー/Retry-Afterを複写しない。結果不明は固定UUID/snapshotで照合し、新IDで自動POSTしない。再送は同ID/本文を1回、確認できない場合は警告後に明示中断できる。POST成功後は全ページを捨て先頭再取得し、本人の確認枠を一覧と区別する。

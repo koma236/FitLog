@@ -1,14 +1,23 @@
-import { useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, getMe } from '../auth/api'
 import type { Account } from '../auth/api'
 import { listWorkouts } from './api'
 import type { Page } from './types'
+import LikeButton from '../social/LikeButton'
+import type { SocialProps } from '../social/types'
 import WorkoutCard from './WorkoutCard'
 
-export default function WorkoutFeed({ account, username, onIdentity }: { account: Account; username: string; onIdentity: (v: Account | null) => void }) {
+const idle = () => {}
+export default function WorkoutFeed({ account, username, onIdentity, onBusy = idle, onUncertain = idle }: { account: Account; username: string } & Pick<SocialProps, 'onIdentity'> & Partial<Pick<SocialProps, 'onBusy' | 'onUncertain'>>) {
   const [page, setPage] = useState<Page | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
+  const [socialBusy, setSocialBusy] = useState(false)
+  const socialLocks = useRef(new Set<symbol>())
+  const socialWorking = useCallback((token: symbol, value: boolean) => {
+    if (value) socialLocks.current.add(token); else socialLocks.current.delete(token)
+    setSocialBusy(socialLocks.current.size > 0); onBusy(token, value)
+  }, [onBusy])
   const [invalid, setInvalid] = useState(false)
   const controller = useRef<AbortController | null>(null)
   const version = useRef(0)
@@ -17,7 +26,7 @@ export default function WorkoutFeed({ account, username, onIdentity }: { account
   const imagePages = useRef<{ cursor?: string; ids: string[]; used: boolean }[]>([])
   const refreshControllers = useRef(new Set<AbortController>())
   async function load(cursor?: string) {
-    if (sending.current) return
+    if (sending.current || socialLocks.current.size > 0) return
     if (!cursor) viewGeneration.current++
     const op = ++version.current; const abort = new AbortController(); controller.current?.abort(); controller.current = abort
     sending.current = true; setBusy(true); setMessage('')
@@ -65,11 +74,11 @@ export default function WorkoutFeed({ account, username, onIdentity }: { account
   }
   return <section aria-label="記録一覧" className="workout-feed"><h2>トレーニングの記録</h2>
     {username === account.username && <a className="button" href="#record-new">トレーニングを記録する</a>}
-    {message && <div role="alert"><p>{invalid ? '一覧の続きが無効になりました。最初から読み込み直してください。' : message}</p><button disabled={busy} onClick={() => { void load(invalid ? undefined : page?.next_cursor ?? undefined) }}>{invalid ? '一覧を最初から読み込み直す' : 'もう一度読み込む'}</button></div>}
+    {message && <div role="alert"><p>{invalid ? '一覧の続きが無効になりました。最初から読み込み直してください。' : message}</p><button disabled={busy || socialBusy} onClick={() => { void load(invalid ? undefined : page?.next_cursor ?? undefined) }}>{invalid ? '一覧を最初から読み込み直す' : 'もう一度読み込む'}</button></div>}
     {!page && !message && <p role="status">記録を読み込んでいます…</p>}
     {page?.items.length === 0 && <p>まだ記録がありません。</p>}
-    {page?.items.map(post => <WorkoutCard key={post.id} post={post} onImageError={() => { void refreshImages(post.id) }} />)}
-    {page && <button disabled={busy} onClick={() => { void load() }}>画像と一覧を再読み込み</button>}
-    {page?.next_cursor && !message && <button disabled={busy} onClick={() => { void load(page.next_cursor ?? undefined) }}>{busy ? '読込み中…' : 'もっと見る'}</button>}
+    {page?.items.map(post => <WorkoutCard key={post.id} post={post} social={<LikeButton account={account} post={post} onIdentity={onIdentity} onBusy={socialWorking} onUncertain={onUncertain} onMissing={() => { setPage(old => old ? { ...old, items: old.items.filter(item => item.id !== post.id) } : old) }} onLike={value => { setPage(old => old ? { ...old, items: old.items.map(item => item.id === post.id ? { ...item, ...value } : item) } : old) }} />} onImageError={() => { void refreshImages(post.id) }} />)}
+    {page && <button disabled={busy || socialBusy} onClick={() => { void load() }}>画像と一覧を再読み込み</button>}
+    {page?.next_cursor && !message && <button disabled={busy || socialBusy} onClick={() => { void load(page.next_cursor ?? undefined) }}>{busy ? '読込み中…' : 'もっと見る'}</button>}
   </section>
 }

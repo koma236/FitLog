@@ -11,7 +11,7 @@ import type { Workout } from './types'
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); location.hash = '' })
 const owner: Account = { id: '11111111-1111-4111-8111-111111111111', username: 'river_user', display_name: 'River', email: 'river@example.test' }
 const other: Account = { ...owner, id: '22222222-2222-4222-8222-222222222222', username: 'other_user' }
-const base: Workout = { image: null, viewer_id: owner.id, id: '33333333-3333-4333-8333-333333333333', author: { id: owner.id, username: owner.username, display_name: owner.display_name, avatar: null }, is_owner: true, performed_on: '2024-02-29', note: '記録メモ', created_at: '2024-02-29T00:00:00.123456Z', updated_at: '2024-02-29T00:00:00.123456Z', exercises: [{ name: 'ベンチプレス', sets: [{ weight_kg: '60.00', reps: 10 }] }], energy: { kcal: 105, method: 'met-gross-v1' }, energy_input: { minutes: 30, kind: 'general' }, visibility: { minutes: 'private', kind: 'private' } }
+const base: Workout = { comment_count: 0, like_count: 0, is_liked: false, image: null, viewer_id: owner.id, id: '33333333-3333-4333-8333-333333333333', author: { id: owner.id, username: owner.username, display_name: owner.display_name, avatar: null }, is_owner: true, performed_on: '2024-02-29', note: '記録メモ', created_at: '2024-02-29T00:00:00.123456Z', updated_at: '2024-02-29T00:00:00.123456Z', exercises: [{ name: 'ベンチプレス', sets: [{ weight_kg: '60.00', reps: 10 }] }], energy: { kcal: 105, method: 'met-gross-v1' }, energy_input: { minutes: 30, kind: 'general' }, visibility: { minutes: 'private', kind: 'private' } }
 function reply(status: number, value: unknown): Response { return new Response(status === 204 ? null : JSON.stringify(value), { status }) }
 function mock(options: { write?: (init: RequestInit) => Response | Promise<Response>; read?: (url: string) => Response | Promise<Response>; me?: () => Account | Response | Promise<Account | Response> } = {}) {
   const count = { writes: 0, csrf: 0 }
@@ -130,6 +130,7 @@ async function createInApp() {
     server.record = { ...base, id: data.id }
     return reply(201, server.record)
   }, read: url => {
+    if (url.endsWith('/comments')) return reply(200, { viewer_id: owner.id, post_id: server.record.id, comment_count: 0, items: [], next_cursor: null })
     if (url.startsWith('/api/users/')) return reply(200, { viewer_id: owner.id, items: server.deleted ? [] : [server.record], next_cursor: null })
     server.detailReads++
     return server.deleted ? reply(404, { code: 'NOT_FOUND' }) : reply(200, server.record)
@@ -265,4 +266,9 @@ it('keeps the draft when identity preflight fails before any write', async () =>
   await screen.findByText('ログイン状態を確認できません。時間をおいてもう一度操作してください。')
   expect(screen.getByLabelText('メモ')).toBeEnabled(); expect(screen.getByLabelText('メモ')).toHaveValue('送信前の下書き')
   expect(count.writes).toBe(0)
+})
+it('shows server social counts on the record card', () => {
+  render(<WorkoutCard post={{ ...base, comment_count: 3, like_count: 2, is_liked: true }} />)
+  expect(screen.getByRole('link', { name: 'コメント 3' })).toHaveAttribute('href', '#record/' + base.id)
+  expect(screen.getByText('いいね 2')).toBeVisible()
 })

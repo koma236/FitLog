@@ -6,8 +6,9 @@ function object(v: unknown): v is Record<string, unknown> { return typeof v === 
 function keys(v: Record<string, unknown>, allowed: string[], required = allowed) { return Object.keys(v).every(k => allowed.includes(k)) && required.every(k => Object.hasOwn(v, k)) }
 export function validPost(v: unknown, actor: string): v is Workout {
   if (!object(v) || !object(v.author) || !keys(v.author, ['id', 'username', 'display_name', 'avatar']) || !['id', 'username', 'display_name'].every(k => typeof v.author === 'object' && v.author !== null && typeof (v.author as Record<string, unknown>)[k] === 'string') || !validImage(v.author.avatar) || !validImage(v.image)) return false
+  if (![v.comment_count, v.like_count].every(n => typeof n === 'number' && Number.isSafeInteger(n) && n >= 0) || typeof v.is_liked !== 'boolean') return false
   const owner = v.author.id === actor
-  if (!keys(v, ['image', 'viewer_id', 'id', 'author', 'is_owner', 'performed_on', 'note', 'created_at', 'updated_at', 'exercises', 'energy', 'energy_input', ...(owner ? ['visibility'] : [])]) || v.is_owner !== owner || v.viewer_id !== actor) return false
+  if (!keys(v, ['comment_count', 'like_count', 'is_liked', 'image', 'viewer_id', 'id', 'author', 'is_owner', 'performed_on', 'note', 'created_at', 'updated_at', 'exercises', 'energy', 'energy_input', ...(owner ? ['visibility'] : [])]) || v.is_owner !== owner || v.viewer_id !== actor) return false
   if (!['id', 'performed_on', 'note', 'created_at', 'updated_at'].every(k => typeof v[k] === 'string') || !object(v.energy_input) || !keys(v.energy_input, ['minutes', 'kind'], owner ? ['minutes', 'kind'] : [])) return false
   const { minutes, kind } = v.energy_input
   if (minutes !== undefined && minutes !== null && (typeof minutes !== 'number' || !Number.isInteger(minutes) || minutes < 1 || minutes > 240)) return false

@@ -864,3 +864,28 @@ def test_avatar_replacements_and_delete_follow_user_lock_order(
     with pytest.raises(ImageError) as retired:
         service.upload(User.objects.get(pk=owner), "avatar", UUID(owner), first_op, value)
     assert retired.value.status == 409
+
+
+def test_post_image_response_keeps_authoritative_social_projection(
+    image_actor: tuple[Client, str],
+) -> None:
+    from tests.test_social_api import cid, social
+
+    owner_client, owner = image_actor
+    record = body(send(owner_client, owner, "POST", "/api/posts", payload()))
+    key = record["id"]
+    other = api_client()
+    other_id = body(signup(other, token(other), "image_social_b", "image_social_b@example.test"))["id"]
+    assert social(other, other_id, "POST", "/api/posts/" + key + "/comments", {"id": cid(901), "body": "other author"}).status_code == 201
+    assert social(other, other_id, "POST", "/api/posts/" + key + "/like").status_code == 200
+    before_self_like = put_image(owner_client, owner, "/api/posts/" + key + "/image")
+    assert before_self_like.status_code == 200
+    value = body(before_self_like)
+    assert (value["comment_count"], value["like_count"], value["is_liked"]) == (1, 1, False)
+    assert social(owner_client, owner, "POST", "/api/posts/" + key + "/like").status_code == 200
+    after_self_like = put_image(owner_client, owner, "/api/posts/" + key + "/image")
+    assert after_self_like.status_code == 200
+    value = body(after_self_like)
+    assert (value["comment_count"], value["like_count"], value["is_liked"]) == (1, 2, True)
+    for field in ("note", "exercises", "energy", "energy_input", "visibility", "created_at", "updated_at"):
+        assert value[field] == record[field]

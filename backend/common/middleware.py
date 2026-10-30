@@ -38,7 +38,7 @@ class ApiBoundaryMiddleware:
         if is_api:
             if (
                 response.status_code in ERRORS
-                and (response.status_code != 503 or request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/media/")))
+                and (response.status_code != 503 or request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/comments/", "/api/media/")))
                 and not self._is_common_error(request, response)
             ):
                 normalized = error_response(request, response.status_code)
@@ -51,9 +51,9 @@ class ApiBoundaryMiddleware:
                         normalized[header] = response[header]
                 response = normalized
             response["X-Request-Id"] = request.META["FITLOG_REQUEST_ID"]
-            if request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/media/")):
+            if request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/comments/", "/api/media/")):
                 response["Cache-Control"] = "no-store"
-            if request.path.startswith(("/api/users/", "/api/posts")):
+            if request.path.startswith(("/api/users/", "/api/posts", "/api/comments/")):
                 patch_vary_headers(response, ("Cookie",))
             if response.status_code >= 400:
                 logger.warning("api_error status=%s request_id=%s",
@@ -80,7 +80,7 @@ class ApiBoundaryMiddleware:
             if request.path.startswith("/api/media/content/") and isinstance(exception, DatabaseError):
                 # Capability reads never authenticate or mutate the browser session.
                 return error_response(request, 503)
-            if request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/media/")) and isinstance(
+            if request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/comments/", "/api/media/")) and isinstance(
                 exception, (DatabaseError, SessionInterrupted),
             ):
                 return auth_unavailable(request)
@@ -105,6 +105,6 @@ class AuthSessionMiddleware(SessionMiddleware):
         try:
             return super().process_response(request, response)
         except (DatabaseError, SessionInterrupted):
-            if not request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/media/")):
+            if not request.path.startswith(("/api/auth/", "/api/users/", "/api/posts", "/api/comments/", "/api/media/")):
                 raise
             return auth_unavailable(request)

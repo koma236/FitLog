@@ -69,3 +69,19 @@ textarea { min-height: 110px; resize: vertical; }
 .image-preview { display:block; width:auto; max-width:100%; height:auto; max-height:240px; margin:1rem 0; border-radius:8px; }
 .image-editor { border-top:1px solid #dbe5dd; padding:1.2rem 0; margin-top:1rem; }
 .image-editor button { margin: .3rem; }
+.post-social { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; margin:1rem 0; padding-top:1rem; border-top:1px solid #dce4e2; }
+.social-like { display:flex; align-items:center; flex-wrap:wrap; gap:.6rem; }
+.social-like [aria-pressed="true"] { background:#185c4c; color:#fff; }
+.social-like p { flex-basis:100%; margin:.25rem 0; }
+.comments-panel { border-top:1px solid #dce4e2; margin-top:2rem; padding-top:1rem; min-width:0; }
+.comments-panel h2:focus { outline:2px solid #185c4c; outline-offset:.3rem; }
+.comments-panel form, .comment-recovery { display:grid; gap:.75rem; margin-top:1.5rem; }
+.comments-panel textarea { min-height:7rem; width:100%; resize:vertical; }
+.comment-row { border-bottom:1px solid #dce4e2; padding:1rem 0; min-width:0; }
+.comment-row header { display:flex; align-items:center; flex-wrap:wrap; gap:.5rem; }
+.comment-row time { font-size:.8rem; color:#52655e; }
+.comment-body { white-space:pre-wrap; overflow-wrap:anywhere; }
+.comment-confirmation { border:1px solid #658b7f; background:#f0f7f3; border-radius:.6rem; padding:1rem; margin:1rem 0; }
+.comments-panel dialog { max-width:min(90vw,32rem); border:1px solid #658b7f; border-radius:.6rem; padding:1.5rem; }
+.comments-panel dialog button { margin:.25rem; }
+@media(max-width:420px) { .post-social { gap:.6rem; } .comment-row header a { overflow-wrap:anywhere; } .comments-panel dialog { padding:1rem; } }
