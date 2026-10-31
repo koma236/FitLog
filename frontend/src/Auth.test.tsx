@@ -213,3 +213,23 @@ it('does not authenticate from an unexpected success status or account shape', a
   await waitFor(() => { expect(posts).toBe(2) })
   expect(screen.queryByRole('button', { name: 'ログアウト' })).not.toBeInTheDocument()
 })
+
+it('checks expiry when focus arrives as the restored home mounts before passive effects finish', async () => {
+  let meCalls = 0
+  vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
+    const path = requestPath(input)
+    if (path.includes('/posts')) {
+      // The first child read starts after home commits, before the parent's passive focus effect.
+      expect(screen.getByRole('heading', { name: '川さん' })).toBeVisible()
+      window.dispatchEvent(new Event('focus'))
+      return Promise.resolve(reply(200, { viewer_id: account.id, items: [], next_cursor: null }))
+    }
+    if (path.endsWith('/csrf')) return Promise.resolve(reply(200, { csrf_token: 'csrf' }))
+    meCalls++
+    return Promise.resolve(meCalls === 1 ? reply(200, account) : reply(401, { code: 'AUTH_REQUIRED' }))
+  }))
+  render(<App />)
+  expect(await screen.findByRole('button', { name: 'ログイン' })).toBeVisible()
+  expect(screen.getByRole('alert')).toHaveTextContent('セッションの有効期限が切れました。')
+  expect(meCalls).toBe(2)
+})
