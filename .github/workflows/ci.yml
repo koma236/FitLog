@@ -1,0 +1,92 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: fitlog-ci-${{ github.run_id }}-${{ github.run_attempt }}-backend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Docker versions
+        run: docker compose version
+      - name: Backend image
+        run: docker compose build backend
+      - name: Ruff
+        run: docker compose run --rm --no-deps backend uv run --frozen --no-sync ruff check .
+      - name: mypy
+        run: docker compose run --rm --no-deps backend uv run --frozen --no-sync mypy .
+      - name: Django check
+        run: docker compose run --rm --no-deps backend uv run --frozen --no-sync python manage.py check
+      - name: PostgreSQL
+        run: docker compose up --detach --wait postgres
+      - name: Migrate empty database
+        run: docker compose run --rm --no-deps backend uv run --frozen --no-sync python manage.py migrate --noinput
+      - name: Migration drift
+        run: docker compose run --rm --no-deps backend uv run --frozen --no-sync python manage.py makemigrations --check --dry-run
+      - name: Backend tests
+        run: docker compose run --rm --no-deps backend uv run --frozen --no-sync pytest -q
+      - name: Cleanup
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      COMPOSE_PROJECT_NAME: fitlog-ci-${{ github.run_id }}-${{ github.run_attempt }}-frontend
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Docker versions
+        run: docker compose version
+      - name: Frontend image
+        run: docker compose build frontend
+      - name: Required status truth table
+        run: bash .github/ci/test-required-status.sh
+      - name: Workflow inspection image
+        run: docker build --file .github/ci/Dockerfile --build-arg FRONTEND_IMAGE=fitlog-dev-frontend --tag fitlog-ci-tools .
+      - name: Workflow wiring and negative fixtures
+        run: docker run --rm fitlog-ci-tools node /ci/test-workflow.cjs
+      - name: ESLint
+        run: docker compose run --rm --no-deps frontend npm run lint
+      - name: TypeScript
+        run: docker compose run --rm --no-deps frontend npm run typecheck
+      - name: Frontend tests
+        run: docker compose run --rm --no-deps frontend npm run test -- --run
+      - name: Production build
+        run: docker compose run --rm --no-deps frontend npm run build
+      - name: Cleanup
+        if: always()
+        run: docker compose down --volumes --remove-orphans
+
+  ci-required:
+    if: always()
+    needs: [backend, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require both jobs to succeed
+        env:
+          BACKEND_RESULT: ${{ needs.backend.result }}
+          FRONTEND_RESULT: ${{ needs.frontend.result }}
+        run: bash .github/ci/required-status.sh "$BACKEND_RESULT" "$FRONTEND_RESULT"

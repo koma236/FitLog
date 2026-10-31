@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { ApiError, getCsrf, getMe, signOut, submitAuth } from './auth/api'
 import type { Account, FieldErrors } from './auth/api'
 import AuthForm from './auth/AuthForm'
@@ -75,7 +75,8 @@ export default function App() {
     return () => { alive.current = false }
   }, [restore, refreshCsrf])
 
-  useEffect(() => {
+  // Install before restored content is visible or its passive effects can dispatch focus.
+  useLayoutEffect(() => {
     async function checkSession() {
       const version = operation.current
       try {
