@@ -42,7 +42,9 @@ def error_response(
     elif code == "RECORD_OWNER_CHANGED":
         message = "ログインしているユーザーが変わりました。記録を開き直してください。"
     elif code == "SOCIAL_OWNER_CHANGED":
-        message = "ログインしているユーザーが変わりました。コメント・いいねの状態を確認してください。"
+        message = "ログインしているユーザーが変わりました。交流の状態を確認してください。"
+    elif code == "SELF_FOLLOW":
+        message = "自分自身はフォローできません。"
     elif code == "COMMENT_ID_CONFLICT":
         message = "このコメントIDは使用済みです。保存状態を確認してください。"
     elif code == "IMAGE_OPERATION_CONFLICT":

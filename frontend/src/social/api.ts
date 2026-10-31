@@ -29,6 +29,7 @@ async function request(path: string, actor: string, signal: AbortSignal, method 
   } catch (error) { if (error instanceof ApiError) throw error; throw new ApiError(0, signal.aborted ? 'ABORTED' : 'NETWORK_ERROR', '処理結果を確認できません。') }
   finally { clearTimeout(timer); signal.removeEventListener('abort', abort) }
 }
+export { request as socialRequest }
 function result(v: unknown, actor: string, post: string, id?: string): CommentResult {
   if (!object(v) || !keys(v, ['viewer_id', 'post_id', 'comment_count', 'comment']) || v.viewer_id !== actor || v.post_id !== post || !count(v.comment_count) || !validComment(v.comment, actor) || v.comment.post_id !== post || id !== undefined && v.comment.id !== id) throw new ApiError(200, 'INVALID_RESPONSE', '処理結果を確認できません。')
   return v as CommentResult

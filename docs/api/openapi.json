@@ -3,7 +3,7 @@
   "info": {
     "title": "FitLog API",
     "version": "0.1.0-draft",
-    "description": "health, FL-02 auth, FL-03 profile, FL-04 workouts, FL-05 local images and FL-06 comments/likes are implemented. Follow/search/global timeline and production infrastructure remain future contracts."
+    "description": "health, auth, profile, workouts, local images, comments/likes and FL-07 follows/search/timelines are implemented. Production infrastructure remains future work."
   },
   "servers": [
     {
@@ -1074,7 +1074,7 @@
       "get": {
         "operationId": "getTimelineFollowing",
         "summary": "タイムライン following",
-        "description": "created_at DESC,id DESC。followingは自分＋現在のフォロー先。削除済みは含めない。",
+        "description": "created_at DESC,identity_id DESC。有効会員の自身と現在のフォロー先の記録。各ページはread-only REPEATABLE READ。 method→認証→query形状→limit/cursor。未知/重複queryはINVALID_CURSOR。固定集合でkeyset欠落/重複なし、ページ間の更新は次取得に反映。",
         "tags": [
           "timeline"
         ],
@@ -1086,6 +1086,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
               }
             },
             "content": {
@@ -1104,6 +1118,48 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -1112,9 +1168,11 @@
             "name": "cursor",
             "schema": {
               "type": "string",
-              "maxLength": 1024
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "^[ -~]+$"
             },
-            "description": "不透明なカーソル。他の一覧・検索条件のカーソルは流用不可。"
+            "description": "ASCII署名値、24時間有効、閲覧者/用途/正規化qに束縛。"
           },
           {
             "in": "query",
@@ -1124,7 +1182,13 @@
               "minimum": 1,
               "maximum": 50,
               "default": 20
-            }
+            },
+            "description": "ASCII [1-9][0-9]?、整数1〜50。先頭0・空白・符号は拒否。"
+          }
+        ],
+        "security": [
+          {
+            "SessionCookie": []
           }
         ]
       }
@@ -1133,7 +1197,7 @@
       "get": {
         "operationId": "getTimelineAll",
         "summary": "タイムライン all",
-        "description": "created_at DESC,id DESC。followingは自分＋現在のフォロー先。削除済みは含めない。",
+        "description": "created_at DESC,identity_id DESC。有効会員の全会員の記録。各ページはread-only REPEATABLE READ。 method→認証→query形状→limit/cursor。未知/重複queryはINVALID_CURSOR。固定集合でkeyset欠落/重複なし、ページ間の更新は次取得に反映。",
         "tags": [
           "timeline"
         ],
@@ -1145,6 +1209,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
               }
             },
             "content": {
@@ -1163,6 +1241,48 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -1171,9 +1291,11 @@
             "name": "cursor",
             "schema": {
               "type": "string",
-              "maxLength": 1024
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "^[ -~]+$"
             },
-            "description": "不透明なカーソル。他の一覧・検索条件のカーソルは流用不可。"
+            "description": "ASCII署名値、24時間有効、閲覧者/用途/正規化qに束縛。"
           },
           {
             "in": "query",
@@ -1183,7 +1305,13 @@
               "minimum": 1,
               "maximum": 50,
               "default": 20
-            }
+            },
+            "description": "ASCII [1-9][0-9]?、整数1〜50。先頭0・空白・符号は拒否。"
+          }
+        ],
+        "security": [
+          {
+            "SessionCookie": []
           }
         ]
       }
@@ -5783,7 +5911,7 @@
       "get": {
         "operationId": "searchUsers",
         "summary": "ユーザー検索",
-        "description": "大文字小文字を無視したusername/表示名の部分一致。%/_は文字。空検索は新着利用者。created_at DESC,id DESC。",
+        "description": "空検索・非空検索ともdate_joined DESC,id DESC。username/display_nameの大小無視部分一致、%/_/backslashはリテラル。 method→認証→query形状→q→limit/cursor。未知/重複queryはINVALID_CURSOR、q内容はVALIDATION_ERROR。固定集合でkeyset欠落/重複なし、ページ間の更新は次取得に反映。",
         "tags": [
           "users"
         ],
@@ -5795,6 +5923,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
               }
             },
             "content": {
@@ -5813,6 +5955,48 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "GET"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -5821,9 +6005,11 @@
             "name": "cursor",
             "schema": {
               "type": "string",
-              "maxLength": 1024
+              "maxLength": 2048,
+              "minLength": 1,
+              "pattern": "^[ -~]+$"
             },
-            "description": "不透明なカーソル。他の一覧・検索条件のカーソルは流用不可。"
+            "description": "ASCII署名値、24時間有効、閲覧者/用途/正規化qに束縛。"
           },
           {
             "in": "query",
@@ -5833,16 +6019,22 @@
               "minimum": 1,
               "maximum": 50,
               "default": 20
-            }
+            },
+            "description": "ASCII [1-9][0-9]?、整数1〜50。先頭0・空白・符号は拒否。"
           },
           {
             "in": "query",
             "name": "q",
             "schema": {
               "type": "string",
-              "maxLength": 50,
               "default": ""
-            }
+            },
+            "description": "Python str.strip後に最大50 Unicodeコードポイント。残存Cc/サロゲート拒否、FEFFは文字として保持。"
+          }
+        ],
+        "security": [
+          {
+            "SessionCookie": []
           }
         ]
       }
@@ -7780,7 +7972,7 @@
       "post": {
         "operationId": "postFollow",
         "summary": "フォロー付与",
-        "description": "自己フォローは禁止。再送しても重複しない。following_countは操作した本人、follower_countは対象利用者の数。",
+        "description": "POST/DELETEとも自己操作は400 SELF_FOLLOW「自分自身はフォローできません。」。method→認証→UUID→owner→自己→対象preflight→query/body→transaction再確認。全queryと非空bodyは400 INVALID_REQUEST（20KiBでも400、独自413なし）。冪等。user_id/follower_countは対象、following_countは操作側。無効/不在対象404、actor無効401。",
         "tags": [
           "users"
         ],
@@ -7792,6 +7984,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
               }
             },
             "content": {
@@ -7816,6 +8022,51 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "POST, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -7836,13 +8087,28 @@
               "type": "string"
             },
             "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+          },
+          {
+            "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "正規UUID。ログイン本人と異なる場合409 SOCIAL_OWNER_CHANGED。"
+          }
+        ],
+        "security": [
+          {
+            "SessionCookie": []
           }
         ]
       },
       "delete": {
         "operationId": "deleteFollow",
         "summary": "フォロー解除",
-        "description": "自己フォローは禁止。再送しても重複しない。following_countは操作した本人、follower_countは対象利用者の数。",
+        "description": "POST/DELETEとも自己操作は400 SELF_FOLLOW「自分自身はフォローできません。」。method→認証→UUID→owner→自己→対象preflight→query/body→transaction再確認。全queryと非空bodyは400 INVALID_REQUEST（20KiBでも400、独自413なし）。冪等。user_id/follower_countは対象、following_countは操作側。無効/不在対象404、actor無効401。",
         "tags": [
           "users"
         ],
@@ -7854,6 +8120,20 @@
                 "schema": {
                   "type": "string"
                 }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
               }
             },
             "content": {
@@ -7878,6 +8158,51 @@
           },
           "500": {
             "$ref": "#/components/responses/Error500"
+          },
+          "409": {
+            "$ref": "#/components/responses/Error409"
+          },
+          "405": {
+            "description": "METHOD_NOT_ALLOWED",
+            "headers": {
+              "X-Request-Id": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "no-store"
+                  ]
+                }
+              },
+              "Vary": {
+                "schema": {
+                  "type": "string"
+                },
+                "description": "Cookieを含む。"
+              },
+              "Allow": {
+                "schema": {
+                  "type": "string",
+                  "enum": [
+                    "POST, DELETE"
+                  ]
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "$ref": "#/components/responses/Error503"
           }
         },
         "parameters": [
@@ -7898,6 +8223,21 @@
               "type": "string"
             },
             "description": "GET /api/auth/csrfで取得。Cookieも同時送信する。"
+          },
+          {
+            "in": "header",
+            "name": "X-Social-Owner",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "description": "正規UUID。ログイン本人と異なる場合409 SOCIAL_OWNER_CHANGED。"
+          }
+        ],
+        "security": [
+          {
+            "SessionCookie": []
           }
         ]
       }
@@ -8735,7 +9075,9 @@
         "required": [
           "is_following",
           "follower_count",
-          "following_count"
+          "following_count",
+          "viewer_id",
+          "user_id"
         ],
         "properties": {
           "is_following": {
@@ -8748,6 +9090,14 @@
           "following_count": {
             "type": "integer",
             "minimum": 0
+          },
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "user_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -8846,18 +9196,23 @@
         "additionalProperties": false,
         "required": [
           "items",
-          "next_cursor"
+          "next_cursor",
+          "viewer_id"
         ],
         "properties": {
           "items": {
             "type": "array",
             "items": {
-              "$ref": "#/components/schemas/Profile"
+              "$ref": "#/components/schemas/SearchUser"
             }
           },
           "next_cursor": {
             "type": "string",
             "nullable": true
+          },
+          "viewer_id": {
+            "type": "string",
+            "format": "uuid"
           }
         }
       },
@@ -9135,7 +9490,10 @@
           "energy",
           "visibility",
           "viewer_id",
-          "avatar"
+          "avatar",
+          "is_following",
+          "follower_count",
+          "following_count"
         ],
         "properties": {
           "id": {
@@ -9219,6 +9577,20 @@
               }
             },
             "nullable": true
+          },
+          "is_following": {
+            "type": "boolean",
+            "enum": [
+              false
+            ]
+          },
+          "follower_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "following_count": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -9234,7 +9606,10 @@
           "health",
           "energy",
           "viewer_id",
-          "avatar"
+          "avatar",
+          "is_following",
+          "follower_count",
+          "following_count"
         ],
         "properties": {
           "id": {
@@ -9315,6 +9690,17 @@
               }
             },
             "nullable": true
+          },
+          "is_following": {
+            "type": "boolean"
+          },
+          "follower_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "following_count": {
+            "type": "integer",
+            "minimum": 0
           }
         }
       },
@@ -10032,6 +10418,94 @@
             "minimum": 0
           }
         }
+      },
+      "SearchUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "id",
+          "username",
+          "display_name",
+          "avatar",
+          "is_owner",
+          "is_following",
+          "follower_count",
+          "following_count"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "description": "User.pk。身体情報行の有無に無関係。"
+          },
+          "username": {
+            "type": "string",
+            "pattern": "^[a-z0-9_]{3,30}$"
+          },
+          "display_name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 50
+          },
+          "avatar": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "url",
+              "expires_at",
+              "width",
+              "height",
+              "content_type"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "url": {
+                "type": "string",
+                "description": "Opaque capability URL; no filename/body data in its payload. Do not log it."
+              },
+              "expires_at": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "width": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "height": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 20000000
+              },
+              "content_type": {
+                "type": "string",
+                "enum": [
+                  "image/jpeg",
+                  "image/png"
+                ]
+              }
+            },
+            "nullable": true
+          },
+          "is_owner": {
+            "type": "boolean"
+          },
+          "is_following": {
+            "type": "boolean"
+          },
+          "follower_count": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "following_count": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
       }
     },
     "responses": {
@@ -10110,7 +10584,7 @@
         }
       },
       "Error409": {
-        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED, RECORD_OWNER_CHANGED, POST_ID_CONFLICT, IMAGE_OPERATION_CONFLICT, IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING. SOCIAL_OWNER_CHANGED and COMMENT_ID_CONFLICT apply to FL-06 operations.",
+        "description": "DUPLICATE_USERNAME, DUPLICATE_EMAIL, ALREADY_AUTHENTICATED, PROFILE_OWNER_CHANGED, RECORD_OWNER_CHANGED, POST_ID_CONFLICT, IMAGE_OPERATION_CONFLICT, IMAGE_OPERATION_PENDING. Retry-After: 2 only for IMAGE_OPERATION_PENDING. SOCIAL_OWNER_CHANGED and COMMENT_ID_CONFLICT apply to comments/likes/follows (COMMENT_ID_CONFLICT only comments).",
         "headers": {
           "X-Request-Id": {
             "schema": {

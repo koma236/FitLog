@@ -6,13 +6,21 @@ import { getProfile, saveProfile } from './api'
 import ProfileEditor from './ProfileEditor'
 import ProfileView from './ProfileView'
 import type { Profile } from './types'
+import FollowButton from '../social/FollowButton'
 
-type Props = { account: Account; target: string; editing: boolean; onIdentity: (account: Account | null) => void; onName: (id: string, name: string) => void; onBusy: (token: symbol, busy: boolean) => void }
-export default function ProfileScreen({ account, target, editing, onIdentity, onName, onBusy }: Props) {
+const idle = () => {}
+type Props = { account: Account; target: string; editing: boolean; onIdentity: (account: Account | null) => void; onName: (id: string, name: string) => void; onBusy: (token: symbol, busy: boolean) => void; onUncertain?: (token: symbol, uncertain: boolean) => void }
+export default function ProfileScreen({ account, target, editing, onIdentity, onName, onBusy, onUncertain = idle }: Props) {
   const [loaded, setLoaded] = useState<{ key: string; value: Profile } | null>(null)
   const [message, setMessage] = useState('')
   const [fields, setFields] = useState<FieldErrors>({})
   const [imageBusy, setImageBusy] = useState(false)
+  const [followBusy, setFollowBusy] = useState(false)
+  const followLocks = useRef(new Set<symbol>())
+  const followWorking = useCallback((token: symbol, value: boolean) => {
+    if (value) followLocks.current.add(token); else followLocks.current.delete(token)
+    setFollowBusy(followLocks.current.size > 0); onBusy(token, value)
+  }, [onBusy])
   const refreshUsed = useRef(false)
   const [busy, setBusy] = useState(false)
   const [draftEpoch, setDraftEpoch] = useState(0)
@@ -142,8 +150,9 @@ export default function ProfileScreen({ account, target, editing, onIdentity, on
   return <div className="profile-content">
     {message && <p role="alert" className="form-error">{message}</p>}
     {profile ? editing ? <ProfileEditor key={`${key}:${String(draftEpoch)}`} profile={profile} busy={busy || imageBusy} fields={fields} onSave={save} /> : <ProfileView profile={profile} onImageError={() => { void refreshImage() }} /> : !message && <p role="status">プロフィールを読み込んでいます…</p>}
+    {profile && !profile.is_owner && !editing && <FollowButton key={key} account={account} target={profile} onFollow={value => { setLoaded(old => old ? { ...old, value: { ...old.value, ...value } } : old) }} onIdentity={onIdentity} onBusy={followWorking} onUncertain={onUncertain} />}
     {profile?.is_owner && <ImageEditor key={`${account.id}:${target}`} account={account} image={profile.avatar} disabled={busy} onImage={(avatar, mutation) => { if (mutation) refreshUsed.current = false; setLoaded(old => old ? { ...old, value: { ...old.value, avatar } } : old) }} onIdentity={onIdentity} onBusy={onBusy} onWorking={setImageBusy} />}
-    {profile && !editing && <button type="button" disabled={busy || imageBusy} onClick={() => { setReload(v => v + 1) }}>画像を再読み込み</button>}
+    {profile && !editing && <button type="button" disabled={busy || imageBusy || followBusy} onClick={() => { setReload(v => v + 1) }}>画像を再読み込み</button>}
     {(uncertain || (!profile && message)) && <button disabled={busy || imageBusy} type="button" onClick={() => { void recover() }}>{editing ? '保存状態を読み直す（入力を破棄）' : 'もう一度読み込む'}</button>}
   </div>
 }

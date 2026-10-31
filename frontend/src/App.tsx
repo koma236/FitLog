@@ -6,6 +6,7 @@ import ProfileScreen from './profile/ProfileScreen'
 import WorkoutScreen from './workouts/WorkoutScreen'
 import WorkoutFeed from './workouts/WorkoutFeed'
 import type { Workout } from './workouts/types'
+import UserSearch from './social/UserSearch'
 
 export default function App() {
   const profileLock = useRef(new Map<symbol, string>())
@@ -46,6 +47,9 @@ export default function App() {
   const onName = useCallback((id: string, name: string) => { setUser(previous => previous?.id === id ? { ...previous, display_name: name } : previous) }, [])
   const showProfile = hash === '#profile' || hash === '#profile-edit' || hash.startsWith('#profile/')
   const showWorkout = hash === '#record-new' || hash.startsWith('#record/') || hash.startsWith('#record-edit/')
+  const showSearch = hash === '#search'
+  const showTimeline = !showProfile && !showWorkout && !showSearch
+  const timeline = hash === '#timeline/all' ? 'all' : 'following'
   const workoutId = hash.startsWith('#record-edit/') ? hash.slice(13) : hash.startsWith('#record/') ? hash.slice(8) : null
   let target = 'me'
   if (hash.startsWith('#profile/')) {
@@ -136,14 +140,15 @@ export default function App() {
       {message && <p role="alert" className="form-error">{message}</p>}
       {loading ? <p role="status">確認中…</p> : user ? (
         <section className="profile-frame">
-          <nav className="profile-nav" aria-label="メニュー"><a aria-disabled={profileSaving} href="#" onClick={event => { if (profileSaving) event.preventDefault() }}>ホーム</a><a aria-disabled={profileSaving} href="#profile" onClick={event => { if (profileSaving) event.preventDefault() }}>プロフィール</a></nav>
-          {!showProfile && !showWorkout && <><p className="eyebrow">HOME</p><h1>{user.display_name}さん</h1></>}
+          <nav className="profile-nav" aria-label="メニュー"><a aria-disabled={profileSaving} href="#" onClick={event => { if (profileSaving) event.preventDefault() }}>ホーム</a><a aria-disabled={profileSaving} href="#search" onClick={event => { if (profileSaving) event.preventDefault() }}>ユーザー検索</a><a aria-disabled={profileSaving} href="#profile" onClick={event => { if (profileSaving) event.preventDefault() }}>プロフィール</a></nav>
+          {showTimeline && <><p className="eyebrow">HOME</p><h1>{user.display_name}さん</h1><div role="tablist" aria-label="タイムライン"><a role="tab" aria-selected={timeline === 'following'} aria-disabled={profileSaving} href="#" onClick={event => { if (profileSaving) event.preventDefault() }}>フォロー中</a><a role="tab" aria-selected={timeline === 'all'} aria-disabled={profileSaving} href="#timeline/all" onClick={event => { if (profileSaving) event.preventDefault() }}>すべて</a></div></>}
           <button type="button" disabled={busy || profileSaving} onClick={() => { void perform(async () => {
             await signOut(csrf.current); setSavedWorkout(null); setUser(null); csrf.current = ''; await refreshCsrf()
           }) }}>{busy ? '送信中…' : 'ログアウト'}</button>
           {showWorkout && <WorkoutScreen key={`${user.id}:${hash}`} account={user} id={workoutId} editing={hash.startsWith("#record-edit/")} initial={savedWorkout?.id === workoutId && savedWorkout.viewer_id === user.id ? savedWorkout : null} onIdentity={onIdentity} onBusy={profileBusy} onSaved={setSavedWorkout} onClearSaved={clearSavedWorkout} onUncertain={workoutUncertain} />}
-          {showProfile && <ProfileScreen key={user.id} account={user} target={target} editing={hash === '#profile-edit'} onIdentity={onIdentity} onName={onName} onBusy={profileBusy} />}
-          {!showWorkout && hash !== "#profile-edit" && <WorkoutFeed key={`${user.id}:${target}:${hash}`} account={user} username={target === "me" ? user.username : target} onIdentity={onIdentity} onBusy={profileBusy} onUncertain={workoutUncertain} />}
+          {showProfile && <ProfileScreen key={user.id} account={user} target={target} editing={hash === '#profile-edit'} onIdentity={onIdentity} onName={onName} onBusy={profileBusy} onUncertain={workoutUncertain} />}
+          {showSearch && <UserSearch key={user.id} account={user} onIdentity={onIdentity} onBusy={profileBusy} onUncertain={workoutUncertain} />}
+          {(showTimeline || showProfile && hash !== '#profile-edit') && <WorkoutFeed key={`${user.id}:${target}:${hash}`} account={user} username={target === "me" ? user.username : target} timeline={showTimeline ? timeline : undefined} onIdentity={onIdentity} onBusy={profileBusy} onUncertain={workoutUncertain} />}
         </section>
       ) : <AuthForm busy={busy} fields={fields} onSubmit={authenticate} onSwitch={() => { setMessage(''); setFields({}) }} />}
       {!loading && message && <button className="text-button" disabled={busy} onClick={() => {

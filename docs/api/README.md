@@ -1,6 +1,6 @@
 # API共通契約・エラー一覧
 
-> health・FL-02認証・FL-03プロフィール・FL-04記録・FL-05ローカル画像・FL-06コメント/いいねの実装契約。フォロー・全体タイムラインなどは将来の契約案。検証結果は別途記録する。
+> health・FL-02認証・FL-03プロフィール・FL-04記録・FL-05ローカル画像・FL-06コメント/いいね・FL-07フォロー/検索/タイムラインの実装契約。検証結果は別途記録する。
 
 正本は [OpenAPI](openapi.json)。JSONのデータ項目はsnake_case、既存の共通エラー項目のみfieldErrors/requestIdという名前を使う。すべてのAPI応答にX-Request-Idを付ける。
 
@@ -26,7 +26,7 @@ FL-05の現行契約は下記「FL-05 実装契約」とOpenAPIを参照する�
 | 400 | `VALIDATION_ERROR` | 入力値・未知項目・形式 |
 | 400 | `INVALID_REQUEST` | 本人/画像操作ヘッダーの欠落・形式不正、multipart構造不正 |
 | 400 | `INVALID_CURSOR` | カーソル不正／他条件の流用 |
-| 400 | `SELF_FOLLOW` | 自己フォロー |
+| 400 | `SELF_FOLLOW` | 自己操作。POST/DELETEとも「自分自身はフォローできません。」 |
 | 401 | `AUTH_REQUIRED` | ログインが必要 |
 | 401 | `INVALID_CREDENTIALS` | 認証失敗 |
 | 403 | `FORBIDDEN` | 本人以外の更新削除 |
@@ -41,7 +41,7 @@ FL-05の現行契約は下記「FL-05 実装契約」とOpenAPIを参照する�
 | 409 | `POST_ID_CONFLICT` | 使用済み／削除済みの記録ID。保存状態を確認する |
 | 409 | `PROFILE_OWNER_CHANGED` | 編集開始時と現在の本人が異なる。更新しない |
 | 409 | `ALREADY_AUTHENTICATED` | すでにログイン中。meを確認 |
-| 409 | `SOCIAL_OWNER_CHANGED` | コメント/いいね開始時と現在の本人が異なる |
+| 409 | `SOCIAL_OWNER_CHANGED` | コメント/いいね/フォロー開始時と現在の本人が異なる |
 | 409 | `COMMENT_ID_CONFLICT` | 使用済み/削除済みのコメントID。POSTを自動再送せず保存状態を確認 |
 | 409 | `IMAGE_OPERATION_CONFLICT` | 同じ画像操作IDの内容・対象不一致、または退役済み |
 | 409 | `IMAGE_OPERATION_PENDING` | 同じ画像操作が処理中。Retry-After: 2 |
@@ -101,3 +101,12 @@ Postの全成功DTOにcomment_count/like_count/is_likedを必須追加。コメ�
 コメントはUTF-8 JSON raw16KiB/深さ4、CRLF→LF、単独CR/control/surrogate拒否、Python strip、1..500 code points。HTMLはテキスト、NFC/NFKCなし。ASCの署名cursorはviewer/postに束縛し24h/2048bytes、limit20既定/50最大、未知/重複queryもINVALID_CURSOR。
 
 新コードSOCIAL_OWNER_CHANGEDは全social書込み、COMMENT_ID_CONFLICTはコメントPOSTだけ。DELETEへ本文検証や画像処理のエラー/Retry-Afterを複写しない。結果不明は固定UUID/snapshotで照合し、新IDで自動POSTしない。再送は同ID/本文を1回、確認できない場合は警告後に明示中断できる。POST成功後は全ページを捨て先頭再取得し、本人の確認枠を一覧と区別する。
+
+## FL-07 フォロー・検索・タイムライン
+
+詳細は[設計](../fl-07-timeline-design.md)、[F06](../features/F06_follow.md)、[F02](../features/F02_timeline.md)。
+ProfileのGET/PUTに関係・両件数、検索は公開SearchUserのみ。全応答のviewer_idを本人と照合する。
+フォロー更新のX-Social-Owner不正400/不一致409、自己操作はPOST/DELETEとも400 SELF_FOLLOW。
+viewでは全query/非空bodyを400で拒否（独自413なし）。SOCIAL_OWNER_CHANGEDの文言は「ログインしているユーザーが変わりました。交流の状態を確認してください。」。
+検索の全結果はdate_joined DESC,id DESC、タイムラインはcreated_at DESC,identity_id DESC。
+新cursorはASCII最大2048文字・24時間・閲覧者/用途/正規化検索語を照合。検索はquery形状→q→limit/cursor、未知/重複queryはINVALID_CURSOR。

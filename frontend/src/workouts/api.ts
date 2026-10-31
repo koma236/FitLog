@@ -52,6 +52,11 @@ export async function listWorkouts(username: string, actor: string, signal: Abor
   if (!object(v) || v.viewer_id !== actor || !keys(v, ['viewer_id', 'items', 'next_cursor']) || !Array.isArray(v.items) || !v.items.every((x: unknown) => validPost(x, actor)) || (v.next_cursor !== null && typeof v.next_cursor !== 'string')) throw new ApiError(200, 'INVALID_RESPONSE', '応答を確認できません。')
   return v as Page
 }
+export async function listTimeline(scope: 'following' | 'all', actor: string, signal: AbortSignal, cursor?: string): Promise<Page> {
+  const v = await request('timeline/' + scope + (cursor ? '?cursor=' + encodeURIComponent(cursor) : ''), actor, signal)
+  if (!object(v) || v.viewer_id !== actor || !keys(v, ['viewer_id', 'items', 'next_cursor']) || !Array.isArray(v.items) || !v.items.every((x: unknown) => validPost(x, actor)) || (v.next_cursor !== null && (typeof v.next_cursor !== 'string' || !v.next_cursor || v.next_cursor.length > 2048 || !/^[\x20-\x7e]+$/.test(v.next_cursor)))) throw new ApiError(200, 'INVALID_RESPONSE', '応答を確認できません。')
+  return v as Page
+}
 export async function writeWorkout(id: string | null, actor: string, csrf: string, data: Record<string, unknown> | null, signal: AbortSignal): Promise<Workout | null> {
   const v = await request('posts' + (id ? '/' + encodeURIComponent(id) : ''), actor, signal, data === null ? 'DELETE' : id ? 'PUT' : 'POST', data ?? undefined, csrf)
   if (data === null && v === null) return null

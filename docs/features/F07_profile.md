@@ -53,3 +53,9 @@ PUTはJSONキーdisplay_name/bio/health/visibilityを全て必須とする。hea
 本文・身体情報の編集と画像操作は別APIであり、一方の失敗で他方を巻き戻さない。選択File/preview URLは現在の本人と画面内だけで保持し、離脱・401・本人変更時に破棄する。画像変更にはX-Profile-Owner/CSRFと操作UUID、削除には本人header/CSRFが必要。Profile DTOにはviewer_idとnullable avatarを追加する。身体情報/目安3項目の公開設定、email非公開は維持する。
 
 画像処理/期限付きURL/再試行/色味変化/ローカル保存とS3移行の制約はF03とAPI共通契約のFL-05節に従う。画像の公開範囲選択は追加せず会員間公開とする。
+
+## FL-07 関係と件数
+
+GET/PUTの全Profileにis_following/follower_count/following_countを追加。両件数は表示対象、関係は閲覧本人から対象。本人は常にfalse。
+有効会員同士だけを集計し、email/身体情報の公開射影を維持。他人のプロフィールにフォロー/解除を表示する。
+更新応答のfollowing_countは操作側なので、対象プロフィールのfollowing_countへ代入しない。結果不明ではGET確認まで逆操作を禁止。

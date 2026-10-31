@@ -2,6 +2,7 @@ import { validImage } from '../upload/types'
 import { ApiError } from '../auth/api'
 import { energyKeys, healthKeys, profileKeys } from './types'
 import type { Profile } from './types'
+import { validRelation } from '../social/followApi'
 
 function record(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
@@ -11,7 +12,8 @@ function exactKeys(value: Record<string, unknown>, allowed: readonly string[], r
 }
 export function validProfile(value: unknown, actor: string): value is Profile {
   if (!record(value) || typeof value.is_owner !== 'boolean') return false
-  const keys = ['viewer_id', 'avatar', 'id', 'username', 'display_name', 'bio', 'is_owner', 'health', 'energy', ...(value.is_owner ? ['visibility'] : [])]
+  const keys = ['viewer_id', 'avatar', 'id', 'username', 'display_name', 'bio', 'is_owner', 'is_following', 'follower_count', 'following_count', 'health', 'energy', ...(value.is_owner ? ['visibility'] : [])]
+  if (!validRelation(value) || value.is_owner && value.is_following !== false) return false
   if (value.viewer_id !== actor || !validImage(value.avatar) || !exactKeys(value, keys) || !['id', 'username', 'display_name', 'bio'].every(key => typeof value[key] === 'string') || value.is_owner !== (value.id === actor)) return false
   if (!record(value.health) || !record(value.energy) || !exactKeys(value.health, healthKeys, value.is_owner ? healthKeys : []) || !exactKeys(value.energy, energyKeys, value.is_owner ? energyKeys : [])) return false
   for (const [key, item] of Object.entries(value.health)) {
