@@ -7,11 +7,12 @@
 
 - 対象は `koma236/FitLog`。会社用 `~/.codex` と会社リポジトリを探索・変更しない。
 - Codexは `CODEX_HOME="$HOME/.codex-personal"` を使用する。
-- 仕様・計画・実装結果・独立レビュー結果はv9の個別人間承認を必要とする。
-- Issue作成・commit・push・PR作成は内容提示と個別承認が必要。設計承認による包括許可は適用しない。
+- 仕様・独立設計レビュー・実装計画を最初にまとめて承認する。範囲内は実装・検証・独立レビュー・修正・Issue作成・commit・feature pushまで追加申請せず進める。
+- 重大な範囲変更・不可逆操作・予算超過等だけ再確認する。PR作成は内容を完成させて最終報告で確認する。
 - mergeは人間がGitHub上で行う。AI merge、auto-merge、trunk直接更新、force、hook回避は禁止。
-- v9のreceiptや確認文字列をAIが生成・代行しない。通常ターミナルで本人が確認する。
-- 技術スタック・ポート・checksは未設定。推測で登録せず、未設定を成功扱いしない。
+- v9の正規proposal/receiptを維持する。計画承認は範囲内の正規TTY入力の委任を含む。実結果を確認して進め、receiptの直接生成・編集や本人入力の偽装をしない。
+- worktreeごとに書込み担当を1つに限定し、固定Compose/DB/imageの操作は排他にする。詳細は `documents/development/personal-parallel-workflow.md`。
+- スタック・ポート・checksは実設定を読む。未実行・失敗を成功扱いしない。
 - `skills/ai-dev-chat/SKILL.md` を共通入口とし、v9操作前に読む。
 - skill探索先は `.claude/skills`・`.codex/skills`・`.agents/skills`。すべて共通 `skills/` を参照する。
 - 下記は配布元の一般説明。Git操作許可の説明はFitLogの承認を代替しない。
@@ -262,10 +263,10 @@ When errors occur, investigate and fix them autonomously if a durable fix is cle
 
 ## Project Overview
 
-**FitLog** — 個人開発用の新規アプリ。現在はハーネス導入のみ。
+**FitLog** — 個人開発の筋トレ記録アプリ。React/TypeScript、Django、PostgreSQLを使用する。
 
-技術スタック、データベース、テストフレームワーク、開発ポートは未決定。
-実行可能なアプリのbuild/lint/testコマンドはまだない。
+実設定は `.ai-dev/project.toml` と `compose.yaml` を正とする。固定ポートはbackend 18080 / frontend 15173。
+登録済みbuild/lint/types/tests等の11checksを使い、実行結果を確認する。
 
 ## Skills
 
@@ -290,7 +291,7 @@ When errors occur, investigate and fix them autonomously if a durable fix is cle
 
 ## Common Commands
 
-技術スタック決定後に実コマンドを確認して登録する。現時点では未設定。
+`.ai-dev/project.toml` の登録argvと `compose.yaml` を参照する。共有runtimeの操作は個人並列運用の排他枠内で行う。
 導入診断は `documents/setup/harness-setup.md` を参照する。
 
 ## Reference Documents
