@@ -70,3 +70,22 @@ baseline変更等はv9 bindingの更新・再承認要件を確認する。既�
 hostポート、登録checksのargv、起動停止手順を一式で分離する。ローカルの一時overrideで承認済みchecksをすり替えない。
 受け入れ条件は、2 worktreeの同時build/テストが互いのimage・DB・画像を変えず、片方の停止が他方へ影響しないこと。
 現行の排他運用が不要になるのは、この分離の実検証が完了してからとする。
+
+## 今回の環境差分復旧と先行公開条件
+
+WF-PARALLELの元commitと承認記録は変更しない。今回のFL-07の先行公開は、
+元の成功commit job/resultと四receipt、独立レビュー済み復旧controllerのticket/intent/success result全連鎖、
+個人profile経由で確認したremote feature refのSHA=`0d234332d51f078f68137a421d442ff7abed1400` の3つで照合する。
+これは標準push resultの偽装や通常v9の検査除外ではなく、別設計で承認された新しい復旧記録である。
+
+実行順は、復旧taskのlocal commitとnative採用確認 → FL-07復旧送信とremote照合 →
+WF-PARALLELの通常v9送信とremote=`2a2fd3c089771f23046a6b4153b06e3796a95689` の照合 → 復旧taskの通常v9送信とする。
+WF通常操作の直前に、coordinatorが新controllerの `status --delivery-result D --project P` を呼ぶ。
+result digest・remote SHA・観測時刻をsource外reportへ保存し、不一致やunknownなら後続送信を止める。
+標準push resultだけを見る旧helperを復旧後の公開証拠として使い続けない。
+このcross-task先行条件はcoordinatorの運用ゲートであり、旧runtimeやhookが機械強制する条件ではない。
+
+共有configを書き換えるCLIやVS Code Git UIでのbranch/追跡設定操作は行わない。
+新たなconfig driftを認めるよう復旧規則を自動拡張しない。通常feature送信にも追跡設定を追加しない。
+PRは個別承認後。FL-07を本人がmerge commitで統合し元SHAを保持したことを確認してから、
+WFのmainに対するthree-dot差分が元の15pathsであることを確認する。AI mergeは禁止する。

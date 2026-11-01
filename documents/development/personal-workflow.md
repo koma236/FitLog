@@ -104,3 +104,30 @@ Codex管理の既存worktreeも使用でき、配置を揃えるだけの移動�
 技術上の入口は採用済みruntimeの `documents/v9/workflow-policy.md` と
 `skills/ai-dev-chat/SKILL.md` を参照する。整備用checkoutの文書は更新案の確認用であり、採用版の正本と混同しない。承認のユーザー方針は本書を優先する。
 過去ポリシーは現行承認の根拠にしない。
+
+## 正規のGit環境復旧のエラー
+
+`V9_ENV_RECOVERY` は、承認されたGit環境復旧controllerの固定診断コード。設定差分・元承認連鎖・path/権限・起動環境・期限・未解決intent・送信結果等を証明できない場合に拒否する。入力値、config本文、credential値を診断へ含めない。旧v9の成功resultやreceiptを編集して解消せず、詳細は本taskの承認済み設計とsource外reportを参照する。未実装・未実行を成功扱いしない。
+
+## 承認済みcommitの環境差分復旧
+
+通常v9のGit設定fingerprintが変わった場合、設定を一時的に戻したり元receipt/resultを編集して通さない。
+今回承認する例外は、共有configの唯一のmain節に編集用metadataの完全な1行が追加された場合だけ。
+旧hash `6bd06089…` と承認対象の新hash `42fa0496…` の組を固定し、追加の設定変更では停止する。
+固定した契約は [復旧設計](../../docs/git-environment-recovery-design.md) を参照する。
+
+復旧taskのcommit済みworktreeをS、同じcloneの対象feature worktreeをPとする。
+Sの正規入口 `S/bin/ai-dev-git-env-recovery` のprepare/execute/status/prepare-prだけを使う。
+Python直接実行、別runtime、wrapper、任意env指定、別clone、P=Sは使用しない。
+通常v9の入口と元runtimeは維持し、復旧task自身の送信には通常v9を使う。
+
+prepareは15分有効のprivate ticketを作り、executeは表示したSHAと環境差分を正規TTYで再確認する。
+16桁prefixの完全一致が必要で、承認待ち中にHEAD/config/state/remoteが変われば実行しない。
+送信元は元承認commitのSHAに固定する。公開済み同SHAは観測のみと記録し、実送信と区別する。
+通常v9の成功resultを代わりに生成せず、元ledger内の別namespaceにticket/intent/worker/resultを追記する。
+running/unknown/未解決intentでは自動再試行しない。解決操作は実装範囲外であり、X7として判断を求める。
+
+PR準備は成功した送信連鎖・現在のremote SHA・本文hashを再照合する。PR作成は最後の個別承認、mergeは本人のみ。
+HOME/CODEX_HOMEや危険な環境変数名を検知した場合、AIがunsetして続行せず専用個人環境の起動方法を確認する。
+OSが既に除去した環境変数名を検知できるとは主張しない。固定Python leafのhashは実体の取り違え検査であり、
+framework dylib/stdlib全体の同一性を保証しない。OS/Pythonインストールはホスト側の信頼前提である。

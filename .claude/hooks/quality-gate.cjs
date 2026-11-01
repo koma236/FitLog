@@ -2638,6 +2638,182 @@ function v9Preflight(command, native, shell) {
     return block(safe);
   }
 }
+function recoveryRuntime(config, home, budget) {
+  const R = config.harness_root;
+  v9Require(typeof R === 'string' && path.isAbsolute(R) && v9Within(home, R) && R !== home, 'runtime must be under personal home');
+  if (!fs.existsSync(R)) throw new V9PreflightError(`V9_GATE_RUNTIME_MISSING: install the registered runtime at ${R}`);
+  v9Require(fs.realpathSync(R) === R, 'runtime realpath mismatch');
+  for (let p = R; ; p = path.dirname(p)) {
+    budget.check(); const info = fs.lstatSync(p);
+    v9Require(info.isDirectory() && !info.isSymbolicLink() && !(info.mode & 0o022), 'unsafe runtime ancestor');
+    v9Require(info.uid === (v9Within(home, p) ? process.getuid() : 0), 'unsafe runtime ancestor owner');
+    if (p === path.dirname(p)) break;
+  }
+  let count = 0, byteCount = 0;
+  const actualFiles = new Map();
+  function walk(file) {
+    budget.check(); v9Require(++count <= 4096, 'runtime entry limit');
+    const info = fs.lstatSync(file);
+    v9Require(!info.isSymbolicLink() && info.uid === process.getuid() && !(info.mode & 0o022) && (info.isDirectory() || info.isFile()), 'unsafe runtime code permissions');
+    budget.check();
+    if (info.isDirectory()) { const names = fs.readdirSync(file); budget.check(); for (const name of names) walk(path.join(file, name)); }
+    else {
+      const bytes = v9File(file, 1024 * 1024); byteCount += bytes.length;
+      v9Require(byteCount <= 16 * 1024 * 1024, 'runtime byte limit');
+      const oid = v9crypto.createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex');
+      actualFiles.set(path.relative(R, file).split(path.sep).join('/'), { oid, mode: info.mode & 0o100 ? '100755' : '100644' });
+      budget.check();
+    }
+  }
+  walk(path.join(R, 'bin')); walk(path.join(R, 'scripts'));
+  v9Require(fs.lstatSync(path.join(R, 'bin/ai-dev')).isFile(), 'runtime launcher missing');
+  const identity = budget.git(['rev-parse', '--show-toplevel', '--path-format=absolute', '--git-common-dir', 'HEAD'], R).trimEnd().split('\n');
+  v9Require(identity.length === 3 && fs.realpathSync(identity[0]) === R && identity[2] === config.harness_commit, 'runtime commit differs from registered commit');
+  v9Require(recoveryAbsent(path.join(identity[1], 'info/grafts')), 'runtime grafts refused');
+  // Plumbing commands never normalize worktree bytes through clean filters.
+  // Compare HEAD, index and physical files independently; status and its stat
+  // cache / assume-unchanged / skip-worktree bits are not content evidence.
+  const treeText = budget.git(['ls-tree', '-r', '-z', config.harness_commit, '--', 'bin', 'scripts'], R);
+  const indexText = budget.git(['ls-files', '--stage', '-v', '-z', '--', 'bin', 'scripts'], R);
+  const tree = new Map(), index = new Map();
+  function entries(text) {
+    v9Require(text.endsWith('\0'), 'invalid runtime manifest');
+    return text.slice(0, -1).split('\0');
+  }
+  for (const entry of entries(treeText)) {
+    budget.check(); const match = /^(100644|100755) blob ([0-9a-f]{40})\t([\s\S]+)$/.exec(entry);
+    v9Require(match && !tree.has(match[3]), 'unsupported runtime tree entry');
+    tree.set(match[3], { mode: match[1], oid: match[2] });
+  }
+  for (const entry of entries(indexText)) {
+    budget.check(); const match = /^H (100644|100755) ([0-9a-f]{40}) 0\t([\s\S]+)$/.exec(entry);
+    v9Require(match && !index.has(match[3]), 'runtime index must have normal stage-zero entries and no optimization flags');
+    index.set(match[3], { mode: match[1], oid: match[2] });
+  }
+  v9Require(tree.size === actualFiles.size && index.size === tree.size, 'runtime file set differs from pinned tree');
+  for (const [name, expected] of tree) {
+    const actual = actualFiles.get(name), staged = index.get(name);
+    v9Require(actual && staged && actual.oid === expected.oid && staged.oid === expected.oid && actual.mode === expected.mode && staged.mode === expected.mode, 'runtime bytes or index differ from pinned tree');
+  }
+}
+
+// Explicit recovery lane. Ordinary v9 and the legacy classifier remain below.
+const REC_LAUNCHER='ai-dev-git-env-recovery';
+const REC_SCRIPT='v9_git_environment_recovery.py';
+const REC_CONFIG='.ai-dev/v9-env-recovery.json';
+const REC_FILES=[...V9_COPIES,V9_CONFIG,REC_CONFIG,'bin/'+REC_LAUNCHER,'scripts/'+REC_SCRIPT];
+const REC_TICKET_FIELDS=['schema_version','kind','action','project','task','origin_job','context','source','remote_observed','mode','refspec','created_at','expires_at','delivery_result','pr','ticket_digest'];
+const REC_RESULT_FIELDS=['schema_version','kind','ticket_digest','intent_digest','worker_digest','status','action','mode','remote_sha','pr','completed_at','result_digest'];
+function recoveryPotential(command) {
+  const folded=command.replace(LINE_CONTINUATION_RE,'').replace(ESCAPE_CHARS_RE,'');
+  const target=word=>[REC_LAUNCHER,REC_SCRIPT].includes(path.basename(word||''));
+  const wrapper=/^(?:python(?:[0-9.]+)?|bash|sh|zsh|env|command|nohup|timeout)$/;
+  let tokens;
+  const saved=reading;reading='posix';
+  try { tokens=lex(command); }
+  catch(_) {
+    // Known direct/wrapper execution forms still fail closed when their remaining
+    // grammar is unreadable. Mere file arguments to cat/rg/git are not candidates.
+    return /(?:^|[;\n&|])\s*(?:(?:[^\s]+\/)?(?:python[0-9.]*|bash|sh|zsh|env|command|nohup|timeout)\s+)*(?:[^\s;]+\/)?(?:ai-dev-git-env-recovery|v9_git_environment_recovery\.py)(?=$|[\s;])/.test(folded);
+  } finally { reading=saved; }
+  let words=[];
+  const segment=()=>{
+    const values=words;words=[];
+    while(values[0]&&/^[A-Za-z_][A-Za-z0-9_]*=/.test(values[0]))values.shift();
+    if(target(values[0]))return true;
+    if(!wrapper.test(path.basename(values[0]||'')))return false;
+    return values.slice(1).some((word,i)=>target(word)||(values[i]==='-m'&&/^(?:scripts\.)?v9_git_environment_recovery$/.test(word))||(values[i]==='-c'&&recoveryPotential(word)));
+  };
+  for(const token of tokens) { if(token.sep) { if(segment())return true; } else if(token.word!==undefined)words.push(token.word); }
+  return segment();
+}
+function recoveryEnvironment(home) {
+  const names=new Set(['GIT_CONFIG_PARAMETERS','GIT_CONFIG_COUNT','GIT_CONFIG','GIT_CONFIG_GLOBAL','GIT_CONFIG_SYSTEM',...V9_REPO_ENV,'GIT_SSH','GIT_SSH_COMMAND','GIT_ASKPASS','SSH_ASKPASS','GIT_EXEC_PATH','GIT_GRAFT_FILE','GH_TOKEN','GITHUB_TOKEN','GH_HOST','GH_CONFIG_DIR','BASH_ENV','ENV','SHELLOPTS']);
+  v9Require(!Object.keys(process.env).some(name=>names.has(name)||/^(?:GIT_CONFIG_KEY_|GIT_CONFIG_VALUE_|BASH_FUNC_|DYLD_|LD_|PYTHON|VSCODE_GIT_ASKPASS_)/.test(name)),'environment override refused');
+  v9Require(process.env.HOME===undefined||fs.realpathSync(process.env.HOME)===home,'personal HOME differs');
+  v9Require(process.env.CODEX_HOME===undefined||process.env.CODEX_HOME===path.join(home,'.codex-personal'),'personal CODEX_HOME differs');
+}
+function recoveryCompany(home,file) { return typeof file!=='string'||v9Within(path.join(home,'.codex').toLowerCase(),file.toLowerCase())||file.toLowerCase().includes('manabi-backoffice'); }
+function recoveryAbsent(file) { try { fs.lstatSync(file); return false; } catch(e) { if(e.code==='ENOENT') return true; throw e; } }
+function recoveryPython(budget) {
+  const leaf='/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12';
+  const values=[];for(let p=leaf;;p=path.dirname(p)){values.push(p);if(p===path.dirname(p))break;}
+  for(let i=0;i<values.length;i++) {
+    budget.check();const p=values[i],info=fs.lstatSync(p);v9Require(fs.realpathSync(p)===p&&!info.isSymbolicLink()&&info.uid===0&&info.gid===0&&(info.mode&0o777)===(i<=3?0o775:0o755)&&(i===0?info.isFile():info.isDirectory()),'fixed Python identity differs');budget.check();
+  }
+  budget.check();const info=fs.lstatSync(leaf);v9Require(info.size<=16*1024*1024,'Python byte limit');
+  const bytes=fs.readFileSync(leaf);budget.check();v9Require(v9Hash(bytes)==='80ee2dd97bc26259d4e30853336f72ad38aa4aa0531bb196cc444d899422689d','fixed Python hash differs');budget.check();
+}
+function recoveryCommitted(S,budget) {
+  const bytes=budget.git(['cat-file','--batch'],S.root,true,Buffer.from(REC_FILES.map(rel=>`${S.head}:${rel}\n`).join('')));let offset=0;
+  for(const rel of REC_FILES) {
+    budget.check();const end=bytes.indexOf(10,offset);v9Require(end>=offset,'missing recovery blob');const match=/^[0-9a-f]{40} blob ([0-9]+)$/.exec(bytes.subarray(offset,end).toString('ascii'));
+    v9Require(match,'invalid recovery blob');const size=Number(match[1]);offset=end+1;
+    v9Require(Number.isSafeInteger(size)&&size<=1024*1024&&offset+size<bytes.length&&bytes[offset+size]===10,'invalid recovery blob size');
+    const file=path.join(S.root,rel),disk=v9File(file,1024*1024),info=fs.lstatSync(file);
+    v9Require(bytes.subarray(offset,offset+size).equals(disk),'recovery source differs from committed bytes');offset+=size+1;
+    if(rel==='bin/'+REC_LAUNCHER)v9Require(!!(info.mode&0o100),'launcher must be executable');
+    if(rel==='scripts/'+REC_SCRIPT)v9Require(!(info.mode&0o100),'controller must not be executable');
+    budget.check();
+  }
+  v9Require(offset===bytes.length,'trailing recovery blob bytes');
+  v9Require(v9File(path.join(S.root,V9_COPIES[0]),1024*1024).equals(v9File(path.join(S.root,V9_COPIES[1]),1024*1024)),'hook copies differ');
+}
+function recoveryRecord(file,home) {
+  v9Require(typeof file==='string'&&!recoveryCompany(home,file),'company path refused');
+  v9Require(typeof file==='string'&&path.isAbsolute(file)&&path.resolve(file)===file&&fs.realpathSync(file)===file,'canonical recovery record required');
+  v9PrivateParents(file,home);return v9Json(v9File(file,1024*1024,true));
+}
+function recoveryJob(file,P,home) {
+  const job=recoveryRecord(file,home);
+  v9Object(job,['schema_version','operation','action','project','task','binding_digest','workflow_revision','proposal','proposal_digest','personal_environment']);
+  v9Require(job.schema_version===10&&job.operation==='git_action'&&job.action==='commit'&&job.project===P.root&&typeof job.task==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(job.task)&&typeof job.proposal_digest==='string'&&/^[0-9a-f]{64}$/.test(job.proposal_digest),'invalid original commit job');
+  const expected=path.join(home,'.ai-dev-harness/v9/git',v9Hash(P.root),v9Hash(job.task),'commit-'+job.proposal_digest+'.json');v9Require(file===expected,'commit job namespace differs');return job;
+}
+function recoveryTicket(file,P,home,branch,S) {
+  const ticket=recoveryRecord(file,home);v9Object(ticket,REC_TICKET_FIELDS);
+  v9Require(ticket.schema_version===1&&ticket.kind==='environment_recovery_ticket'&&['delivery','pr'].includes(ticket.action)&&ticket.project===P.root&&typeof ticket.ticket_digest==='string'&&/^[0-9a-f]{64}$/.test(ticket.ticket_digest),'invalid ticket envelope');
+  v9Object(ticket.source,['project','head','files']);v9Object(ticket.source.files,REC_FILES);v9Require(ticket.source.project===S.root&&ticket.source.head===S.head&&REC_FILES.every(rel=>ticket.source.files[rel]===v9Hash(v9File(path.join(S.root,rel),1024*1024))),'ticket source differs');
+  const job=recoveryJob(ticket.origin_job,P,home),namespace=path.join(path.dirname(ticket.origin_job),'environment-recoveries',job.proposal_digest);
+  v9Require(file===path.join(namespace,'ticket-'+ticket.ticket_digest+'.json')&&ticket.task===job.task,'ticket namespace differs');
+  const ctx=ticket.context;v9Object(ctx,['schema_version','project','task','commit','parent','tree','branch','origin_job','origin_job_sha256','origin_result_sha256','state_sha256','workflow_revision','binding_digest','approvals_digest','snapshot_hash','runtime','runtime_digest','policy_digest','personal_environment','original_personal_environment','delta','remote','normal_records_digest']);
+  v9Require(ctx.project===P.root&&ctx.task===job.task&&ctx.origin_job===ticket.origin_job&&ctx.branch===branch&&ctx.commit===P.head&&ticket.refspec===`${P.head}:refs/heads/${branch}`,'ticket target differs');return ticket;
+}
+function recoveryPreflight(command,native,shell) {
+  if(!recoveryPotential(command))return null;
+  const block=()=>({decision:'block',elsewhere:true,reason:'v9 environment recovery: canonical committed public entry and valid private record required'});
+  try {
+    v9Require(shell==='posix'&&Buffer.byteLength(command)<=MAX_COMMAND_BYTES,'canonical POSIX required');
+    const words=v9Tokens(command,shell),budget=v9Budget(),S=v9Anchor(budget);v9Cwd(S,native.cwd);const home=v9Home();recoveryEnvironment(home);
+    v9Require(words[0]===path.join(S.root,'bin',REC_LAUNCHER),'canonical launcher required');
+    const kind=words[1];let file,rawP,body;
+    if(kind==='prepare'){v9Require(words.length===8&&words[2]==='--commit-job'&&words[4]==='--project'&&words[6]==='--remote'&&words[7]==='origin','prepare form');file=words[3];rawP=words[5];}
+    else if(kind==='execute'){v9Require(words.length===5&&words[3]==='--project','execute form');file=words[2];rawP=words[4];}
+    else if(kind==='status'||kind==='prepare-pr'){v9Require(words.length===(kind==='status'?6:12)&&words[2]==='--delivery-result'&&words[4]==='--project','result form');file=words[3];rawP=words[5];if(kind==='prepare-pr'){v9Require(words[6]==='--base'&&words[7]==='main'&&words[8]==='--title'&&words[10]==='--body-file','PR form');body=words[11];}}
+    else throw new V9PreflightError('unknown action');
+    v9Require(!recoveryCompany(home,rawP)&&path.isAbsolute(rawP)&&path.resolve(rawP)===rawP&&fs.realpathSync(rawP)===rawP&&rawP!==S.root,'canonical other project required');
+    const P=v9Metadata(rawP,budget);v9Require(P.root===rawP&&P.common===S.common,'same clone required');
+    v9Require(recoveryAbsent(path.join(P.common,'info/grafts')),'grafts refused');
+    const branch=budget.git(['symbolic-ref','--quiet','--short','HEAD'],P.root).trim();
+    v9Require(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(branch)&&!/^(main|master)$/i.test(branch)&&!/(?:\.\.|\/$|\.$|\.lock(?:\/|$)|\/\.)/.test(branch),'named feature required');
+    recoveryPython(budget);
+    const config=v9Json(v9File(path.join(S.root,V9_CONFIG),4096));v9Object(config,['schema_version','repository','account','harness_root','harness_commit']);
+    v9Require(config.schema_version===1&&config.repository==='koma236/FitLog'&&config.account==='koma236'&&/^[0-9a-f]{40}$/.test(config.harness_commit),'runtime registration differs');
+    const recovery=v9Json(v9File(path.join(S.root,REC_CONFIG),4096));v9Object(recovery,['schema_version','repository','account','metadata_rule']);v9Require(recovery.schema_version===1&&recovery.repository===config.repository&&recovery.account===config.account&&recovery.metadata_rule==='main_vscode_metadata_added','recovery registration differs');
+    if(kind==='prepare')recoveryJob(file,P,home);
+    else if(kind==='execute')recoveryTicket(file,P,home,branch,S);
+    else {
+      const result=recoveryRecord(file,home);v9Object(result,REC_RESULT_FIELDS);
+      v9Require(result.schema_version===1&&result.kind==='environment_recovery_result'&&result.action==='delivery'&&result.status==='succeeded'&&typeof result.ticket_digest==='string'&&/^[0-9a-f]{64}$/.test(result.ticket_digest),'successful delivery required');
+      v9Require(path.basename(file)==='ticket-'+result.ticket_digest+'.result.json','delivery result name differs');
+      recoveryTicket(path.join(path.dirname(file),'ticket-'+result.ticket_digest+'.json'),P,home,branch,S);
+    }
+    if(body){v9Require(!recoveryCompany(home,body)&&path.isAbsolute(body)&&path.resolve(body)===body,'canonical body required');const bytes=v9File(body,65536);new(require('util').TextDecoder)('utf-8',{fatal:true}).decode(bytes);}
+    v9Require(typeof config.harness_root==='string'&&!recoveryCompany(home,config.harness_root),'company runtime refused');
+    recoveryRuntime(config,home,budget);recoveryCommitted(S,budget);budget.check();return {decision:'allow'};
+  }catch(_){return block();}
+}
+
 function v9Diagnostic(command, native) {
   if (command !== 'git status --short --untracked-files=no -- .fitlog-native-hook-probe') return;
   try {
@@ -2719,7 +2895,7 @@ function main() {
     let verdict;
     try {
       v9Diagnostic(command, { cwd: nativeCwd, toolName });
-      verdict = v9Preflight(command, { cwd: nativeCwd, toolName }, shell) || classify(command, ctx, shell);
+      verdict = recoveryPreflight(command, { cwd: nativeCwd, toolName }, shell) || v9Preflight(command, { cwd: nativeCwd, toolName }, shell) || classify(command, ctx, shell);
     } catch (e) {
       // A classifier bug must not become a bypass: fall back to the gate words.
       process.stderr.write(`quality-gate: classifier error (${e && e.message}); judging on gate words alone.\n`);

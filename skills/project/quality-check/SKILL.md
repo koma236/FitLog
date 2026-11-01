@@ -812,3 +812,27 @@ PR が既にあるときは、フラグを作った（作り直した）後に P
 ### 最終確認
 - [ ] `git status` を実測し、レビュアー由来の残留ファイル（検証 probe）がないことを確認した
 - [ ] `.quality-check-passed`（branch + commit の JSON）作成済み
+
+## FitLogの環境差分復旧入口（WF-GIT-RECOVERY）
+
+この追加契約は通常v9のA/B形式と既存classifierを維持し、commit済みの正規
+`S/bin/ai-dev-git-env-recovery` によるprepare/execute/status/prepare-prだけを別laneで扱う。
+新入口を実行位置で検出した後は、config不在や不正形式でlegacyへfallbackしない。
+cat/rg/git add/git diffのファイル参照やtestファイル実行は新laneのcandidateにしない。
+
+S/Pの同clone確認、Pの現在feature/HEAD、元commit jobまたはprivate ticket/resultのnamespace・closed schemaを照合する。
+両hook・旧registry・新registry・launcher・scriptの6ファイルはS.HEADのraw blobに一致しなければ拒否する。
+launcherの実行bit、scriptの非実行bit、所有者、symlink、書込みmodeも検査する。
+controller側でGit tree modeとindex、元承認/receipt/runtime/policy/TTL/一度限り実行/remote/body hashを再検証する。
+hookだけで元承認連鎖全体の正当性を証明したとは扱わない。
+
+hookの7 Git callsはS metadata、P metadata、P branch、R identity/tree/index、Sの6 blob一括取得。
+既存の最大8 calls・各2秒・全体12秒を維持し、固定PythonのFS検査/hashも同じdeadline内で行う。
+Pythonのleaf hashとroot/wheel owner/group/modeは指定実体に限る検査であり、dylib/stdlibの完全固定ではない。
+危険な親環境変数名をhook/launcherが観測できる範囲で拒否し、子processは許可リストから新規envを作る。
+
+旧27件の回帰ファイルとfixtureのraw hashは固定設計と照合し、新回帰は別ファイルで追加する。
+変更候補をテストしてから両hookへ同じbytesを反映する。hook登録/trust設定は変更しない。
+fixture合格をnative採用とは扱わず、commit後に実Codex sessionで読取りprobeとcommit blob一致を確認する。
+Claude native採用は実行していない限りnot_runとする。結果保存失敗や実行後unknownは成功にせず、
+未解決intentを残して後続送信を止める。既存記録を編集する解決経路は提供しない。
