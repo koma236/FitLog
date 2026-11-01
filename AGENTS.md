@@ -8,10 +8,10 @@
 - 対象は `koma236/FitLog`。会社用 `~/.codex` と会社リポジトリを探索・変更しない。
 - Codexは `CODEX_HOME="$HOME/.codex-personal"` を使用する。
 - 仕様・計画・実装結果・独立レビュー結果はv9の個別人間承認を必要とする。
-- Issue作成・commit・push・PR作成は内容提示と個別承認が必要。設計承認による包括許可は適用しない。
+- Issue/PR作成は具体的内容の個別承認が必要。commit/pushはユーザーの明示委任により個別確認不要。正規v9 proposal・個人環境検証・対話操作記録は維持する。
 - mergeは人間がGitHub上で行う。AI merge、auto-merge、trunk直接更新、force、hook回避は禁止。
 - v9のreceiptや確認文字列をAIが生成・代行しない。通常ターミナルで本人が確認する。
-- 技術スタック・ポート・checksは未設定。推測で登録せず、未設定を成功扱いしない。
+- 技術スタックとポートはCompose、実行可能な11チェックは.ai-dev/project.tomlを参照。未実行・失敗を成功扱いしない。
 - `skills/ai-dev-chat/SKILL.md` を共通入口とし、v9操作前に読む。
 - skill探索先は `.claude/skills`・`.codex/skills`・`.agents/skills`。すべて共通 `skills/` を参照する。
 - 下記は配布元の一般説明。Git操作許可の説明はFitLogの承認を代替しない。
@@ -93,7 +93,7 @@ Use `documents/development/harness-runtime.md` for the shared model table, live 
 
 ## Quality Check Rules
 
-**All quality verification is done locally. CI is for build confirmation only.**
+**FitLog uses deterministic build/lint/type/test/migration checks in GitHub Actions as required merge checks. Independent AI reviews, mutation testing, and visual verification stay in the harness. The same local checks remain available for development.**
 
 ### Flow
 
@@ -261,10 +261,10 @@ When errors occur, investigate and fix them autonomously if a durable fix is cle
 
 ## Project Overview
 
-**FitLog** — 個人開発用の新規アプリ。現在はハーネス導入のみ。
+**FitLog** — 個人開発の筋トレ記録アプリ。認証・プロフィール・記録・画像・コメント/いいねまで実装。
 
-技術スタック、データベース、テストフレームワーク、開発ポートは未決定。
-実行可能なアプリのbuild/lint/testコマンドはまだない。
+React/TypeScript/Vite/Vitest、Python/Django/pytest、PostgreSQL。開発ポートはfrontend15173/backend18080（Composeのloopback限定）。
+実行可能なbuild/lint/型/テスト/migrationの11チェックは `.ai-dev/project.toml` を参照する。
 
 ## Skills (Read on demand)
 
@@ -291,7 +291,7 @@ Located under `.codex/skills/`. Confirm discovery in the session's skill catalog
 
 ## Common Commands
 
-技術スタック決定後に実コマンドを確認して登録する。現時点では未設定。
+ローカルの実コマンドは.ai-dev/project.tomlの11チェックを参照する。CIは.github/workflows/ci.ymlで同じ機械チェックを実行する。
 導入診断は `documents/setup/harness-setup.md` を参照する。
 
 ## Reference Documents

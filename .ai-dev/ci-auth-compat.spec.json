@@ -1,0 +1,60 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design"
+  ],
+  "sources": [
+    {
+      "id": "ci-auth-requirements",
+      "role": "requirements",
+      "path": "docs/ci-auth-compat-design.md",
+      "sha256": "a570b4247131d1904a0a0dd05ec37e4e7f903cff8ff48e2f9c134816cca31433"
+    },
+    {
+      "id": "ci-auth-acceptance",
+      "role": "acceptance",
+      "path": "docs/ci-auth-compat-design.md",
+      "sha256": "a570b4247131d1904a0a0dd05ec37e4e7f903cff8ff48e2f9c134816cca31433"
+    },
+    {
+      "id": "ci-auth-design",
+      "role": "design",
+      "path": "docs/ci-auth-compat-design.md",
+      "sha256": "a570b4247131d1904a0a0dd05ec37e4e7f903cff8ff48e2f9c134816cca31433"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "CIAC-R1",
+      "source": "ci-auth-requirements",
+      "text": "mainのline217にある新focus-expiryテストのfeedモック条件1行へtimeline判定を加え、既存assertionを保つ。旧兄弟テストのCI側対応済み条件と検出能力は実ソース・独立反証で確認する。"
+    },
+    {
+      "id": "CIAC-R2",
+      "source": "ci-auth-requirements",
+      "text": "公開済み旧3commitとv9原本を保ち、専用main基点branchで最小の互換修正を検証して通常送信する。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "CIAC-AC1",
+      "source": "ci-auth-acceptance",
+      "requirements": [
+        "CIAC-R1"
+      ],
+      "text": "AC1/2: mainAuth17件、CI組合せ190件の成功と局所反証で既存検出能力を確認。"
+    },
+    {
+      "id": "CIAC-AC2",
+      "source": "ci-auth-acceptance",
+      "requirements": [
+        "CIAC-R1",
+        "CIAC-R2"
+      ],
+      "text": "AC3/4: 製品テスト差分1行、旧公開commit/原本不変、登録11checksと独立レビュー合格、正規確認/Issue/commit/通常feature送信。"
+    }
+  ],
+  "questions": []
+}
