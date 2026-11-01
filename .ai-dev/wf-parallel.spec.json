@@ -1,0 +1,98 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design"
+  ],
+  "sources": [
+    {
+      "id": "wf-requirements",
+      "role": "requirements",
+      "path": "docs/personal-workflow-change-design.md",
+      "sha256": "a38deb72342f1ea9198a13140ffe5ec2758d8eb3099407c68258925259f9efd3"
+    },
+    {
+      "id": "wf-acceptance",
+      "role": "acceptance",
+      "path": "docs/personal-workflow-change-design.md",
+      "sha256": "a38deb72342f1ea9198a13140ffe5ec2758d8eb3099407c68258925259f9efd3"
+    },
+    {
+      "id": "wf-design",
+      "role": "design",
+      "path": "docs/personal-workflow-change-design.md",
+      "sha256": "a38deb72342f1ea9198a13140ffe5ec2758d8eb3099407c68258925259f9efd3"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "WF-R1",
+      "source": "wf-requirements",
+      "text": "承認を最初の計画からfeature pushまでまとめ、正規v9とPR/mergeの例外を維持する。"
+    },
+    {
+      "id": "WF-R2",
+      "source": "wf-requirements",
+      "text": "worktree/task/state/担当を分離し共有runtimeを安全に排他する。"
+    },
+    {
+      "id": "WF-R3",
+      "source": "wf-requirements",
+      "text": "品質hook・予算・未実行の正直な扱いと個人設定境界を保持する。"
+    },
+    {
+      "id": "WF-R4",
+      "source": "wf-requirements",
+      "text": "文書と限定hook互換修正を製品差分から分離し、製品・CI・Compose・登録checksを変更しない。"
+    },
+    {
+      "id": "WF-R5",
+      "source": "wf-requirements",
+      "text": "正規v9 feature送信と既存quality-gateを限定した入口で互換にし、trunk/force/不正入力を拒否する。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "WF-AC1",
+      "source": "wf-acceptance",
+      "requirements": [
+        "WF-R1"
+      ],
+      "text": "工程ごとの再申請と包括委任の矛盾をAGENTS/CLAUDE/README/個人運用間から除き、PR・merge・重大例外・v9の技術ゲートを明確に区別する。"
+    },
+    {
+      "id": "WF-AC2",
+      "source": "wf-acceptance",
+      "requirements": [
+        "WF-R2"
+      ],
+      "text": "複数worktreeの担当・task/state・共有file・固定runtimeの排他と返却手順を文書で追跡できる。lockの自動奪取や他担当の削除を認めない。"
+    },
+    {
+      "id": "WF-AC3",
+      "source": "wf-acceptance",
+      "requirements": [
+        "WF-R3"
+      ],
+      "text": "hook/品質基準/レビュー予算を弱めず、未実行を成功扱いしない。設定値は現物を正とし、ポートやcheckを推測で追加しない。"
+    },
+    {
+      "id": "WF-AC4",
+      "source": "wf-acceptance",
+      "requirements": [
+        "WF-R4"
+      ],
+      "text": "変更が文書・本タスクの仕様/計画JSON・限定したhook互換実装/許可設定/回帰テストに限定され、製品・CI・Compose・登録checksに差分がない。FL-07の製品差分を混在させない。"
+    },
+    {
+      "id": "WF-AC5",
+      "source": "wf-acceptance",
+      "requirements": [
+        "WF-R5"
+      ],
+      "text": "正規v9のfeature送信準備とproposal実行だけをhookが判定できる。正規入口・同一cloneの明示worktree・現在のfeature branch/HEAD・固定refspecを検証し、main/master・force・別repo・不明/不正/曖昧な入力を拒否する。既存trunkガードの回帰テストを維持し、実際に読み込まれたhookを確認するまで送信可能と報告しない。"
+    }
+  ],
+  "questions": []
+}

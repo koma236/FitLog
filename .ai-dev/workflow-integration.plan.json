@@ -1,0 +1,54 @@
+{
+  "schema_version": 10,
+  "baseline_commit": "a42a25f03dc61b832ed0ffc0e69903629e50f3af",
+  "tasks": [
+    {
+      "id": "WF-INTEGRATION",
+      "title": "公開済み個人ワークフロー・復旧ツールの現行mainへの統合",
+      "kind": "standard",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "acceptance": [
+        "WFI-AC1",
+        "WFI-AC2",
+        "WFI-AC3",
+        "WFI-AC4",
+        "WFI-AC5",
+        "WFI-AC6"
+      ],
+      "depends_on": [],
+      "paths": [
+        ".ai-dev/v9-env-recovery.json",
+        ".ai-dev/v9-git-entrypoints.json",
+        ".ai-dev/wf-git-recovery.plan.json",
+        ".ai-dev/wf-git-recovery.spec.json",
+        ".ai-dev/wf-parallel.plan.json",
+        ".ai-dev/wf-parallel.spec.json",
+        ".claude/hooks/quality-gate.cjs",
+        ".codex/hooks/quality-gate.cjs",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "bin/ai-dev-git-env-recovery",
+        "docs/git-environment-recovery-design.md",
+        "docs/personal-workflow-change-design.md",
+        "documents/development/personal-parallel-workflow.md",
+        "documents/development/personal-workflow.md",
+        "scripts/fixtures/v9-push-proposal.json",
+        "scripts/fixtures/v9-push-provenance.json",
+        "scripts/test-quality-gate-env-recovery.cjs",
+        "scripts/test-quality-gate-v9.cjs",
+        "scripts/test_v9_git_environment_recovery.py",
+        "scripts/v9_git_environment_recovery.py",
+        "skills/project/quality-check/SKILL.md",
+        "docs/workflow-integration-design.md",
+        ".ai-dev/workflow-integration.spec.json",
+        ".ai-dev/workflow-integration.plan.json"
+      ],
+      "test_oracle": "docs/workflow-integration-design.md AC1〜6。固定S blob/mode、現mainのCI/運用条項、旧private recordsと予算保持、固定回帰、登録11checks、独立品質、通常v9/remote/readbackを別々に照合。 実装前必須条件:19件の0d23433/a42a25f blob・mode・存在有無一致、0d23433→2a2fd3c→f827b9f直系親子、旧15pathsが23pathsの部分集合。不成立時は開始せず本人へ範囲見直し。",
+      "done_when": "条件付き本人承認と独立設計合格の後、独自4工程/Issue/検証/独立品質/commit/feature送信を完了する。設計1回・local品質1巡・正式品質1回。PRは最終承認、merge本人、関連Issue17/18と新Issueのclosed確認。"
+    }
+  ]
+}

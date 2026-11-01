@@ -7,11 +7,13 @@
 
 - 対象は `koma236/FitLog`。会社用 `~/.codex` と会社リポジトリを探索・変更しない。
 - Codexは `CODEX_HOME="$HOME/.codex-personal"` を使用する。
-- 仕様・計画・実装結果・独立レビュー結果はv9の個別人間承認を必要とする。
-- Issue/PR作成は具体的内容の個別承認が必要。commit/pushはユーザーの明示委任により個別確認不要。正規v9 proposal・個人環境検証・対話操作記録は維持する。
+- 仕様・独立設計レビュー・実装計画を最初にまとめて承認する。範囲内は実装・検証・独立レビュー・修正・Issue作成・commit・feature pushまで追加申請せず進める。
+- 重大な範囲変更・不可逆操作・予算超過等だけ再確認する。PR作成は内容を完成させて最終報告で確認する。
 - mergeは人間がGitHub上で行う。AI merge、auto-merge、trunk直接更新、force、hook回避は禁止。
-- v9のreceiptや確認文字列をAIが生成・代行しない。通常ターミナルで本人が確認する。
-- 技術スタックとポートはCompose、実行可能な11チェックは.ai-dev/project.tomlを参照。未実行・失敗を成功扱いしない。
+- v9の正規proposal/receiptを維持する。計画承認は範囲内の正規TTY入力の委任を含む。実結果を確認して進め、receiptの直接生成・編集や本人入力の偽装をしない。
+- worktreeごとに書込み担当を1つに限定し、固定Compose/DB/imageの操作は排他にする。詳細は `documents/development/personal-parallel-workflow.md`。
+- スタック・ポート・checksは実設定を読む。未実行・失敗を成功扱いしない。
+- CIはbuild/lint/型/全テスト/migrationとci-requiredを使う。配布元skillsの古い「CIはビルド確認のみ」は適用しない。
 - `skills/ai-dev-chat/SKILL.md` を共通入口とし、v9操作前に読む。
 - skill探索先は `.claude/skills`・`.codex/skills`・`.agents/skills`。すべて共通 `skills/` を参照する。
 - 下記は配布元の一般説明。Git操作許可の説明はFitLogの承認を代替しない。

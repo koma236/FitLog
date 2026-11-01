@@ -1,0 +1,43 @@
+{
+  "schema_version": 10,
+  "baseline_commit": "2a2fd3c089771f23046a6b4153b06e3796a95689",
+  "tasks": [
+    {
+      "id": "WF-GIT-RECOVERY",
+      "title": "編集用Git metadata追加後の承認済みcommitの明示的環境復旧",
+      "kind": "standard",
+      "requirements": [
+        "REC-R1",
+        "REC-R2",
+        "REC-R3",
+        "REC-R4"
+      ],
+      "acceptance": [
+        "REC-AC1",
+        "REC-AC2",
+        "REC-AC3",
+        "REC-AC4",
+        "REC-AC5",
+        "REC-AC6"
+      ],
+      "depends_on": [],
+      "paths": [
+        "bin/ai-dev-git-env-recovery",
+        "scripts/v9_git_environment_recovery.py",
+        "scripts/test_v9_git_environment_recovery.py",
+        ".ai-dev/v9-env-recovery.json",
+        ".claude/hooks/quality-gate.cjs",
+        ".codex/hooks/quality-gate.cjs",
+        "scripts/test-quality-gate-env-recovery.cjs",
+        "docs/git-environment-recovery-design.md",
+        "documents/development/personal-workflow.md",
+        "documents/development/personal-parallel-workflow.md",
+        "skills/project/quality-check/SKILL.md",
+        ".ai-dev/wf-git-recovery.spec.json",
+        ".ai-dev/wf-git-recovery.plan.json"
+      ],
+      "test_oracle": "docs/git-environment-recovery-design.md REC-AC1〜6と段階別API/環境契約を正とする。手書きraw configの逆変換hashとGit意味解析、元四receipt/job/result/stateのbytes/mtime不変、raw commit objectのparent/tree・graft拒否、個人repo/account/remote、TTL/16hex正規TTY・一度限りintent・unknown停止を独立期待値で検証する。旧回帰test SHA f584bb41e5d84b94fe1601279a7970f3e7d85658ebf29985f88c29a1f06434aaとscripts/fixtures/v9-push-proposal.json SHA d0ba9c5c3f8f3c572b0ba5d643ca6a281416581003ffe01463c87a0edff53344、scripts/fixtures/v9-push-provenance.json SHA 8a99bd80c32608bf2aaa3741f0cd00db5343d75fc56461a6eff23369ebf708e4を保持する。candidateは実行位置だけを対象とし、通常の読取り/git add/unittestは妨げない。P=S拒否、正常hook7calls/既存deadline、diskとcommit mode・raw bytes・実native採用を確認する。全child envは固定allowlist。観測可能な危険名は起動前に固定診断で拒否し、OSが除去/privileged shellが無効化する不可視名はstartup/関数/loader marker非生成と子env非継承で検証し、不可視名への固定診断は要求しない。根拠はignored docs/superpowers/plans/wf-git-recovery-evidence/README.mdとlauncher-oracle-probe-result.jsonに集約する。FL-07 revision52/WF revision62、同common Git、42fa0496…config維持とtrackingなしを確認し、元runtimeは変更せず旧Rのupstreamを設定しない通常v9送信を保持する。先行公開はcoordinatorのstatus全連鎖/remote SHA/時刻照合という運用ゲートであり、元source/stateを変更せずevidence/report/PRに記録する。",
+      "done_when": "設計合格と初回承認、正規四receipt/Issue/commit、登録11checksと追加unit/hook回帰、独立品質合格、commit済みnative採用、FL-07復旧結果/remote SHA→WF通常v9/remote SHA→本task通常v9/remote SHAを確認。既存結果やreceiptを編集しない。PRは別途最終承認・人間merge。"
+    }
+  ]
+}

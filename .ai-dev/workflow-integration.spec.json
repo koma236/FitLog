@@ -1,0 +1,97 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design"
+  ],
+  "sources": [
+    {
+      "id": "wfi-requirements",
+      "role": "requirements",
+      "path": "docs/workflow-integration-design.md",
+      "sha256": "17a332e9d47ae7e261b5c5d9c64788efdcc075c5e3e9cbd6f1f10066f69efa15"
+    },
+    {
+      "id": "wfi-acceptance",
+      "role": "acceptance",
+      "path": "docs/workflow-integration-design.md",
+      "sha256": "17a332e9d47ae7e261b5c5d9c64788efdcc075c5e3e9cbd6f1f10066f69efa15"
+    },
+    {
+      "id": "wfi-design",
+      "role": "design",
+      "path": "docs/workflow-integration-design.md",
+      "sha256": "17a332e9d47ae7e261b5c5d9c64788efdcc075c5e3e9cbd6f1f10066f69efa15"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "WFI-R1",
+      "source": "wfi-requirements",
+      "text": "未統合のIssue17/18を現行mainへ安全に取り込み、現在のCI/運用方針と並列/委任/復旧規則を両立する。"
+    },
+    {
+      "id": "WFI-R2",
+      "source": "wfi-requirements",
+      "text": "旧commit・private承認・予算を保ち、独自の正規v9連鎖と限定レビューで統合し、本人PR統合後に関連Issueを閉じる。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "WFI-AC1",
+      "source": "wfi-acceptance",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "text": "19blob/modeと旧原本の不変"
+    },
+    {
+      "id": "WFI-AC2",
+      "source": "wfi-acceptance",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "text": "4文書の要件両立と製品/CI/checks不変"
+    },
+    {
+      "id": "WFI-AC3",
+      "source": "wfi-acceptance",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "text": "固定回帰と独立品質の実測合格"
+    },
+    {
+      "id": "WFI-AC4",
+      "source": "wfi-acceptance",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "text": "登録11checksと共有DB保護"
+    },
+    {
+      "id": "WFI-AC5",
+      "source": "wfi-acceptance",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "text": "独自v9連鎖とnative非force送信"
+    },
+    {
+      "id": "WFI-AC6",
+      "source": "wfi-acceptance",
+      "requirements": [
+        "WFI-R1",
+        "WFI-R2"
+      ],
+      "text": "本人PR統合による3Issue閉鎖とreadback"
+    }
+  ],
+  "questions": []
+}

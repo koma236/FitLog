@@ -1,0 +1,45 @@
+{
+  "schema_version": 10,
+  "baseline_commit": "0d234332d51f078f68137a421d442ff7abed1400",
+  "tasks": [
+    {
+      "id": "WF-PARALLEL",
+      "title": "個人用の並列開発・承認運用と正規v9 Gitのhook互換",
+      "kind": "standard",
+      "requirements": [
+        "WF-R1",
+        "WF-R2",
+        "WF-R3",
+        "WF-R4",
+        "WF-R5"
+      ],
+      "acceptance": [
+        "WF-AC1",
+        "WF-AC2",
+        "WF-AC3",
+        "WF-AC4",
+        "WF-AC5"
+      ],
+      "depends_on": [],
+      "paths": [
+        "AGENTS.md",
+        "CLAUDE.md",
+        "README.md",
+        "documents/development/personal-workflow.md",
+        "documents/development/personal-parallel-workflow.md",
+        "docs/personal-workflow-change-design.md",
+        ".ai-dev/wf-parallel.spec.json",
+        ".ai-dev/wf-parallel.plan.json",
+        ".claude/hooks/quality-gate.cjs",
+        ".codex/hooks/quality-gate.cjs",
+        "scripts/test-quality-gate-v9.cjs",
+        ".ai-dev/v9-git-entrypoints.json",
+        "skills/project/quality-check/SKILL.md",
+        "scripts/fixtures/v9-push-proposal.json",
+        "scripts/fixtures/v9-push-provenance.json"
+      ],
+      "test_oracle": "docs/personal-workflow-change-design.md WF-AC1〜5と別task送信チェックリスト。固定baseline0d234332d51f078f68137a421d442ff7abed1400、実producer fixture、独立期待値、native Bash→posix/Buffer byte一致、既存trunk拒否・metadata不変を確認する。公開順はWF検証/品質/commit/native一致→FL-07自身の正規git-actionとremote SHA確認→WF正規送信。WF送信前にbaselineの先行公開証拠を照合し、欠落なら停止。FL-07のruntime/policy digestと四receiptは採用Rと照合する。",
+      "done_when": "WF自身の固定baseline一致と設計合格・明示承認、正規四receipt、Issue、15paths、登録11checks/node回帰、control-plane独立品質レビュー、WF commitとSのreview済みHEAD bytes、WF送信を実行するclientのnative Bash→posix採用証拠、WF feature送信とremote SHA確認が揃うこと。他clientはconfirmedかnot runを明示し、未実施を合格扱いしない。WF公開の前提は、baseline0d234332d51f078f68137a421d442ff7abed1400がFL-07自身の正規v9結果で先にoriginへ送信済みと確認できること。FL-07送信作業・PR・人間merge自体はWFの完了に含めず、設計の別taskチェックリストを参照する。"
+    }
+  ]
+}

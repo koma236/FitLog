@@ -2104,16 +2104,17 @@ const SAFE_DIFF = ['--no-ext-diff', '--no-textconv'];
 // comes. A missing object is a git failure, which blocks.
 const GIT_ENV = { ...process.env, GIT_NO_LAZY_FETCH: '1', GIT_TERMINAL_PROMPT: '0' };
 
-function runGit(args, cwd) {
-  const budget = DEADLINE - Date.now();
-  if (budget <= 0) return { ok: false, out: '', err: 'deadline exceeded' };
+function runGit(args, cwd, options = {}) {
+  const budget = Math.min(DEADLINE - Date.now(), options.timeout ?? 5000);
+  if (!Number.isFinite(budget) || budget <= 0) return { ok: false, out: '', err: 'deadline exceeded' };
   try {
     const out = execFileSync('git', [...SAFE_GIT, ...args], {
       cwd,
-      env: GIT_ENV,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-      timeout: Math.min(5000, budget),
+      env: options.env || GIT_ENV,
+      encoding: options.binary ? null : 'utf8',
+      input: options.input,
+      stdio: options.input === undefined ? ['ignore', 'pipe', 'pipe'] : ['pipe', 'pipe', 'pipe'],
+      timeout: Math.min(options.timeout || 5000, budget),
       maxBuffer: MAX_BUFFER,
     });
     return { ok: true, out, err: '' };
@@ -2345,6 +2346,495 @@ function emitBlock(reason) {
   }));
 }
 
+// FitLog's opt-in v9 push preflight. It never executes the harness or Git
+// delivery. Legacy classification is retained for all other operations.
+const v9os = require('os');
+const v9crypto = require('crypto');
+const V9_CONFIG = '.ai-dev/v9-git-entrypoints.json';
+const V9_COPIES = ['.claude/hooks/quality-gate.cjs', '.codex/hooks/quality-gate.cjs'];
+const V9_REPO_ENV = ['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE', 'GIT_COMMON_DIR', 'GIT_OBJECT_DIRECTORY', 'GIT_ALTERNATE_OBJECT_DIRECTORIES'];
+const v9Hash = (value) => v9crypto.createHash('sha256').update(value).digest('hex');
+const v9Within = (root, file) => file === root || (!path.relative(root, file).startsWith('..' + path.sep) && path.relative(root, file) !== '..' && !path.isAbsolute(path.relative(root, file)));
+class V9PreflightError extends Error {}
+function v9Require(ok, reason) { if (!ok) throw new V9PreflightError(reason); }
+function v9Object(value, fields) {
+  v9Require(value !== null && typeof value === 'object' && !Array.isArray(value), 'invalid object');
+  v9Require(Object.keys(value).length === fields.length && fields.every(k => Object.hasOwn(value, k)), 'unknown or missing fields');
+}
+// JSON.parse alone silently overwrites duplicate keys. Scan the grammar first,
+// including nested objects; cap nesting and input bytes before parsing.
+function v9Json(bytes) {
+  const text = new (require('util').TextDecoder)('utf-8', { fatal: true }).decode(bytes);
+  let i = 0;
+  const ws = () => { while (/[\t\n\r ]/.test(text[i] || '!')) i++; };
+  function string() {
+    const start = i++;
+    while (i < text.length) {
+      if (text[i] === '\\') { i += 2; continue; }
+      if (text[i++] === '"') return JSON.parse(text.slice(start, i));
+    }
+    throw new Error('invalid JSON string');
+  }
+  function value(depth) {
+    v9Require(depth <= 64, 'JSON nesting limit'); ws();
+    if (text[i] === '{') {
+      i++; ws(); const keys = new Set();
+      if (text[i] === '}') { i++; return; }
+      while (i < text.length) {
+        v9Require(text[i] === '"', 'invalid JSON key');
+        const key = string(); v9Require(!keys.has(key), 'duplicate JSON key'); keys.add(key);
+        ws(); v9Require(text[i++] === ':', 'invalid JSON colon'); value(depth + 1); ws();
+        const end = text[i++]; if (end === '}') return;
+        v9Require(end === ',', 'invalid JSON object'); ws();
+      }
+    } else if (text[i] === '[') {
+      i++; ws(); if (text[i] === ']') { i++; return; }
+      while (i < text.length) { value(depth + 1); ws(); const end = text[i++]; if (end === ']') return; v9Require(end === ',', 'invalid JSON array'); }
+    } else if (text[i] === '"') { string(); return; }
+    else {
+      const match = /^(?:true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)/.exec(text.slice(i));
+      v9Require(match, 'invalid JSON value'); i += match[0].length; return;
+    }
+    throw new Error('incomplete JSON');
+  }
+  value(0); ws(); v9Require(i === text.length, 'trailing JSON data');
+  return JSON.parse(text);
+}
+function v9File(file, max, privateFile = false) {
+  v9Require(fs.realpathSync(file) === path.resolve(file), 'file path must not contain symlink parents');
+  const info = fs.lstatSync(file);
+  v9Require(info.isFile() && !info.isSymbolicLink() && info.uid === process.getuid(), 'unsafe file identity');
+  v9Require(!(info.mode & (privateFile ? 0o077 : 0o022)) && (!privateFile || (info.mode & 0o777) === 0o600), 'unsafe file permissions');
+  v9Require(info.size <= max, 'file size limit');
+  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+  try {
+    const fresh = fs.fstatSync(fd);
+    v9Require(fresh.isFile() && fresh.ino === info.ino && fresh.dev === info.dev && fresh.size <= max && fresh.uid === info.uid && fresh.mode === info.mode, 'file changed during read');
+    const data = fs.readFileSync(fd);
+    v9Require(data.length <= max, 'file size limit'); return data;
+  } finally { fs.closeSync(fd); }
+}
+function v9Home() {
+  const envHome = v9os.homedir(), userHome = v9os.userInfo().homedir;
+  v9Require(path.isAbsolute(envHome) && path.isAbsolute(userHome), 'personal home is unavailable');
+  const home = fs.realpathSync(envHome);
+  v9Require(home === fs.realpathSync(userHome), 'personal HOME differs from OS user home'); return home;
+}
+function v9GitEnvironment() {
+  const env = { ...GIT_ENV, GIT_OPTIONAL_LOCKS: '0', GIT_NO_REPLACE_OBJECTS: '1' };
+  for (const key of V9_REPO_ENV) delete env[key];
+  return env;
+}
+function v9Budget() {
+  const end = Math.min(DEADLINE, Date.now() + 12000);
+  let calls = 0;
+  const check = () => v9Require(Date.now() < end, 'v9 preflight deadline');
+  return { check, git(args, cwd, binary = false, input = undefined) {
+    check(); v9Require(++calls <= 8, 'v9 Git call limit');
+    const result = runGit(args, cwd, { timeout: Math.min(2000, end - Date.now()), binary, input, env: v9GitEnvironment() });
+    v9Require(result.ok, 'required Git metadata unavailable; check compatible Git and worktree');
+    check(); return result.out;
+  } };
+}
+function v9Metadata(cwd, budget) {
+  const lines = budget.git(['rev-parse', '--show-toplevel', '--absolute-git-dir', '--path-format=absolute', '--git-common-dir', 'HEAD'], cwd).trimEnd().split('\n');
+  v9Require(lines.length === 4 && lines.slice(0, 3).every(p => path.isAbsolute(p)) && /^[0-9a-f]{40}$/.test(lines[3]), 'invalid Git metadata format');
+  return { root: fs.realpathSync(lines[0]), gitdir: fs.realpathSync(lines[1]), common: fs.realpathSync(lines[2]), head: lines[3] };
+}
+function v9Anchor(budget) {
+  v9Require(!fs.lstatSync(__filename).isSymbolicLink(), 'hook leaf must not be a symlink');
+  const script = fs.realpathSync(__filename);
+  const S = v9Metadata(path.dirname(script), budget);
+  v9Require(V9_COPIES.some(p => path.join(S.root, p) === script), 'loaded hook does not belong to S');
+  return { ...S, script };
+}
+function v9Cwd(S, cwd) {
+  v9Require(typeof cwd === 'string' && path.isAbsolute(cwd), 'native cwd is unavailable');
+  let current = fs.realpathSync(cwd);
+  v9Require(fs.statSync(current).isDirectory() && v9Within(S.root, current), 'native cwd differs from loaded hook worktree');
+  while (current !== S.root) {
+    const marker = path.join(current, '.git');
+    try { fs.lstatSync(marker); throw new Error('nested Git repository cwd'); }
+    catch (e) { if (e.code !== 'ENOENT') throw e; }
+    current = path.dirname(current);
+  }
+  if (process.env.CLAUDE_PROJECT_DIR !== undefined) v9Require(fs.realpathSync(process.env.CLAUDE_PROJECT_DIR) === S.root, 'Claude project differs from loaded hook worktree');
+}
+function v9Runtime(config, home, budget) {
+  const R = config.harness_root;
+  v9Require(typeof R === 'string' && path.isAbsolute(R) && v9Within(home, R) && R !== home, 'runtime must be under personal home');
+  if (!fs.existsSync(R)) throw new V9PreflightError(`V9_GATE_RUNTIME_MISSING: install the registered runtime at ${R}`);
+  v9Require(fs.realpathSync(R) === R, 'runtime realpath mismatch');
+  for (let p = R; ; p = path.dirname(p)) {
+    budget.check(); const info = fs.lstatSync(p);
+    v9Require(info.isDirectory() && !info.isSymbolicLink() && !(info.mode & 0o022), 'unsafe runtime ancestor');
+    v9Require(info.uid === (v9Within(home, p) ? process.getuid() : 0), 'unsafe runtime ancestor owner');
+    if (p === path.dirname(p)) break;
+  }
+  let count = 0, byteCount = 0;
+  const actualFiles = new Map();
+  function walk(file) {
+    budget.check(); v9Require(++count <= 4096, 'runtime entry limit');
+    const info = fs.lstatSync(file);
+    v9Require(!info.isSymbolicLink() && info.uid === process.getuid() && !(info.mode & 0o022) && (info.isDirectory() || info.isFile()), 'unsafe runtime code permissions');
+    budget.check();
+    if (info.isDirectory()) { const names = fs.readdirSync(file); budget.check(); for (const name of names) walk(path.join(file, name)); }
+    else {
+      const bytes = v9File(file, 1024 * 1024); byteCount += bytes.length;
+      v9Require(byteCount <= 16 * 1024 * 1024, 'runtime byte limit');
+      const oid = v9crypto.createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex');
+      actualFiles.set(path.relative(R, file).split(path.sep).join('/'), { oid, mode: info.mode & 0o100 ? '100755' : '100644' });
+      budget.check();
+    }
+  }
+  walk(path.join(R, 'bin')); walk(path.join(R, 'scripts'));
+  v9Require(fs.lstatSync(path.join(R, 'bin/ai-dev')).isFile(), 'runtime launcher missing');
+  const identity = budget.git(['rev-parse', '--show-toplevel', 'HEAD'], R).trimEnd().split('\n');
+  v9Require(identity.length === 2 && fs.realpathSync(identity[0]) === R && identity[1] === config.harness_commit, 'runtime commit differs from registered commit');
+  // Plumbing commands never normalize worktree bytes through clean filters.
+  // Compare HEAD, index and physical files independently; status and its stat
+  // cache / assume-unchanged / skip-worktree bits are not content evidence.
+  const treeText = budget.git(['ls-tree', '-r', '-z', config.harness_commit, '--', 'bin', 'scripts'], R);
+  const indexText = budget.git(['ls-files', '--stage', '-v', '-z', '--', 'bin', 'scripts'], R);
+  const tree = new Map(), index = new Map();
+  function entries(text) {
+    v9Require(text.endsWith('\0'), 'invalid runtime manifest');
+    return text.slice(0, -1).split('\0');
+  }
+  for (const entry of entries(treeText)) {
+    budget.check(); const match = /^(100644|100755) blob ([0-9a-f]{40})\t([\s\S]+)$/.exec(entry);
+    v9Require(match && !tree.has(match[3]), 'unsupported runtime tree entry');
+    tree.set(match[3], { mode: match[1], oid: match[2] });
+  }
+  for (const entry of entries(indexText)) {
+    budget.check(); const match = /^H (100644|100755) ([0-9a-f]{40}) 0\t([\s\S]+)$/.exec(entry);
+    v9Require(match && !index.has(match[3]), 'runtime index must have normal stage-zero entries and no optimization flags');
+    index.set(match[3], { mode: match[1], oid: match[2] });
+  }
+  v9Require(tree.size === actualFiles.size && index.size === tree.size, 'runtime file set differs from pinned tree');
+  for (const [name, expected] of tree) {
+    const actual = actualFiles.get(name), staged = index.get(name);
+    v9Require(actual && staged && actual.oid === expected.oid && staged.oid === expected.oid && actual.mode === expected.mode && staged.mode === expected.mode, 'runtime bytes or index differ from pinned tree');
+  }
+}
+
+function v9CommittedFiles(S, budget) {
+  const paths = [...V9_COPIES, V9_CONFIG];
+  const input = Buffer.from(paths.map(rel => `${S.head}:${rel}\n`).join(''));
+  const bytes = budget.git(['cat-file', '--batch'], S.root, true, input);
+  v9Require(Buffer.isBuffer(bytes), 'binary blob output required');
+  const files = new Map(); let offset = 0;
+  for (const rel of paths) {
+    budget.check(); const end = bytes.indexOf(0x0a, offset);
+    v9Require(end >= offset, 'missing blob frame');
+    const header = bytes.subarray(offset, end).toString('ascii');
+    const match = /^[0-9a-f]{40} blob ([0-9]+)$/.exec(header);
+    v9Require(match, 'invalid blob frame');
+    const size = Number(match[1]);
+    v9Require(Number.isSafeInteger(size) && size <= 1024 * 1024, 'blob frame size limit');
+    offset = end + 1;
+    v9Require(offset + size < bytes.length && bytes[offset + size] === 0x0a, 'truncated blob frame');
+    files.set(rel, bytes.subarray(offset, offset + size)); offset += size + 1;
+  }
+  v9Require(offset === bytes.length, 'unexpected trailing blob data');
+  return files;
+}
+function v9PrivateParents(file, home) {
+  v9Require(v9Within(home, file), 'job is outside personal home');
+  for (let p = path.dirname(file); p !== home; p = path.dirname(p)) {
+    const info = fs.lstatSync(p);
+    v9Require(info.isDirectory() && !info.isSymbolicLink() && info.uid === process.getuid() && !(info.mode & 0o077), 'unsafe private job directory');
+  }
+}
+function v9Tokens(command, shell) {
+  const saved = reading; reading = shell;
+  try { const tokens = lex(command); v9Require(tokens.length && tokens.every(t => t.word !== undefined && !t.expand), 'only one literal v9 command is accepted'); return tokens.map(t => t.word); }
+  finally { reading = saved; }
+}
+function v9Potential(command) {
+  const folded = command.replace(LINE_CONTINUATION_RE, '').replace(ESCAPE_CHARS_RE, '');
+  return /(?:^|[\s;&|])(?:[^\s;&|]*\/)?ai-dev\s+v9\s+(?:prepare-git|git-action)(?=$|[\s;&|])/.test(folded);
+}
+function v9Legacy(words, command) {
+  if (gateWordIn(command)) return false;
+  const i = words.findIndex(w => w === 'ai-dev' || w.endsWith('/ai-dev'));
+  if (i < 0 || words[i + 1] !== 'v9') return false;
+  if (words[i + 2] === 'prepare-git') {
+    const actions = words.map((w, j) => w === '--action' ? words[j + 1] : (w.startsWith('--action=') ? w.slice(9) : null)).filter(v => v !== null);
+    return actions.length === 1 && ['issue', 'commit', 'pr'].includes(actions[0]);
+  }
+  return words[i + 2] === 'git-action' && /^(?:issue|commit|pr)-[0-9a-f]{64}\.json$/.test(path.basename(words[i + 3] || ''));
+}
+function v9Preflight(command, native, shell) {
+  if (!v9Potential(command)) return null;
+  // Failures of this lane are never converted to the legacy not-a-repo skip.
+  const block = reason => ({ decision: 'block', elsewhere: true, reason: `v9 feature preflight: ${reason}` });
+  try {
+    v9Require(Buffer.byteLength(command, 'utf8') <= MAX_COMMAND_BYTES, 'v9 command size limit');
+    const budget = v9Budget(), S = v9Anchor(budget);
+    const configFile = path.join(S.root, V9_CONFIG);
+    try { fs.lstatSync(configFile); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
+    let words;
+    try { words = v9Tokens(command, shell); } catch (_) { return block('one literal canonical v9 command is required'); }
+    if (v9Legacy(words, command)) return null;
+    v9Require(shell === 'posix', 'only canonical Bash/POSIX is supported');
+    const configBytes = v9File(configFile, 4096), config = v9Json(configBytes);
+    v9Object(config, ['schema_version', 'repository', 'account', 'harness_root', 'harness_commit']);
+    v9Require(config.schema_version === 1 && config.repository === 'koma236/FitLog' && config.account === 'koma236' && typeof config.harness_commit === 'string' && /^[0-9a-f]{40}$/.test(config.harness_commit), 'unsupported registration');
+    const R = config.harness_root;
+    v9Require(/^[ \t]*AI_DEV_HARNESS_HOME=/.test(command) && words[0] === `AI_DEV_HARNESS_HOME=${R}` && words[1] === path.join(R, 'bin/ai-dev') && words[2] === 'v9', 'registered literal launcher and unquoted assignment name required');
+    const prepare = words[3] === 'prepare-git';
+    if (prepare) v9Require(words.length === 14 && words[4] === '--action' && words[5] === 'push' && words[6] === '--project' && words[8] === '--task' && words[10] === '--remote' && words[11] === 'origin' && words[12] === '--branch', 'use exact canonical prepare-git push form');
+    else v9Require(words.length === 7 && words[3] === 'git-action' && words[5] === '--project', 'use exact canonical git-action form');
+    v9Cwd(S, native.cwd);
+    const rawP = words[prepare ? 7 : 6];
+    v9Require(path.isAbsolute(rawP), 'project must be an absolute worktree');
+    const normalizedP = path.resolve(rawP);
+    v9Require(!fs.lstatSync(normalizedP).isSymbolicLink(), 'project must not be a symlink leaf');
+    const realP = fs.realpathSync(normalizedP);
+    v9Require(realP === fs.realpathSync.native(normalizedP), 'project path must use physical case');
+    const P = realP === S.root ? S : v9Metadata(realP, budget);
+    v9Require(P.root === realP && P.common === S.common, 'project must be a root of the same clone');
+    const branch = budget.git(['symbolic-ref', '--quiet', '--short', 'HEAD'], realP).trim();
+    v9Require(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(branch) && !/^(main|master)$/i.test(branch) && !/(?:\.\.|\/$|\.$|\.lock(?:\/|$)|\/\.)/.test(branch), 'named non-trunk feature branch required');
+    const home = v9Home();
+    let task;
+    if (prepare) { task = words[9]; v9Require(words[13] === branch, 'branch differs from current feature'); }
+    else {
+      const file = words[4];
+      v9Require(path.isAbsolute(file) && fs.realpathSync(file) === file, 'canonical private job path required');
+      v9PrivateParents(file, home);
+      const job = v9Json(v9File(file, 1024 * 1024, true));
+      v9Object(job, ['schema_version', 'operation', 'action', 'project', 'task', 'binding_digest', 'workflow_revision', 'proposal', 'proposal_digest', 'personal_environment']);
+      v9Require(job.schema_version === 10 && job.operation === 'git_action' && job.action === 'push' && job.project === realP && Number.isInteger(job.workflow_revision) && job.workflow_revision > 0 && typeof job.binding_digest === 'string' && typeof job.proposal_digest === 'string' && /^[0-9a-f]{64}$/.test(job.binding_digest) && /^[0-9a-f]{64}$/.test(job.proposal_digest), 'invalid push job envelope');
+      const p = job.proposal;
+      v9Object(p, ['account', 'branch', 'commit', 'fetch_url', 'push_url', 'refspec', 'remote', 'repository']);
+      v9Require(Object.values(p).every(v => typeof v === 'string') && p.branch === branch && p.commit === P.head && p.refspec === `HEAD:refs/heads/${branch}` && p.remote === 'origin' && p.repository === config.repository && p.account === config.account, 'proposal differs from current approved target');
+      v9Object(job.personal_environment, ['account', 'configs', 'gh_config_dir', 'git_config_file']);
+      v9Require(job.personal_environment.account === config.account && Array.isArray(job.personal_environment.configs) && typeof job.personal_environment.gh_config_dir === 'string' && typeof job.personal_environment.git_config_file === 'string', 'invalid personal environment binding');
+      for (const item of job.personal_environment.configs) {
+        v9Object(item, ['path', 'sha256']);
+        v9Require(typeof item.path === 'string' && (item.sha256 === null || (typeof item.sha256 === 'string' && /^[0-9a-f]{64}$/.test(item.sha256))), 'invalid personal configuration fingerprint');
+      }
+      task = job.task;
+      v9Require(typeof task === 'string', 'invalid task');
+      const expected = path.join(home, '.ai-dev-harness/v9/git', v9Hash(realP), v9Hash(task), `push-${job.proposal_digest}.json`);
+      v9Require(file === expected, 'job path differs from its canonical identity');
+    }
+    v9Require(typeof task === 'string' && /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(task), 'invalid task');
+    v9Runtime(config, home, budget);
+    const committedFiles = v9CommittedFiles(S, budget);
+    for (const rel of [...V9_COPIES, V9_CONFIG]) {
+      budget.check(); const committed = committedFiles.get(rel);
+      const disk = v9File(path.join(S.root, rel), rel === V9_CONFIG ? 4096 : 1024 * 1024);
+      v9Require(Buffer.isBuffer(committed) && committed.equals(disk), 'hook/config bytes differ from session HEAD');
+      if (path.join(S.root, rel) === S.script) v9Require(committed.equals(fs.readFileSync(__filename)), 'loaded script bytes differ from session HEAD');
+    }
+    v9Require(v9File(path.join(S.root, V9_COPIES[0]), 1024 * 1024).equals(v9File(path.join(S.root, V9_COPIES[1]), 1024 * 1024)), 'hook copies differ');
+    budget.check(); return { decision: 'allow' };
+  } catch (_e) {
+    // Do not echo JSON excerpts, private job contents or command text.
+    const safe = _e instanceof V9PreflightError ? _e.message : 'metadata or file validation failed';
+    return block(safe);
+  }
+}
+function recoveryRuntime(config, home, budget) {
+  const R = config.harness_root;
+  v9Require(typeof R === 'string' && path.isAbsolute(R) && v9Within(home, R) && R !== home, 'runtime must be under personal home');
+  if (!fs.existsSync(R)) throw new V9PreflightError(`V9_GATE_RUNTIME_MISSING: install the registered runtime at ${R}`);
+  v9Require(fs.realpathSync(R) === R, 'runtime realpath mismatch');
+  for (let p = R; ; p = path.dirname(p)) {
+    budget.check(); const info = fs.lstatSync(p);
+    v9Require(info.isDirectory() && !info.isSymbolicLink() && !(info.mode & 0o022), 'unsafe runtime ancestor');
+    v9Require(info.uid === (v9Within(home, p) ? process.getuid() : 0), 'unsafe runtime ancestor owner');
+    if (p === path.dirname(p)) break;
+  }
+  let count = 0, byteCount = 0;
+  const actualFiles = new Map();
+  function walk(file) {
+    budget.check(); v9Require(++count <= 4096, 'runtime entry limit');
+    const info = fs.lstatSync(file);
+    v9Require(!info.isSymbolicLink() && info.uid === process.getuid() && !(info.mode & 0o022) && (info.isDirectory() || info.isFile()), 'unsafe runtime code permissions');
+    budget.check();
+    if (info.isDirectory()) { const names = fs.readdirSync(file); budget.check(); for (const name of names) walk(path.join(file, name)); }
+    else {
+      const bytes = v9File(file, 1024 * 1024); byteCount += bytes.length;
+      v9Require(byteCount <= 16 * 1024 * 1024, 'runtime byte limit');
+      const oid = v9crypto.createHash('sha1').update(Buffer.from(`blob ${bytes.length}\0`)).update(bytes).digest('hex');
+      actualFiles.set(path.relative(R, file).split(path.sep).join('/'), { oid, mode: info.mode & 0o100 ? '100755' : '100644' });
+      budget.check();
+    }
+  }
+  walk(path.join(R, 'bin')); walk(path.join(R, 'scripts'));
+  v9Require(fs.lstatSync(path.join(R, 'bin/ai-dev')).isFile(), 'runtime launcher missing');
+  const identity = budget.git(['rev-parse', '--show-toplevel', '--path-format=absolute', '--git-common-dir', 'HEAD'], R).trimEnd().split('\n');
+  v9Require(identity.length === 3 && fs.realpathSync(identity[0]) === R && identity[2] === config.harness_commit, 'runtime commit differs from registered commit');
+  v9Require(recoveryAbsent(path.join(identity[1], 'info/grafts')), 'runtime grafts refused');
+  // Plumbing commands never normalize worktree bytes through clean filters.
+  // Compare HEAD, index and physical files independently; status and its stat
+  // cache / assume-unchanged / skip-worktree bits are not content evidence.
+  const treeText = budget.git(['ls-tree', '-r', '-z', config.harness_commit, '--', 'bin', 'scripts'], R);
+  const indexText = budget.git(['ls-files', '--stage', '-v', '-z', '--', 'bin', 'scripts'], R);
+  const tree = new Map(), index = new Map();
+  function entries(text) {
+    v9Require(text.endsWith('\0'), 'invalid runtime manifest');
+    return text.slice(0, -1).split('\0');
+  }
+  for (const entry of entries(treeText)) {
+    budget.check(); const match = /^(100644|100755) blob ([0-9a-f]{40})\t([\s\S]+)$/.exec(entry);
+    v9Require(match && !tree.has(match[3]), 'unsupported runtime tree entry');
+    tree.set(match[3], { mode: match[1], oid: match[2] });
+  }
+  for (const entry of entries(indexText)) {
+    budget.check(); const match = /^H (100644|100755) ([0-9a-f]{40}) 0\t([\s\S]+)$/.exec(entry);
+    v9Require(match && !index.has(match[3]), 'runtime index must have normal stage-zero entries and no optimization flags');
+    index.set(match[3], { mode: match[1], oid: match[2] });
+  }
+  v9Require(tree.size === actualFiles.size && index.size === tree.size, 'runtime file set differs from pinned tree');
+  for (const [name, expected] of tree) {
+    const actual = actualFiles.get(name), staged = index.get(name);
+    v9Require(actual && staged && actual.oid === expected.oid && staged.oid === expected.oid && actual.mode === expected.mode && staged.mode === expected.mode, 'runtime bytes or index differ from pinned tree');
+  }
+}
+
+// Explicit recovery lane. Ordinary v9 and the legacy classifier remain below.
+const REC_LAUNCHER='ai-dev-git-env-recovery';
+const REC_SCRIPT='v9_git_environment_recovery.py';
+const REC_CONFIG='.ai-dev/v9-env-recovery.json';
+const REC_FILES=[...V9_COPIES,V9_CONFIG,REC_CONFIG,'bin/'+REC_LAUNCHER,'scripts/'+REC_SCRIPT];
+const REC_TICKET_FIELDS=['schema_version','kind','action','project','task','origin_job','context','source','remote_observed','mode','refspec','created_at','expires_at','delivery_result','pr','ticket_digest'];
+const REC_RESULT_FIELDS=['schema_version','kind','ticket_digest','intent_digest','worker_digest','status','action','mode','remote_sha','pr','completed_at','result_digest'];
+function recoveryPotential(command) {
+  const folded=command.replace(LINE_CONTINUATION_RE,'').replace(ESCAPE_CHARS_RE,'');
+  const target=word=>[REC_LAUNCHER,REC_SCRIPT].includes(path.basename(word||''));
+  const wrapper=/^(?:python(?:[0-9.]+)?|bash|sh|zsh|env|command|nohup|timeout)$/;
+  let tokens;
+  const saved=reading;reading='posix';
+  try { tokens=lex(command); }
+  catch(_) {
+    // Known direct/wrapper execution forms still fail closed when their remaining
+    // grammar is unreadable. Mere file arguments to cat/rg/git are not candidates.
+    return /(?:^|[;\n&|])\s*(?:(?:[^\s]+\/)?(?:python[0-9.]*|bash|sh|zsh|env|command|nohup|timeout)\s+)*(?:[^\s;]+\/)?(?:ai-dev-git-env-recovery|v9_git_environment_recovery\.py)(?=$|[\s;])/.test(folded);
+  } finally { reading=saved; }
+  let words=[];
+  const segment=()=>{
+    const values=words;words=[];
+    while(values[0]&&/^[A-Za-z_][A-Za-z0-9_]*=/.test(values[0]))values.shift();
+    if(target(values[0]))return true;
+    if(!wrapper.test(path.basename(values[0]||'')))return false;
+    return values.slice(1).some((word,i)=>target(word)||(values[i]==='-m'&&/^(?:scripts\.)?v9_git_environment_recovery$/.test(word))||(values[i]==='-c'&&recoveryPotential(word)));
+  };
+  for(const token of tokens) { if(token.sep) { if(segment())return true; } else if(token.word!==undefined)words.push(token.word); }
+  return segment();
+}
+function recoveryEnvironment(home) {
+  const names=new Set(['GIT_CONFIG_PARAMETERS','GIT_CONFIG_COUNT','GIT_CONFIG','GIT_CONFIG_GLOBAL','GIT_CONFIG_SYSTEM',...V9_REPO_ENV,'GIT_SSH','GIT_SSH_COMMAND','GIT_ASKPASS','SSH_ASKPASS','GIT_EXEC_PATH','GIT_GRAFT_FILE','GH_TOKEN','GITHUB_TOKEN','GH_HOST','GH_CONFIG_DIR','BASH_ENV','ENV','SHELLOPTS']);
+  v9Require(!Object.keys(process.env).some(name=>names.has(name)||/^(?:GIT_CONFIG_KEY_|GIT_CONFIG_VALUE_|BASH_FUNC_|DYLD_|LD_|PYTHON|VSCODE_GIT_ASKPASS_)/.test(name)),'environment override refused');
+  v9Require(process.env.HOME===undefined||fs.realpathSync(process.env.HOME)===home,'personal HOME differs');
+  v9Require(process.env.CODEX_HOME===undefined||process.env.CODEX_HOME===path.join(home,'.codex-personal'),'personal CODEX_HOME differs');
+}
+function recoveryCompany(home,file) { return typeof file!=='string'||v9Within(path.join(home,'.codex').toLowerCase(),file.toLowerCase())||file.toLowerCase().includes('manabi-backoffice'); }
+function recoveryAbsent(file) { try { fs.lstatSync(file); return false; } catch(e) { if(e.code==='ENOENT') return true; throw e; } }
+function recoveryPython(budget) {
+  const leaf='/Library/Frameworks/Python.framework/Versions/3.12/bin/python3.12';
+  const values=[];for(let p=leaf;;p=path.dirname(p)){values.push(p);if(p===path.dirname(p))break;}
+  for(let i=0;i<values.length;i++) {
+    budget.check();const p=values[i],info=fs.lstatSync(p);v9Require(fs.realpathSync(p)===p&&!info.isSymbolicLink()&&info.uid===0&&info.gid===0&&(info.mode&0o777)===(i<=3?0o775:0o755)&&(i===0?info.isFile():info.isDirectory()),'fixed Python identity differs');budget.check();
+  }
+  budget.check();const info=fs.lstatSync(leaf);v9Require(info.size<=16*1024*1024,'Python byte limit');
+  const bytes=fs.readFileSync(leaf);budget.check();v9Require(v9Hash(bytes)==='80ee2dd97bc26259d4e30853336f72ad38aa4aa0531bb196cc444d899422689d','fixed Python hash differs');budget.check();
+}
+function recoveryCommitted(S,budget) {
+  const bytes=budget.git(['cat-file','--batch'],S.root,true,Buffer.from(REC_FILES.map(rel=>`${S.head}:${rel}\n`).join('')));let offset=0;
+  for(const rel of REC_FILES) {
+    budget.check();const end=bytes.indexOf(10,offset);v9Require(end>=offset,'missing recovery blob');const match=/^[0-9a-f]{40} blob ([0-9]+)$/.exec(bytes.subarray(offset,end).toString('ascii'));
+    v9Require(match,'invalid recovery blob');const size=Number(match[1]);offset=end+1;
+    v9Require(Number.isSafeInteger(size)&&size<=1024*1024&&offset+size<bytes.length&&bytes[offset+size]===10,'invalid recovery blob size');
+    const file=path.join(S.root,rel),disk=v9File(file,1024*1024),info=fs.lstatSync(file);
+    v9Require(bytes.subarray(offset,offset+size).equals(disk),'recovery source differs from committed bytes');offset+=size+1;
+    if(rel==='bin/'+REC_LAUNCHER)v9Require(!!(info.mode&0o100),'launcher must be executable');
+    if(rel==='scripts/'+REC_SCRIPT)v9Require(!(info.mode&0o100),'controller must not be executable');
+    budget.check();
+  }
+  v9Require(offset===bytes.length,'trailing recovery blob bytes');
+  v9Require(v9File(path.join(S.root,V9_COPIES[0]),1024*1024).equals(v9File(path.join(S.root,V9_COPIES[1]),1024*1024)),'hook copies differ');
+}
+function recoveryRecord(file,home) {
+  v9Require(typeof file==='string'&&!recoveryCompany(home,file),'company path refused');
+  v9Require(typeof file==='string'&&path.isAbsolute(file)&&path.resolve(file)===file&&fs.realpathSync(file)===file,'canonical recovery record required');
+  v9PrivateParents(file,home);return v9Json(v9File(file,1024*1024,true));
+}
+function recoveryJob(file,P,home) {
+  const job=recoveryRecord(file,home);
+  v9Object(job,['schema_version','operation','action','project','task','binding_digest','workflow_revision','proposal','proposal_digest','personal_environment']);
+  v9Require(job.schema_version===10&&job.operation==='git_action'&&job.action==='commit'&&job.project===P.root&&typeof job.task==='string'&&/^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/.test(job.task)&&typeof job.proposal_digest==='string'&&/^[0-9a-f]{64}$/.test(job.proposal_digest),'invalid original commit job');
+  const expected=path.join(home,'.ai-dev-harness/v9/git',v9Hash(P.root),v9Hash(job.task),'commit-'+job.proposal_digest+'.json');v9Require(file===expected,'commit job namespace differs');return job;
+}
+function recoveryTicket(file,P,home,branch,S) {
+  const ticket=recoveryRecord(file,home);v9Object(ticket,REC_TICKET_FIELDS);
+  v9Require(ticket.schema_version===1&&ticket.kind==='environment_recovery_ticket'&&['delivery','pr'].includes(ticket.action)&&ticket.project===P.root&&typeof ticket.ticket_digest==='string'&&/^[0-9a-f]{64}$/.test(ticket.ticket_digest),'invalid ticket envelope');
+  v9Object(ticket.source,['project','head','files']);v9Object(ticket.source.files,REC_FILES);v9Require(ticket.source.project===S.root&&ticket.source.head===S.head&&REC_FILES.every(rel=>ticket.source.files[rel]===v9Hash(v9File(path.join(S.root,rel),1024*1024))),'ticket source differs');
+  const job=recoveryJob(ticket.origin_job,P,home),namespace=path.join(path.dirname(ticket.origin_job),'environment-recoveries',job.proposal_digest);
+  v9Require(file===path.join(namespace,'ticket-'+ticket.ticket_digest+'.json')&&ticket.task===job.task,'ticket namespace differs');
+  const ctx=ticket.context;v9Object(ctx,['schema_version','project','task','commit','parent','tree','branch','origin_job','origin_job_sha256','origin_result_sha256','state_sha256','workflow_revision','binding_digest','approvals_digest','snapshot_hash','runtime','runtime_digest','policy_digest','personal_environment','original_personal_environment','delta','remote','normal_records_digest']);
+  v9Require(ctx.project===P.root&&ctx.task===job.task&&ctx.origin_job===ticket.origin_job&&ctx.branch===branch&&ctx.commit===P.head&&ticket.refspec===`${P.head}:refs/heads/${branch}`,'ticket target differs');return ticket;
+}
+function recoveryPreflight(command,native,shell) {
+  if(!recoveryPotential(command))return null;
+  const block=()=>({decision:'block',elsewhere:true,reason:'v9 environment recovery: canonical committed public entry and valid private record required'});
+  try {
+    v9Require(shell==='posix'&&Buffer.byteLength(command)<=MAX_COMMAND_BYTES,'canonical POSIX required');
+    const words=v9Tokens(command,shell),budget=v9Budget(),S=v9Anchor(budget);v9Cwd(S,native.cwd);const home=v9Home();recoveryEnvironment(home);
+    v9Require(words[0]===path.join(S.root,'bin',REC_LAUNCHER),'canonical launcher required');
+    const kind=words[1];let file,rawP,body;
+    if(kind==='prepare'){v9Require(words.length===8&&words[2]==='--commit-job'&&words[4]==='--project'&&words[6]==='--remote'&&words[7]==='origin','prepare form');file=words[3];rawP=words[5];}
+    else if(kind==='execute'){v9Require(words.length===5&&words[3]==='--project','execute form');file=words[2];rawP=words[4];}
+    else if(kind==='status'||kind==='prepare-pr'){v9Require(words.length===(kind==='status'?6:12)&&words[2]==='--delivery-result'&&words[4]==='--project','result form');file=words[3];rawP=words[5];if(kind==='prepare-pr'){v9Require(words[6]==='--base'&&words[7]==='main'&&words[8]==='--title'&&words[10]==='--body-file','PR form');body=words[11];}}
+    else throw new V9PreflightError('unknown action');
+    v9Require(!recoveryCompany(home,rawP)&&path.isAbsolute(rawP)&&path.resolve(rawP)===rawP&&fs.realpathSync(rawP)===rawP&&rawP!==S.root,'canonical other project required');
+    const P=v9Metadata(rawP,budget);v9Require(P.root===rawP&&P.common===S.common,'same clone required');
+    v9Require(recoveryAbsent(path.join(P.common,'info/grafts')),'grafts refused');
+    const branch=budget.git(['symbolic-ref','--quiet','--short','HEAD'],P.root).trim();
+    v9Require(/^[A-Za-z0-9][A-Za-z0-9._/-]{0,254}$/.test(branch)&&!/^(main|master)$/i.test(branch)&&!/(?:\.\.|\/$|\.$|\.lock(?:\/|$)|\/\.)/.test(branch),'named feature required');
+    recoveryPython(budget);
+    const config=v9Json(v9File(path.join(S.root,V9_CONFIG),4096));v9Object(config,['schema_version','repository','account','harness_root','harness_commit']);
+    v9Require(config.schema_version===1&&config.repository==='koma236/FitLog'&&config.account==='koma236'&&/^[0-9a-f]{40}$/.test(config.harness_commit),'runtime registration differs');
+    const recovery=v9Json(v9File(path.join(S.root,REC_CONFIG),4096));v9Object(recovery,['schema_version','repository','account','metadata_rule']);v9Require(recovery.schema_version===1&&recovery.repository===config.repository&&recovery.account===config.account&&recovery.metadata_rule==='main_vscode_metadata_added','recovery registration differs');
+    if(kind==='prepare')recoveryJob(file,P,home);
+    else if(kind==='execute')recoveryTicket(file,P,home,branch,S);
+    else {
+      const result=recoveryRecord(file,home);v9Object(result,REC_RESULT_FIELDS);
+      v9Require(result.schema_version===1&&result.kind==='environment_recovery_result'&&result.action==='delivery'&&result.status==='succeeded'&&typeof result.ticket_digest==='string'&&/^[0-9a-f]{64}$/.test(result.ticket_digest),'successful delivery required');
+      v9Require(path.basename(file)==='ticket-'+result.ticket_digest+'.result.json','delivery result name differs');
+      recoveryTicket(path.join(path.dirname(file),'ticket-'+result.ticket_digest+'.json'),P,home,branch,S);
+    }
+    if(body){v9Require(!recoveryCompany(home,body)&&path.isAbsolute(body)&&path.resolve(body)===body,'canonical body required');const bytes=v9File(body,65536);new(require('util').TextDecoder)('utf-8',{fatal:true}).decode(bytes);}
+    v9Require(typeof config.harness_root==='string'&&!recoveryCompany(home,config.harness_root),'company runtime refused');
+    recoveryRuntime(config,home,budget);recoveryCommitted(S,budget);budget.check();return {decision:'allow'};
+  }catch(_){return block();}
+}
+
+function v9Diagnostic(command, native) {
+  if (command !== 'git status --short --untracked-files=no -- .fitlog-native-hook-probe') return;
+  try {
+    const result = runGit(['rev-parse', '--absolute-git-dir', '--path-format=absolute', '--git-common-dir'], native.cwd, { timeout: 2000, env: v9GitEnvironment() });
+    if (!result.ok) return;
+    const lines = result.out.trimEnd().split('\n');
+    if (lines.length !== 2 || !lines.every(p => path.isAbsolute(p))) return;
+    const [dir, common] = lines.map(p => fs.realpathSync(p));
+    if (dir === common) return;
+    const request = v9Json(v9File(path.join(dir, 'v9-gate-probe.request.json'), 1024, true));
+    v9Object(request, ['schema_version', 'nonce']);
+    if (request.schema_version !== 1 || typeof request.nonce !== 'string' || !/^[0-9a-f]{32,128}$/.test(request.nonce)) return;
+    const script = fs.realpathSync(__filename);
+    const root = path.resolve(path.dirname(script), '../..');
+    const configFile = path.join(root, V9_CONFIG);
+    const record = { nonce: request.nonce, tool_name: native.toolName, cwd: native.cwd, script_realpath: script, script_sha256: v9Hash(fs.readFileSync(script)), config_sha256: fs.existsSync(configFile) ? v9Hash(v9File(configFile, 4096)) : null };
+    const fd = fs.openSync(path.join(dir, 'v9-gate-probe.result.json'), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+    try { fs.writeFileSync(fd, JSON.stringify(record)); } finally { fs.closeSync(fd); }
+  } catch (_) { /* Optional diagnosis cannot change the permission decision. */ }
+}
+
 function main() {
   // Buffers, not a string: the cap is in BYTES, and concatenating at the end
   // keeps a multi-byte character that straddles two chunks intact.
@@ -2373,13 +2863,17 @@ function main() {
     }
     let command;
     let shell = null;
+    let nativeCwd = null;
+    let toolName = null;
     let cwd = process.cwd();
     try {
       // Windows producers may prefix JSON with a UTF-8 BOM. Strip only that
       // leading marker so valid payloads do not enter the malformed fail-open.
       const payload = JSON.parse(Buffer.concat(chunks).toString('utf8').replace(/^\uFEFF/, ''));
       const raw = payload && payload.tool_input ? payload.tool_input.command : undefined;
-      shell = shellOf(payload && payload.tool_name);
+      toolName = payload && payload.tool_name;
+      shell = shellOf(toolName);
+      if (typeof payload.cwd === 'string') nativeCwd = payload.cwd;
       if (typeof raw !== 'string' && shell !== null) {
         // H-52(5) / H-07: a shell call whose command cannot be read is
         // refused, not waved through.
@@ -2400,7 +2894,8 @@ function main() {
     const ctx = makeCtx(cwd);
     let verdict;
     try {
-      verdict = classify(command, ctx, shell);
+      v9Diagnostic(command, { cwd: nativeCwd, toolName });
+      verdict = recoveryPreflight(command, { cwd: nativeCwd, toolName }, shell) || v9Preflight(command, { cwd: nativeCwd, toolName }, shell) || classify(command, ctx, shell);
     } catch (e) {
       // A classifier bug must not become a bypass: fall back to the gate words.
       process.stderr.write(`quality-gate: classifier error (${e && e.message}); judging on gate words alone.\n`);
