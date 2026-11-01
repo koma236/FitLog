@@ -1,0 +1,37 @@
+# CI-AUTH-COMPAT: focus-expiry認証回帰テストの投稿API互換性
+
+対象koma236/FitLog、task CI-AUTH-COMPAT、branch fix/fl07-ci-auth-compat、baseline4300da2e756bb9fedfec2580bcc2439db9fc5a1f。実装は親Codex、正式独立レビューはClaude。ユーザーは具体的1行パッチと限定修正案にyesと回答し、通常feature送信までの正規TTY操作をcodex-owner-delegatedへ委任。PR作成は最終確認、統合は本人のみ。
+
+## 要件・設計
+PR19のCI run41263393527はfrontend Auth.test.tsxの新focus-expiryテスト1件が失敗し、ci-requiredがその失敗を集約した。backendは成功。CI checkout273a907448f17411cb893128e1f41bef16b1e661ではmain由来の新テストが/postsだけを投稿読取りと認識し、FL-07の/api/timeline/を認証確認へ誤分類する。そのためfocusイベントを発火せず、401を受けたfeedが通知なしでユーザーを解除する。mainのuseLayoutEffect修正はCIソースに存在する。
+
+変更対象はfrontend/src/Auth.test.tsxの新規テスト「checks expiry when focus arrives as the restored home mounts before passive effects finish」（mainのline217）のfeedモック条件1行だけ。既存/posts判定に/api/timeline/で始まるpathの判定を加える。成功feed応答、focus発火のタイミング、見出し・ログイン・期限切れalert・meCalls=2の全assertionを維持する。共通helperでpathを隠さず、当該モックだけを明示的に広げる。アプリ、API、認証ロジック、CI workflow、依存lock、checks、ポート、DB、hooksは変更しない。
+
+同一repoの専用worktreeで直接実装する。旧FL-07/WF/復旧taskのHEAD・index・tracked filesと旧private承認結果を変更しない。main基点にする理由は新テストがmain由来で、公開済み旧3commitの送信連鎖と後続branchを維持するため。task準備branch名を継続し、正規IssueのURLと対応を記録する。
+
+## 独立オラクルと受入条件
+AC1: mainの旧/posts経路を保ち、当該Auth17件が成功する。
+AC2: CI checkoutの未修正コピーでは同じalert欠如で失敗し、同じ1行変更で12ファイル190件成功する。Phase1では実ブランチの正確なパッチを新しい一時コピーへ適用し、このred/greenを新規実行する。以前の調査結果で代用しない。修正済みモックを保ちuseLayoutEffect呼出しをuseEffectへ一時的に戻すと同じ回帰テストは失敗することも実測済み。これは一時コピーの反証であり、実ソースに変異を残さない。アサーションを緩めない。
+AC3: 実プロダクトテスト差分が条件1行のみで、既存公開3commitと旧private記録を保つ。
+AC4: 登録11checksを変更せず実行し、ローカル独立品質確認と異なるproviderの正式v9レビューで残存High/Mediumなしを確認して、4工程の実確認・正規Issue/commit/feature送信へ進む。PRは別の最終承認、mainへのAI書込みや統合は行わない。
+
+## 検証・運用
+main由来の登録11checksはcompose-build/backend-lint/backend-types/django-check/backend-migrate/migration-drift/backend-tests/frontend-lint/frontend-types/frontend-tests/frontend-build。共有fitlog-devを使う通常checksは排他枠を取り、既存DBのmigration graphと前後状態を照合する。既存DBへ逆migration/resetしない。schema不整合で安全に実行できない場合は実結果を保存して停止する。今回起動したサービスだけを返却時に停止する。
+CI相当の追加コンテナ試験は別project/image/volumeを使い、fitlog-devを上書きしない。現時点の190件の再現はCI checkout/lockfileとホストNode24.10.0での試験で、CI Linux/Node24.22.1コンテナそのものの完全再現とは扱わない。UI変更がないテスト修正のため新ブラウザE2Eは対象外。mutation基盤を導入せず、上記の局所反証を証拠として残す。
+
+## 実行計画と予算
+Phase0: public v9のdraft設計レビュー初回1回と本人がokで承認した再確認1回の計2回→実結果照合→仕様/計画の正規確認→Issue作成。単純な1行修正に全アプリの設計や独立planレビューを追加しない。
+Phase1: 当該条件1行の実装、主張したオラクルの照合、登録11checks。機械検査が通る前に品質reviewerを起動しない。
+Phase2: ローカル品質確認1巡、異なるprovider Claudeの正式v9レビュー1回。古いtaskの台帳/失敗を保持し、新taskで旧レビュー失敗を隠さない。上限追加・繰返しのreviewは自動で行わない。
+Phase3: 実結果に適合する正規工程確認、Issueに対応したcommit、当該feature branchへの通常送信まで。実Codexの送信入口は採用済みS=f827b9fから登録runtime169642dの正規A/Bを使い、Pはこのworktree。同じcloneの対象を明示して通常v9で送信する。設定の往復、直接Git送信、trunk操作、force、hook回避を行わない。
+Phase4: 具体的PR本文を整え最終承認を求める。本人が修正PRを先にGitHubへ統合した後でPR19の新しいmainとの組合せを確認する。古いCI checkout SHAの再実行だけを新組合せの証明にしない。実GitHub CIの成功は実runを確認するまで主張しない。
+
+既存開発DBの履歴には先行FL-07のsocial0002_followがある。mainの全migrationが適用済みで、追加がこの既知nodeだけであることを確認する。適用計画が空の場合にのみ登録migrateを無変更の確認として実行し、履歴を前後比較する。未知node・不足・適用予定操作・履歴変化があれば停止する。既知の追加tableを除去せず、逆migration/resetを行わない。バックエンド試験は専用test DBで実施する。
+
+## 設計レビュー1のMediumへの実証と補足
+指摘はmainの旧「returns to login when focus detects expiry」テストの/postsだけの条件を見て、CI組合せでも未対応と判断している。しかし実CI checkout273a907のその条件は、FL-07既存差分により既にrequestPath(input).includes('/posts') || requestPath(input).startsWith('/api/timeline/')である。この別テストの条件をmainで再変更する必要はない。
+レビュー後、新しいCIソースコピーで未修正の新テストがalert欠如で失敗し、現ブランチから生成した正確な1行パッチで190件成功することを再実行した。さらにfocusリスナー登録を外すと旧兄弟テストも失敗し、useLayoutEffect呼出しをuseEffectへ戻すと新テストも失敗することを確認した。同じパッチのmainAuth17件も成功。証拠はdocs/superpowers/plans/2026-11-01-ci-auth-review-rebuttal.json。実装後は実branchのAuth.test.tsx bytesがこの証拠のproposed_branch_auth_sha256と一致することを確認し、実branchでも登録checksを再実行する。
+当該fixtureはitems=[]/next_cursor=nullの最初のfeed読取りを起点としてfocusを起こし、その後の401で終了する。両APIで同じタイミングの検出を意図し、meCalls=2のassertionを維持する。ページング・更新操作を起こすfixtureではなく、後続読取りを認証成功として誤算入しない。
+修正PRの本文とIssueに、本人が修正をmainへ統合した後のPR19最新組合せCI確認を未完了follow-upとして明記する。修正PRではRefsを使い、PR19の新CI成功を確認するまで自動closeせず、現在taskのローカル検証と区別する。
+
+本人の最新okで、反証と補足を含む設計再確認を1回だけ追加した。設計の総上限2回、ローカル品質確認1巡、正式v9品質レビュー1回。旧不合格と消費枠を保持し、上限を自動追加しない。

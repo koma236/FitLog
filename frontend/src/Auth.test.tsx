@@ -218,7 +218,7 @@ it('checks expiry when focus arrives as the restored home mounts before passive 
   let meCalls = 0
   vi.stubGlobal('fetch', vi.fn((input: RequestInfo | URL) => {
     const path = requestPath(input)
-    if (path.includes('/posts')) {
+    if (path.includes('/posts') || path.startsWith('/api/timeline/')) {
       // The first child read starts after home commits, before the parent's passive focus effect.
       expect(screen.getByRole('heading', { name: '川さん' })).toBeVisible()
       window.dispatchEvent(new Event('focus'))
