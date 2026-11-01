@@ -1,0 +1,28 @@
+{
+  "schema_version": 10,
+  "baseline_commit": "4300da2e756bb9fedfec2580bcc2439db9fc5a1f",
+  "tasks": [
+    {
+      "id": "CI-AUTH-COMPAT",
+      "title": "認証回帰テストのタイムラインAPI互換性を修正",
+      "kind": "standard",
+      "requirements": [
+        "CIAC-R1",
+        "CIAC-R2"
+      ],
+      "acceptance": [
+        "CIAC-AC1",
+        "CIAC-AC2"
+      ],
+      "depends_on": [],
+      "paths": [
+        "frontend/src/Auth.test.tsx",
+        "docs/ci-auth-compat-design.md",
+        ".ai-dev/ci-auth-compat.spec.json",
+        ".ai-dev/ci-auth-compat.plan.json"
+      ],
+      "test_oracle": "docs/ci-auth-compat-design.md AC1-4。未修正CI組合せのalert欠如、1行変更の190件成功、mainAuth17件、layout listenerを戻す局所反証失敗を照合。検証前に成功を生成しない。",
+      "done_when": "承認範囲内で登録11checks/品質1巡/正式v9レビュー1回の実結果を確認し、正規4工程確認/Issue/commit/通常feature送信まで進める。PRは最終個別確認、統合は本人のみ。上限は自動で増やさない。"
+    }
+  ]
+}
