@@ -1,0 +1,44 @@
+{
+  "schema_version": 10,
+  "baseline_commit": "947139032e84df6bb6b470c451b0d04424180aba",
+  "tasks": [
+    {
+      "id": "FL-07",
+      "title": "フォロー・検索・タイムライン",
+      "kind": "standard",
+      "requirements": [
+        "FL07-R1",
+        "FL07-R2",
+        "FL07-R3",
+        "FL07-R4"
+      ],
+      "acceptance": [
+        "FL07-AC1",
+        "FL07-AC2",
+        "FL07-AC3",
+        "FL07-AC4",
+        "FL07-AC5",
+        "FL07-AC6",
+        "FL07-AC7"
+      ],
+      "depends_on": [],
+      "paths": [
+        "backend/social/",
+        "backend/workouts/",
+        "backend/accounts/profile_service.py",
+        "backend/accounts/profile_views.py",
+        "backend/config/urls.py",
+        "backend/common/errors.py",
+        "backend/tests/",
+        "frontend/src/",
+        "docs/api/",
+        "docs/features/F02_timeline.md",
+        "docs/features/F06_follow.md",
+        "docs/features/F07_profile.md",
+        "docs/07_er_diagram.md"
+      ],
+      "test_oracle": "docs/fl-07-timeline-design.md のFL07-AC1〜7と実装計画案、および docs/superpowers/plans/2026-10-31-fl-07-test-design.md を正とする。固定A/B/C・同時刻UUID・手書き検索ID集合・DB制約/競合・DOM遅延応答で実装を反証する。先行FL-06は固定baselineに取り込み済み。別branch receiptをdepends_onへ流用しない。仕様sourceは不変、変更が必要なら正規再binding/再承認する。",
+      "done_when": "修正済み設計の追加レビュー1回が合格した場合に限り、初回計画承認の委任範囲内でv9の4工程receiptと正規Git proposalを取得する。登録11checks成功、別provider Claudeの独立品質レビュー成功を確認し、Issue/commit/feature pushまで進める。CIと共有Compose操作を排他にし、未実行を成功扱いしない。PRは最終確認、mergeは人間。"
+    }
+  ]
+}

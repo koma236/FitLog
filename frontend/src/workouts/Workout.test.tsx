@@ -19,7 +19,7 @@ function mock(options: { write?: (init: RequestInit) => Response | Promise<Respo
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
     if (url === '/api/auth/me') { const me = await (options.me?.() ?? owner); return me instanceof Response ? me : reply(200, me) }
     if (url === '/api/auth/csrf') { count.csrf++; return reply(200, { csrf_token: 'csrf' }) }
-    if (url === '/api/users/me') return reply(200, { viewer_id: owner.id, avatar: null, id: owner.id, username: owner.username, display_name: owner.display_name, bio: '', is_owner: true, health: { height: null, weight: '60.0', age: 30, formula: null, activity: null }, energy: { bmr: null, tdee: null, intake: null }, visibility: privateFlags() })
+    if (url === '/api/users/me') return reply(200, { viewer_id: owner.id, avatar: null, id: owner.id, username: owner.username, display_name: owner.display_name, bio: '', is_owner: true, is_following: false, follower_count: 0, following_count: 0, health: { height: null, weight: '60.0', age: 30, formula: null, activity: null }, energy: { bmr: null, tdee: null, intake: null }, visibility: privateFlags() })
     if (init?.method && init.method !== 'GET') { count.writes++; return await (options.write?.(init) ?? reply(200, base)) }
     return await (options.read?.(url) ?? reply(200, base))
   }))
@@ -131,7 +131,7 @@ async function createInApp() {
     return reply(201, server.record)
   }, read: url => {
     if (url.endsWith('/comments')) return reply(200, { viewer_id: owner.id, post_id: server.record.id, comment_count: 0, items: [], next_cursor: null })
-    if (url.startsWith('/api/users/')) return reply(200, { viewer_id: owner.id, items: server.deleted ? [] : [server.record], next_cursor: null })
+    if ((url.startsWith('/api/users/') || url.startsWith('/api/timeline/'))) return reply(200, { viewer_id: owner.id, items: server.deleted ? [] : [server.record], next_cursor: null })
     server.detailReads++
     return server.deleted ? reply(404, { code: 'NOT_FOUND' }) : reply(200, server.record)
   } })

@@ -1,6 +1,6 @@
 # 8. ER図
 
-> User・認証試行窓・Djangoセッション・FL-03身体情報・FL-04投稿/種目/セット/使用済みIDは実装対象。FL-05画像も実装対象。FL-06コメント/いいねも実装対象。フォローは後続草案。検証と独立レビューの結果は別途記録する。
+> User・認証試行窓・Djangoセッション・FL-03身体情報・FL-04投稿/種目/セット/使用済みIDは実装対象。FL-05画像も実装対象。FL-06コメント/いいねも実装対象。フォローはFL-07実装。検証と独立レビューの結果は別途記録する。
 
 ### 8.1 テーブル一覧
 ユーザー、Djangoセッション、投稿、投稿内種目、セット、投稿画像、コメント、いいね、フォロー。記録本文・セット・消費カロリーは会員間公開。FL-04では運動時間・種類にminutes_public/kind_publicの個別公開列を設ける。
@@ -55,11 +55,11 @@ erDiagram
 FL-04は投稿削除で種目・セットを削除し、使用済みIDを保持する。FL-05は添付行のCASCADE時にもImageObjectを退役させ、同じDBトランザクションでcleanup jobを残し、commit後に物理画像の削除を試みる。画像Objectとjobは残して失敗や遅延書込みを再回収する。FL-06はComment/LikeをCASCADEし、CommentIdentityは残す。詳細は[API共通契約](api/README.md)を参照。
 投稿の作成・更新は原子的に行い、途中の不正セットで一部保存されない。投稿は1〜10種目、各種目1〜20セット、重量0〜999.99kg、回数1〜999、種目名1〜80文字、メモ500文字以内とする。日付は実施日で、日本時間の未来日を拒否する。整数・小数・日付の境界を受け入れ条件で検証する。
 
-FL-03実装の身体情報テーブルはaccounts_profilehealth。身長・体重はdecimal(4,1)、年齢0〜120、計算結果は保存せず現在の入力から算出。Userのbioと同じtransactionで更新する。FL-04の投稿・種目・セット・使用済みIDは8.1節の実テーブルに対応する。画像の図はFL-05実装、コメント/いいねはFL-06実装、フォローは後続草案。
+FL-03実装の身体情報テーブルはaccounts_profilehealth。身長・体重はdecimal(4,1)、年齢0〜120、計算結果は保存せず現在の入力から算出。Userのbioと同じtransactionで更新する。FL-04の投稿・種目・セット・使用済みIDは8.1節の実テーブルに対応する。画像の図はFL-05実装、コメント/いいねはFL-06実装、フォローはFL-07実装。
 
 ### FL-04 実装
 
-workouts_postidentity（UUID主キー、author nullable SET_NULL）は使用済みIDの台帳としてPost削除後も残す。workouts_postはidentityへのOneToOne主キー（PROTECT）、user CASCADE、performed_on/note/created_at/updated_at、nullable minutes/kind、minutes_public/kind_public既定false、nullable energy_kcal/energy_method。workouts_workoutexerciseはpost CASCADE・name/position、workouts_workoutsetはexercise CASCADE・position/weight_kg Decimal(5,2)/reps。それぞれ親とpositionが一意、重量0..999.99・回数1..999のCHECK制約。Postには(user_id,created_at DESC,id DESC)と(created_at DESC,id DESC)の索引を作る。上の画像テーブルはFL-05実装、コメント/いいねはFL-06実装、フォローは後続草案。User削除の画面は今回の対象外。
+workouts_postidentity（UUID主キー、author nullable SET_NULL）は使用済みIDの台帳としてPost削除後も残す。workouts_postはidentityへのOneToOne主キー（PROTECT）、user CASCADE、performed_on/note/created_at/updated_at、nullable minutes/kind、minutes_public/kind_public既定false、nullable energy_kcal/energy_method。workouts_workoutexerciseはpost CASCADE・name/position、workouts_workoutsetはexercise CASCADE・position/weight_kg Decimal(5,2)/reps。それぞれ親とpositionが一意、重量0..999.99・回数1..999のCHECK制約。Postには(user_id,created_at DESC,id DESC)と(created_at DESC,id DESC)の索引を作る。上の画像テーブルはFL-05実装、コメント/いいねはFL-06実装、フォローはFL-07実装。User削除の画面は今回の対象外。
 
 ### FL-05 実装
 
@@ -77,3 +77,9 @@ workouts_postidentity（UUID主キー、author nullable SET_NULL）は使用済�
 social_commentidentityは削除済みコメントUUIDの台帳。author nullable SET_NULL、post_uuidはFKでなく保持値、本文/メールは保存しない。social_commentはIdentity OneToOne/PROTECTを主キーとし、Post/User CASCADE・body長CHECK。social_likeはPost/User CASCADEと(post,user)一意。
 
 User→Post→Commentの順で有効性/所有者を再確認し、LikeはUser→Postで冪等処理する。投稿削除で本文/Likeが消えてもIdentityは再利用しない。countsはactiveなコメント本人/いいね会員から独立集計し、親Post作者もactiveのものだけを表示する。通常のコメント編集は後勝ち。社会的な操作でPost本文/画像/更新時刻/energyを変更しない。
+
+### FL-07 実装
+
+social_followはUUID主キー、follower/followee（accounts_user CASCADE）、created_at。
+(follower,followee)一意とfollower!=followee CHECK。両Userをpk昇順でロックしactiveを再確認。
+件数は保存せず有効会員間の関係から導出し、検索は相関集計/Existsを使う。

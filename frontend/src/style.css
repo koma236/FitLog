@@ -72,6 +72,18 @@ textarea { min-height: 110px; resize: vertical; }
 .post-social { display:flex; align-items:center; flex-wrap:wrap; gap:1rem; margin:1rem 0; padding-top:1rem; border-top:1px solid #dce4e2; }
 .social-like { display:flex; align-items:center; flex-wrap:wrap; gap:.6rem; }
 .social-like [aria-pressed="true"] { background:#185c4c; color:#fff; }
+.user-results { list-style:none; padding:0; display:grid; gap:1rem; }
+.user-results li { padding:1.25rem; background:#fff; border:1px solid #dce5e8; border-radius:1rem; overflow-wrap:anywhere; }
+.user-results li > a { margin-left:.75rem; font-weight:700; }
+[role="search"] { display:grid; gap:.75rem; margin:1.5rem 0; }
+[role="tablist"] { display:flex; flex-wrap:wrap; gap:1rem; margin:1.5rem 0; }
+[role="tab"] { padding:.75rem 1rem; border-radius:.5rem; color:#185c4c; }
+[role="tab"][aria-selected="true"] { background:#185c4c; color:#fff; }
+.follow-control { display:flex; flex-wrap:wrap; gap:.5rem; align-items:center; }
+.follow-control [aria-pressed="true"] { background:#185c4c; color:#fff; }
+.follow-control p { flex-basis:100%; }
+.follow-control dialog { max-width:min(90vw,32rem); border:1px solid #658b7f; border-radius:.6rem; padding:1.5rem; }
+.follow-control dialog button { margin:.25rem; }
 .social-like p { flex-basis:100%; margin:.25rem 0; }
 .comments-panel { border-top:1px solid #dce4e2; margin-top:2rem; padding-top:1rem; min-width:0; }
 .comments-panel h2:focus { outline:2px solid #185c4c; outline-offset:.3rem; }

@@ -1,0 +1,150 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design",
+    "api",
+    "data-model",
+    "mock"
+  ],
+  "sources": [
+    {
+      "id": "fl07-requirements",
+      "role": "requirements",
+      "path": "docs/fl-07-timeline-design.md",
+      "sha256": "8a1e6d580bb3a8edf1d92823170eb5809797572bb10c32f02cc0f4c8e2e90f69"
+    },
+    {
+      "id": "fl07-acceptance",
+      "role": "acceptance",
+      "path": "docs/fl-07-timeline-design.md",
+      "sha256": "8a1e6d580bb3a8edf1d92823170eb5809797572bb10c32f02cc0f4c8e2e90f69"
+    },
+    {
+      "id": "fl07-design",
+      "role": "design",
+      "path": "docs/fl-07-timeline-design.md",
+      "sha256": "8a1e6d580bb3a8edf1d92823170eb5809797572bb10c32f02cc0f4c8e2e90f69"
+    },
+    {
+      "id": "fl07-api",
+      "role": "api",
+      "path": "docs/fl-07-timeline-design.md",
+      "sha256": "8a1e6d580bb3a8edf1d92823170eb5809797572bb10c32f02cc0f4c8e2e90f69"
+    },
+    {
+      "id": "fl07-data-model",
+      "role": "data-model",
+      "path": "docs/fl-07-timeline-design.md",
+      "sha256": "8a1e6d580bb3a8edf1d92823170eb5809797572bb10c32f02cc0f4c8e2e90f69"
+    },
+    {
+      "id": "mock",
+      "role": "mock",
+      "path": "mock/index.html",
+      "sha256": "f0c4f445c53bbc520a465ea897b2686abef0a0dbe856c3aed929ce97c03a716e"
+    },
+    {
+      "id": "test-design",
+      "role": "design",
+      "path": "docs/superpowers/plans/2026-10-31-fl-07-test-design.md",
+      "sha256": "432e26662818e0b90795bc3cf948604dee06ed6cae84fb24560e45ecb2973431"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "FL07-R1",
+      "source": "fl07-requirements",
+      "text": "会員が他の有効な会員をフォロー・解除できる。重複・自己フォローをDBでも禁止する。"
+    },
+    {
+      "id": "FL07-R2",
+      "source": "fl07-requirements",
+      "text": "username/表示名の部分一致で会員を検索し、プロフィールへ移動できる。"
+    },
+    {
+      "id": "FL07-R3",
+      "source": "fl07-requirements",
+      "text": "ホームに「フォロー中」「すべて」を設け、記録・画像・交流状態を投稿日時の新着順に表示する。"
+    },
+    {
+      "id": "FL07-R4",
+      "source": "fl07-requirements",
+      "text": "本人判定、非公開情報、セッション変更、通信失敗の既存の保護を維持する。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "FL07-AC1",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R1",
+        "FL07-R4"
+      ],
+      "text": "A→Bの繰り返し/同時POST後は1行、DELETE後は0行。A→AはAPIとDB直書きの両方で拒否。相互A→B/B→A同時操作がdeadlockしない。件数は実関係と一致する。"
+    },
+    {
+      "id": "FL07-AC2",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R2",
+        "FL07-R4"
+      ],
+      "text": "Alice/ali_name/別名を固定し、大小・前後空白・空q・日本語・%・_・backslashで手書きの該当ID集合に一致する。50/51文字、limit境界、重複query、不正cursorを検証する。メール/非公開情報は含まない。"
+    },
+    {
+      "id": "FL07-AC3",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R3"
+      ],
+      "text": "AはBだけフォロー、Cは非フォロー。followingはA/Bのみ、allはA/B/C。日時同値の固定UUIDをlimit=1で巡回し重複/欠落なくnullへ到達。編集・実施日変更で順序不変。"
+    },
+    {
+      "id": "FL07-AC4",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R1",
+        "FL07-R2",
+        "FL07-R3",
+        "FL07-R4"
+      ],
+      "text": "他ユーザー/他用途/他qカーソル、改ざん/期限切れを拒否。未認証、CSRF、owner不一致、無効会員、削除済み投稿を検証。公開設定と交流件数は既存契約を維持する。"
+    },
+    {
+      "id": "FL07-AC5",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R1",
+        "FL07-R2",
+        "FL07-R3",
+        "FL07-R4"
+      ],
+      "text": "UIで検索→プロフィール→フォロー→ホームの表示が連動。フォロー応答の操作側following_countを対象のcountへ誤適用しない。自分に操作ボタンなし。記録作成・詳細・画像・いいねの回帰なし。"
+    },
+    {
+      "id": "FL07-AC6",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R1",
+        "FL07-R2",
+        "FL07-R3",
+        "FL07-R4"
+      ],
+      "text": "遅延/逆順/401/409/5xx/timeout/不正bodyで古いユーザー・検索結果を表示せず、自動再送なし。続き取得失敗で既読保持、結果不明では再確認するまで逆操作なし。"
+    },
+    {
+      "id": "FL07-AC7",
+      "source": "fl07-acceptance",
+      "requirements": [
+        "FL07-R1",
+        "FL07-R2",
+        "FL07-R3",
+        "FL07-R4"
+      ],
+      "text": "PostgreSQL migration/制約、OpenAPIとのschema照合、全登録11checksが成功。件数1件/20件でquery数が件数比例しないことを検証する。未実行を成功扱いにしない。"
+    }
+  ],
+  "questions": []
+}

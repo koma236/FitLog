@@ -29,6 +29,7 @@ export default function ProfileView({ profile, onImageError }: { profile: Profil
     <section className="profile-card"><div className="profile-heading"><Photo image={profile.avatar} avatar alt={profile.display_name} onError={onImageError} /><div><h1>{profile.display_name}</h1><p className="muted">@{profile.username}</p></div>
       {profile.is_owner && <a className="button-link" href="#profile-edit">プロフィールを編集</a>}</div>
       <p className="bio">{profile.bio || '自己紹介はまだありません。'}</p>
+      <p>{profile.following_count} フォロー中</p><p>{profile.follower_count} フォロワー</p>
     </section>
     {(fields.length > 0 || Object.keys(profile.energy).length > 0) && <section className="profile-card" aria-label="カロリーと身体情報">
       {Object.keys(profile.energy).length > 0 && <><h2>カロリーの目安</h2><EnergyCards energy={profile.energy} visibility={profile.visibility} owner={profile.is_owner} /></>}

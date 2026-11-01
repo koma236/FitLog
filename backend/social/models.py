@@ -45,3 +45,16 @@ class Like(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["post", "user"], name="social_like_post_user")
         ]
+
+
+class Follow(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    follower = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="outgoing_follows")
+    followee = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="incoming_follows")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["follower", "followee"], name="social_follow_pair"),
+            models.CheckConstraint(condition=~models.Q(follower=models.F("followee")), name="social_follow_not_self"),
+        ]

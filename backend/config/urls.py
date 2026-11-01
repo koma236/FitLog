@@ -6,8 +6,10 @@ from accounts import views as auth
 from common.errors import not_found
 from common.health import LiveView, ReadyView
 from media_assets import views as images
+from social import follow_views
 from social import views as social
 from workouts import views as workouts
+from workouts.timeline import timeline
 
 urlpatterns = [
     path("api/auth/csrf", auth.csrf),
@@ -25,6 +27,9 @@ urlpatterns = [
     path("api/posts/<str:identity>", workouts.record),
     path("api/users/<str:username>/posts", workouts.user_posts),
     path("api/users/me", profile_views.profile),
+    path("api/users/search", follow_views.search),
+    path("api/users/<str:identity>/follow", follow_views.follow),
+    path("api/timeline/<str:scope>", timeline),
     path("api/users/<str:username>", profile_views.profile),
     path("api/health/live", LiveView.as_view()),
     path("api/health/ready", ReadyView.as_view()),

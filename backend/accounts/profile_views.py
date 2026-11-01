@@ -6,11 +6,11 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, JsonResponse
 from django.views.decorators.csrf import csrf_protect
 
-from accounts.models import User
 from accounts.profile_service import profile_response, update_profile
 from accounts.profile_validation import decode_profile, validate_profile
 from accounts.views import auth_required, method_error
 from common.errors import error_response
+from social.follow_service import member_query
 
 
 @csrf_protect
@@ -21,7 +21,7 @@ def profile(request: HttpRequest, username: str = "me") -> JsonResponse:
     if request.method not in allowed.split(", "):
         return method_error(request, allowed)
     if request.method == "GET":
-        users = User.objects.select_related("profile_health", "avatar_attachment__object").filter(is_active=True)
+        users = member_query(request.user).select_related("profile_health")
         if username == "me":
             user = users.filter(pk=request.user.pk).first()
         else:

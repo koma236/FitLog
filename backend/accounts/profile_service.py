@@ -7,6 +7,7 @@ from django.db import transaction
 from accounts.models import ProfileHealth, User
 from accounts.profile_validation import ENERGY_KEYS, HEALTH_KEYS, PROFILE_KEYS, ProfileUpdate
 from media_assets.presentation import avatar
+from social.follow_service import relation_fields
 
 
 def energy(health: ProfileHealth) -> dict[str, int | None]:
@@ -39,6 +40,7 @@ def profile_response(user: User, actor: User) -> dict[str, Any]:
                                 "energy": {key: value for key, value in energy(health).items() if owner or flags[key]}}
     if owner:
         response["visibility"] = {key: "public" if flags[key] else "private" for key in PROFILE_KEYS}
+    response.update(relation_fields(user, actor))
     return response
 
 

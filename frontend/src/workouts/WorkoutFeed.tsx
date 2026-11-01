@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ApiError, getMe } from '../auth/api'
 import type { Account } from '../auth/api'
-import { listWorkouts } from './api'
+import { listTimeline, listWorkouts } from './api'
 import type { Page } from './types'
 import LikeButton from '../social/LikeButton'
 import type { SocialProps } from '../social/types'
 import WorkoutCard from './WorkoutCard'
 
 const idle = () => {}
-export default function WorkoutFeed({ account, username, onIdentity, onBusy = idle, onUncertain = idle }: { account: Account; username: string } & Pick<SocialProps, 'onIdentity'> & Partial<Pick<SocialProps, 'onBusy' | 'onUncertain'>>) {
+export default function WorkoutFeed({ account, username, timeline, onIdentity, onBusy = idle, onUncertain = idle }: { account: Account; username: string; timeline?: 'following' | 'all' } & Pick<SocialProps, 'onIdentity'> & Partial<Pick<SocialProps, 'onBusy' | 'onUncertain'>>) {
   const [page, setPage] = useState<Page | null>(null)
   const [message, setMessage] = useState('')
   const [busy, setBusy] = useState(false)
@@ -19,19 +19,21 @@ export default function WorkoutFeed({ account, username, onIdentity, onBusy = id
     setSocialBusy(socialLocks.current.size > 0); onBusy(token, value)
   }, [onBusy])
   const [invalid, setInvalid] = useState(false)
+  const [failedCursor, setFailedCursor] = useState<string | undefined>(undefined)
   const controller = useRef<AbortController | null>(null)
   const version = useRef(0)
   const viewGeneration = useRef(0)
   const sending = useRef(false)
   const imagePages = useRef<{ cursor?: string; ids: string[]; used: boolean }[]>([])
   const refreshControllers = useRef(new Set<AbortController>())
+  const readPage = (signal: AbortSignal, cursor?: string) => timeline ? listTimeline(timeline, account.id, signal, cursor) : listWorkouts(username, account.id, signal, cursor)
   async function load(cursor?: string) {
     if (sending.current || socialLocks.current.size > 0) return
     if (!cursor) viewGeneration.current++
     const op = ++version.current; const abort = new AbortController(); controller.current?.abort(); controller.current = abort
     sending.current = true; setBusy(true); setMessage('')
     try {
-      const next = await listWorkouts(username, account.id, abort.signal, cursor)
+      const next = await readPage(abort.signal, cursor)
       if (version.current !== op) return
       const group = { cursor, ids: next.items.map(item => item.id), used: false }
       imagePages.current = cursor ? [...imagePages.current, group] : [group]
@@ -40,7 +42,7 @@ export default function WorkoutFeed({ account, username, onIdentity, onBusy = id
       if (version.current !== op) return
       if (error instanceof ApiError && error.status === 401) { setPage(null); onIdentity(null) }
       else if (error instanceof ApiError && error.code === 'RECORD_OWNER_CHANGED') { setPage(null); try { const next = await getMe(); if (version.current === op) onIdentity(next) } catch { if (version.current === op) onIdentity(null) } }
-      else { setInvalid(error instanceof ApiError && error.code === 'INVALID_CURSOR'); setMessage(cursor ? '続きを読み込めませんでした。' : '記録を読み込めませんでした。') }
+      else { setFailedCursor(cursor); setInvalid(error instanceof ApiError && error.code === 'INVALID_CURSOR'); setMessage(cursor ? '続きを読み込めませんでした。' : '記録を読み込めませんでした。') }
     } finally { if (version.current === op) { sending.current = false; setBusy(false) } }
   }
   const [initialLoad] = useState(() => load)
@@ -57,7 +59,7 @@ export default function WorkoutFeed({ account, username, onIdentity, onBusy = id
     group.used = true
     const op = viewGeneration.current; const abort = new AbortController(); refreshControllers.current.add(abort)
     try {
-      const value = await listWorkouts(username, account.id, abort.signal, group.cursor)
+      const value = await readPage(abort.signal, group.cursor)
       if (viewGeneration.current !== op) return
       if (value.items.length !== group.ids.length || !value.items.every((item, index) => group.ids[index] === item.id)) { setInvalid(true); setMessage('一覧を最初から読み込み直してください。'); return }
       setPage(old => old ? { ...old, items: old.items.map(item => {
@@ -73,8 +75,8 @@ export default function WorkoutFeed({ account, username, onIdentity, onBusy = id
     } finally { refreshControllers.current.delete(abort) }
   }
   return <section aria-label="記録一覧" className="workout-feed"><h2>トレーニングの記録</h2>
-    {username === account.username && <a className="button" href="#record-new">トレーニングを記録する</a>}
-    {message && <div role="alert"><p>{invalid ? '一覧の続きが無効になりました。最初から読み込み直してください。' : message}</p><button disabled={busy || socialBusy} onClick={() => { void load(invalid ? undefined : page?.next_cursor ?? undefined) }}>{invalid ? '一覧を最初から読み込み直す' : 'もう一度読み込む'}</button></div>}
+    {(timeline || username === account.username) && <a className="button" href="#record-new">トレーニングを記録する</a>}
+    {message && <div role="alert"><p>{invalid ? '一覧の続きが無効になりました。最初から読み込み直してください。' : message}</p><button disabled={busy || socialBusy} onClick={() => { void load(invalid ? undefined : failedCursor) }}>{invalid ? '一覧を最初から読み込み直す' : 'もう一度読み込む'}</button></div>}
     {!page && !message && <p role="status">記録を読み込んでいます…</p>}
     {page?.items.length === 0 && <p>まだ記録がありません。</p>}
     {page?.items.map(post => <WorkoutCard key={post.id} post={post} social={<LikeButton account={account} post={post} onIdentity={onIdentity} onBusy={socialWorking} onUncertain={onUncertain} onMissing={() => { setPage(old => old ? { ...old, items: old.items.filter(item => item.id !== post.id) } : old) }} onLike={value => { setPage(old => old ? { ...old, items: old.items.map(item => item.id === post.id ? { ...item, ...value } : item) } : old) }} />} onImageError={() => { void refreshImages(post.id) }} />)}
