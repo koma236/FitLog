@@ -63,19 +63,27 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 # Djangoの標準エラーロガーは例外本文・リクエストを渡すため、そのまま出力しない。
 # API境界の固定event/code/request-idだけを出す。
-LOGGING = {
+FITLOG_LOG_FORMAT = os.environ.get("FITLOG_LOG_FORMAT", "text")
+if FITLOG_LOG_FORMAT not in {"text", "json"}:
+    raise ImproperlyConfigured("Invalid FitLog log format")
+FITLOG_APP_VERSION = os.environ.get("FITLOG_APP_VERSION", "unknown")
+LOGGING: dict[str, Any] = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"safe": {"format": "%(levelname)s %(message)s"}},
+    "formatters": {"safe": {"()": "common.observability.SafeFormatter",
+                            "mode": FITLOG_LOG_FORMAT, "app_version": FITLOG_APP_VERSION}},
     "handlers": {
         "null": {"class": "logging.NullHandler"},
-        "console": {"class": "logging.StreamHandler", "formatter": "safe"},
+        "console": {"class": "common.observability.SafeStreamHandler",
+                    "formatter": "safe", "stream": "ext://sys.stdout"},
     },
+    "root": {"handlers": ["console"], "level": "WARNING"},
     "loggers": {
         "django": {"handlers": ["null"], "propagate": False},
         "django.db.backends": {"handlers": ["null"], "propagate": False},
         "django.server": {"handlers": ["null"], "propagate": False},
         "fitlog.api": {"handlers": ["console"], "level": "INFO", "propagate": False},
+        "fitlog.maintenance": {"handlers": ["console"], "level": "INFO", "propagate": False},
     },
 }
 

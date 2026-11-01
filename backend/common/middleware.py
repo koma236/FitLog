@@ -1,7 +1,7 @@
 """DEBUGに依存しないAPI境界とサーバー生成request-id。"""
 import json
-import logging
 from collections.abc import Callable
+from time import perf_counter
 from typing import Literal, cast
 from uuid import uuid4
 
@@ -14,8 +14,7 @@ from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.utils.cache import patch_vary_headers
 
 from common.errors import ERRORS, api_exception_handler, error_response
-
-logger = logging.getLogger("fitlog.api")
+from common.observability import emit_api_result
 
 
 class ApiBoundaryMiddleware:
@@ -23,6 +22,7 @@ class ApiBoundaryMiddleware:
         self.get_response = get_response
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
+        started = perf_counter()
         request.META["FITLOG_REQUEST_ID"] = str(uuid4())
         is_api = request.path == "/api" or request.path.startswith("/api/")
         response: HttpResponse
@@ -55,9 +55,9 @@ class ApiBoundaryMiddleware:
                 response["Cache-Control"] = "no-store"
             if request.path.startswith(("/api/users/", "/api/posts", "/api/timeline/", "/api/comments/")):
                 patch_vary_headers(response, ("Cookie",))
-            if response.status_code >= 400:
-                logger.warning("api_error status=%s request_id=%s",
-                               response.status_code, request.META["FITLOG_REQUEST_ID"])
+            emit_api_result(
+                request, response.status_code, max(0, int((perf_counter() - started) * 1000)),
+            )
         return response
 
     @staticmethod

@@ -262,7 +262,7 @@ def test_django_log_policy_does_not_emit_exception_text(api_log_output: StringIO
     logging.getLogger("django.request").error(SECRET)
     logging.getLogger("fitlog.api").warning("log_policy_probe")
     output = api_log_output.getvalue()
-    assert "log_policy_probe" in output
+    assert "log_record_discarded" in output
     assert SECRET not in output
 
 

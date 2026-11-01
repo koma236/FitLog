@@ -1,25 +1,34 @@
-# 13. 監視運用設計
+# ヘルスチェックと運用監視
 
-> 壁打ち用の草案。未承認・未実装・独立レビュー未実施。数値・方式は提案であり、実行結果ではない。
+FL-08（Issue #16）の実装契約と検証区分。最終的な採用状況はIssue/PRの証跡を参照する。常設の通知基盤は追加せず、ローカル検証/撮影中の手動確認を基本とする。AWS実監視の成功を先取りしない。
 
-### 13.1 監視の考え方
-稼働中のデモを手元から確認できる最小構成。監視のために高額な常設基盤を追加しない。停止予定と障害を区別する。
+## health契約
 
-### 13.2 取得元
-`/api/health/live` はプロセス、`/api/health/ready` はDB疎通と必要なmigrationの適用を確認する案。公開応答はok/unavailableのみで資格情報や内部構成を返さない。S3は低頻度の別スモーク検査とする。
-
-### 13.3 監視項目と仮閾値
-| 項目 | 仮の確認契機 | 行動 |
+| endpoint | 意味 | 応答 |
 |---|---|---|
-| readiness | 30秒間隔で3回失敗 | DB・migration・起動ログを調査 |
-| API 5xx | スモーク中に1件、または一定負荷で1%以上 | request_idで原因を特定 |
-| latency | 固定負荷p95が1秒超 | クエリ数・DB待ち・画像処理を調査 |
-| CPU / メモリ / ディスク | 5分間80%超 | 容量・プロセス・コンテナ再起動を確認 |
-| 画像操作失敗 | デモ中に1件 | IAM、バケット、形式・容量の確認 |
-| 残存資源 | destroy後にFitLog対象が残る | stateと資源を突合、削除再試行 |
+| GET /api/health/live | 認証/セッション/DBに依存しないプロセス確認 | 200、status=ok |
+| GET /api/health/ready | 実DB疎通と必要migrationの適用 | 正常200/ok、DB不可・未適用503/unavailable |
 
-### 13.4 通知・ダッシュボード
-初版は撮影・検証中の手動監視と記録。常時通知や外部SaaS連携は対象外。AWS費用アラートを採用する場合は上限通知であり課金停止ではないと明記する。
+応答は内部構成/資格情報/例外を含めない。既存のX-Request-IdとJSON例外境界を保ち、想定外の不具合は500とする。DB接続timeoutは5秒、readiness内のstatement_timeoutはtransaction-localの2秒で、後続SQLへ漏らさない。画像storage/S3はreadinessへ組み込まず、別の低頻度スモークで調べる。
 
-### 13.5 閾値の見直しと未実施事項
-実際のインスタンス性能、コールドスタート、データ量を記録し調整する。計測もCloudWatch設定も未実施。MyTimelineのJVM heap/GC閾値は移植しない。
+## 証跡の区別
+
+- 実PostgreSQL: 正常→実driverの接続拒否→設定復元後のSELECT 1/ready 200を確認する。テストprocessが所有する非listen loopback socketで接続拒否先を作り、共有DBを停止しない。
+- 設定分離: transaction=True試験で接続設定をdeep copyし、finallyで元dict参照/接続を復旧する。statement_timeoutも前後照合する。
+- 未適用migration: 既存migration_plan mockの503試験。実migration rollbackをした証跡ではない。
+- ログ: handler-streamの固定反証と、CLIの固定stderrを確認する。OS subprocess捕捉やAWSログ配信とは同一視しない。
+- 全体: FL-07統合後の登録11checks、独立品質レビュー、実CIを別々に記録する。部分テストの成功で全体完了にしない。
+
+## 手動確認の目安
+
+| 観測 | 初動 |
+|---|---|
+| readyが連続失敗 | プロセス、DB疎通、migration、環境設定を照合。DB初期化や検査無効化をしない |
+| API 5xx | 発生時刻・status・X-Request-Idを保存し、固定eventを照合。本文や秘密を添付しない |
+| 画像清掃pending_jobsが残り続ける/増える | backoff待ちかstorage/DB障害かを切り分ける。deleted=0だけでは障害と決めない |
+| maintenance_failed/CLI非0 | 部分変更済みの可能性を残し、同じ冪等commandで再照合する |
+| 遅延/資源増加 | FL-10の固定負荷計測で調べる。JVM固有閾値や未計測p95を合格判定に使わない |
+
+成功health probeもINFOのAPI結果ログに含む。ALB/ECS等の頻度、対象数、実行時間からFL-09で件数と費用を見積もり、保持期間を決める。ここで通知SaaS、CloudWatch設定、S3/IAM、費用アラートは作成していない。
+
+共有fitlog-devではbuild/DB/checks/清掃を同時実行しない。共通Git管理領域のfitlog-runtime.lockを原子的に取得しownerを記録する。所有者不明のlockや他担当サービスを削除/停止せず、連絡して待機する。清掃試験はtest_fitlogと一時private storageだけを使う。

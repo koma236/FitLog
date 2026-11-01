@@ -1,6 +1,5 @@
 """Retirement survives target cascades; no storage IO runs inside signals."""
 
-import logging
 from typing import Any
 from uuid import UUID
 
@@ -9,6 +8,7 @@ from django.db.models.signals import pre_delete
 from django.dispatch import receiver
 from django.utils import timezone
 
+from common.observability import emit_image_retry
 from media_assets.models import ImageCleanupJob, ImageObject, PostImage, UserAvatar
 
 
@@ -18,7 +18,7 @@ def try_cleanup(identity: UUID) -> None:
     try:
         clean_one(identity)
     except DatabaseError:
-        logging.getLogger("fitlog.api").warning("image_cleanup_retry operation_id=%s", identity)
+        emit_image_retry()
 
 
 def retire(image: ImageObject) -> None:
