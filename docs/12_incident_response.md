@@ -1,29 +1,52 @@
-# 14. 障害対応運用フロー
+# 障害対応手順
 
-> 壁打ち用の草案。未承認・未実装・独立レビュー未実施。数値・方式は提案であり、実行結果ではない。
+FL-08（Issue #16）の運用手順。検証・採用状況はIssue/PRの証跡を参照する。個人デモのため24時間対応は約束しない。AWS上の故障注入とdestroy訓練はFL-09で費用/対象を確認して実施する。
 
-### 14.1 重大度と初動
-SEV1はデータ漏えい疑い・意図しない公開・課金資源の制御不能、SEV2は認証や記録機能の停止、SEV3は一部表示・性能の問題。個人デモ環境なので24時間対応の約束は設けない。
+## 初動
 
-### 14.2 対応フロー
-撮影・更新を止める→対象アカウント・環境を確認→request_idと発生時刻を保存→原因を切り分け→修正または互換な前版へ戻す→同じシナリオで検証→記録する。
+撮影/更新を止める→対象の個人repo/環境/版を確認→発生時刻・status・request-id・固定eventを保全→原因を切り分け→同じhealth/認証/記録/画像操作で回復を確認する。資格情報、本文、健康値、画像URL、Terraform stateを証跡へ貼らない。
 
-### 14.3 Runbook
-| ID | 症状 | 切り分けと復旧 |
-|---|---|---|
-| RB-01 | 起動しない | イメージ、環境変数、依存疎通、migration、healthを確認 |
-| RB-02 | 5xx | request_idで例外箇所を確認。入力本文や秘密を取得しない |
-| RB-03 | 遅い | N+1、DB接続、メモリ、同期画像処理を計測 |
-| RB-04 | 認証失敗 | HTTPS・Cookie・CSRF・時刻・セッション失効を確認。検査を無効にしない |
-| RB-05 | DB断 | ネットワーク、資格情報、接続数、ディスクを確認。データを無断初期化しない |
-| RB-06 | S3失敗 | IAM、キー、バケット、署名期限を確認。バケット公開で回避しない |
-| RB-07 | destroy失敗 | エラーとstateを保持。専用バケットの中身・依存・snapshotを確認して再実行 |
+情報漏えい疑い・意図しない公開・課金資源の制御不能を最優先に扱う。認証/記録停止、一部表示・性能問題とは分け、停止予定を障害と混同しない。
 
-### 14.4 ロールバック
-アプリ版とDBスキーマの互換性を先に確認する。破壊的migrationの逆実行を安易にしない。再生成可能なデモデータだけなら、削除対象を確認した上で環境再構築を選べる。
+## ローカルの切り分け
 
-### 14.5 記録テンプレート
-発生時刻、症状、影響範囲、request_id、原因、実施操作、復旧の観測結果、再発防止。秘密や本文を添付しない。
+| 症状 | 調査と復旧 |
+|---|---|
+| 起動不可 | 固定image/環境設定/依存疎通/migrationを確認。不正なログ形式設定は固定エラーで拒否される |
+| live不可 | process/起動を調べる。DB障害と即断しない |
+| live正常・ready不可 | DB疎通/接続数/資格情報/migrationを確認。データを初期化せず復旧後にreadyを再確認 |
+| API 5xx | responseのrequest-idと時刻/statusを照合。unmatchedは解決前の障害でも起きる。本文をログへ足して回避しない |
+| ログ欠落 | stdoutの接続/回収先を確認。書込み失敗時のraw traceback fallbackは抑止されるため、ログ不在を処理未実施と決めない |
+| 認証拒否 | HTTPS/Cookie/CSRF/時刻/session失効を確認。認証やCSRFを無効化しない |
+| private画像失敗 | local storageの権限/空き容量/設定とoperation状態を確認。公開ディレクトリや公開バケットへ切替えない |
 
-### 14.6 訓練
-ローカルでDB停止・S3エラーを再現して正常応答へ戻ることを確認。AWSでの故障注入は費用と影響を確認した別工程とする。現在、訓練結果は未取得。
+## 清掃command
+
+通常の同一Compose設定で、排他枠を保持してから実行する。実秘密をCLI引数へ渡さない。稼働中の他担当環境に対する清掃試験はしない。
+
+```sh
+docker compose --project-name fitlog-dev -f compose.yaml run --rm --no-deps backend uv run --frozen --no-sync python manage.py cleanup_auth_security
+docker compose --project-name fitlog-dev -f compose.yaml run --rm --no-deps backend uv run --frozen --no-sync python manage.py cleanup_images --limit 100
+```
+
+認証清掃は期限切れsessionと既存2分以前のrate windowだけ。画像清掃は既存の有限batch/保持期間/backoffを使う。今回のログ追加は削除対象を広げない。
+
+| 結果 | 意味と行動 |
+|---|---|
+| maintenance_complete / exit 0 | commandのbatchが完了。画像全削除完了を意味しない。countsとpending_jobsを確認 |
+| clean_one内の個別delete失敗 | jobがbackoffへ延期され、batchは完了し得る。pending_jobs/次回の推移を確認 |
+| listing/sweep/reconcileの直接delete/DB障害 | maintenance_failed、固定CommandError、非0。途中変更済みの可能性を保ち、原因解消後に冪等再実行 |
+| 最後のpending_jobs集計失敗 | 清掃完了済みの可能性もあるがmaintenance_failed/非0、countsなし。再実行で照合 |
+| limit範囲外 | 開始前の固定CommandError、非0、maintenance eventなし |
+| 型不正/未知引数 | 標準argparseの非0、eventなし。operator入力をechoし得る。保存済みデータの値を返すものではない |
+| image_cleanup_retry | callbackのDB失敗。時刻/eventで調査しAPIの相関IDがあるとは仮定しない |
+
+変換するCommandErrorはfrom Noneで元例外chainを抑止する。運用で自由なtracebackをログへ追加しない。バケット全削除、DB再作成、force、検査無効化で回避しない。
+
+## AWSの後続確認
+
+S3障害はIAM/キー/バケット/署名期限を確認し、バケット公開で回避しない。destroy失敗はstate/エラーを保持し、専用資源/バケット内容/依存関係/snapshotを照合する。実操作、残存資源確認、ログ資源破棄、再apply/再destroyはFL-09の本人採用・費用確認後に行う。本工程のlocal storage試験からAWS成功を推定しない。
+
+## 復旧記録
+
+発生時刻、対象commit/環境、症状、影響範囲、request-idまたは固定event、原因、実施操作、復旧時の観測、残存問題を記録する。互換な前版へ戻す場合もDB互換性を先に確認し、破壊的migrationの逆実行を安易に行わない。
