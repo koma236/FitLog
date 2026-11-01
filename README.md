@@ -31,9 +31,10 @@ CI相当をローカルで再現するときは、既存fitlog-devと別のCompo
 ## 個人開発環境
 
 - [個人開発運用](documents/development/personal-workflow.md)
+- [並列開発運用](documents/development/personal-parallel-workflow.md)
 - [task plan](docs/task-plan.md)
 - [初期セットアップ記録](documents/setup/harness-setup.md)
 
-個人アカウントは `koma236`、共通ハーネスは `~/project/ai-dev-harness`。iTerm2でこのrepoへ移動し`codex-me`を起動します。個人Codex環境`~/.codex-personal`と個人Git/GitHub設定を使い、既定の会社環境へ切り替えません。
+個人アカウントは `koma236`、共通ハーネスの整備用checkoutは `~/project/ai-dev-harness`。v9の実行版は[個人運用](documents/development/personal-workflow.md)の登録済みruntimeを使い、整備用checkoutと混在させません。iTerm2でこのrepoへ移動し`codex-me`を起動します。個人Codex環境`~/.codex-personal`と個人Git/GitHub設定を使い、既定の会社環境へ切り替えません。
 
-仕様・計画・実装結果・独立レビュー結果は正規v9の4段階承認を維持します。Issue/PRは内容ごとの個別承認、commit/pushはユーザーの明示委任で個別確認不要です。正規v9のproposal・検証・操作記録は省きません。
+仕様・独立設計レビュー・実装計画を最初にまとめて承認し、範囲内のIssue作成・実装・検証・独立レビュー・修正・commit・feature pushまで委任します。正規v9の4工程確認・proposal・個人環境検証・操作記録は維持し、正規TTY代行はcodex-owner-delegatedとして扱います。重大な変更とPR作成は別途確認し、mergeは本人がGitHub上で行います。

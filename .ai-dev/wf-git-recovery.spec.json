@@ -1,0 +1,103 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance",
+    "design"
+  ],
+  "sources": [
+    {
+      "id": "rec-requirements",
+      "role": "requirements",
+      "path": "docs/git-environment-recovery-design.md",
+      "sha256": "83065e4c7291837f76a9e15687af8709b40b7fce1fc5cc95e4943b08eab14cab"
+    },
+    {
+      "id": "rec-acceptance",
+      "role": "acceptance",
+      "path": "docs/git-environment-recovery-design.md",
+      "sha256": "83065e4c7291837f76a9e15687af8709b40b7fce1fc5cc95e4943b08eab14cab"
+    },
+    {
+      "id": "rec-design",
+      "role": "design",
+      "path": "docs/git-environment-recovery-design.md",
+      "sha256": "83065e4c7291837f76a9e15687af8709b40b7fce1fc5cc95e4943b08eab14cab"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "REC-R1",
+      "source": "rec-requirements",
+      "text": "承認済みcommit後の唯一のmain.vscode-merge-base追加を正規TTYで再確認し、既存承認と成功結果を保持して復旧する。"
+    },
+    {
+      "id": "REC-R2",
+      "source": "rec-requirements",
+      "text": "個人repo/account/runtime、コード・承認・commit・remoteの同一性を検証し、trunk/force/未知変更を拒否する。"
+    },
+    {
+      "id": "REC-R3",
+      "source": "rec-requirements",
+      "text": "追加controllerと限定hook入口の安全性、no-overwrite記録、unknown時停止、PR個別承認を維持する。"
+    },
+    {
+      "id": "REC-R4",
+      "source": "rec-requirements",
+      "text": "別branchで実装検証し、旧taskを再レビューせず、先行公開確認後だけ後続featureを送信する。"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "REC-AC1",
+      "source": "rec-acceptance",
+      "requirements": [
+        "REC-R1",
+        "REC-R2"
+      ],
+      "text": "固定raw-byte config oracleでmain編集用1行追加だけを許可し、その他の差分/不正path/schemaを拒否する。"
+    },
+    {
+      "id": "REC-AC2",
+      "source": "rec-acceptance",
+      "requirements": [
+        "REC-R2"
+      ],
+      "text": "元runtime/四receipt/commit/job/state/snapshot/tree/parent/個人repo/account/remoteが一致し、改ざん・stale・別環境を拒否する。"
+    },
+    {
+      "id": "REC-AC3",
+      "source": "rec-acceptance",
+      "requirements": [
+        "REC-R1",
+        "REC-R2"
+      ],
+      "text": "新ticketのTTY確認後にimmutable SHAを非forceで送信しremoteを照合する。元記録不変、観測専用を区別する。"
+    },
+    {
+      "id": "REC-AC4",
+      "source": "rec-acceptance",
+      "requirements": [
+        "REC-R3"
+      ],
+      "text": "非TTY/replay/競合/中断/保存失敗/不明は成功にせず自動retryしない。PRは完全連鎖と別の最終承認を要求する。"
+    },
+    {
+      "id": "REC-AC5",
+      "source": "rec-acceptance",
+      "requirements": [
+        "REC-R3"
+      ],
+      "text": "新限定hookと旧入口/既存拒否を独立oracleで検証し、両copy/commit raw bytesと実native採用を確認する。"
+    },
+    {
+      "id": "REC-AC6",
+      "source": "rec-acceptance",
+      "requirements": [
+        "REC-R4"
+      ],
+      "text": "登録11checks・追加unit回帰・独立品質確認・新task正規四receipt/commit、FL-07→WF→新taskの先行公開順とremote SHAが揃う。"
+    }
+  ],
+  "questions": []
+}
