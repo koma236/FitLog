@@ -1,7 +1,8 @@
 # FL-01 frontend
 
 このREADMEは起動・検証の手順書です。実施日時・対象snapshot・image ID・テスト件数は、
-v9 verifyの保存結果とPRの検証欄を正本とします。手順の記載だけで合格を示しません。
+quality-checkの保存報告とPRの検証欄を正本とします。
+11 checksは親がproject.tomlのargvを共有runtime排他枠内で直接実行し、対象commit・check id・終了コードを記録します。手順の記載だけで合格を示しません。
 
 React / TypeScript / Vite。実装するのはreadyの状態表示だけ。
 認証・記録画面・AWSは後続タスク。

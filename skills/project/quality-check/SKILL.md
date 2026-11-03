@@ -15,22 +15,14 @@ description: マージ前に必ず実行。静的チェック・テスト・体�
 
 ### hook の完全な契約（無条件ブロック・通過条件・fail-open・worktree）
 
-#### FitLogの正規v9 feature送信入口
+#### FitLogの通常開発運用
 
-FitLogの承認・Git操作は `documents/development/personal-workflow.md` を優先する。通常Gitのsimple-form規則に加え、登録済みruntimeの正規v9送信準備・proposal実行だけを別の限定入口で判定する。登録・許可はreceiptや送信成功を意味しない。
+承認・個人Git/GitHub操作はdocuments/development/personal-workflow.mdを優先する。
+通常Gitのclassifier、trunk保護、review-budget、独立品質チェックを維持する。
+回帰試験は`node --test scripts/test-quality-gate.cjs`を両hookの実processで実行する。
+11 checksは親がproject.tomlのargvを共有排他枠内で直接実行し、id/exit/対象snapshotを報告する。
+PR作成は最後に確認し、mergeは人間がGitHubで行う。
 
-- 設定は、読み込まれたhook実体の所属worktree S の `.ai-dev/v9-git-entrypoints.json`（schema_version/repository/account/harness_root/harness_commitの5項目）。repo/accountの権威はhookの固定値 `koma236/FitLog` / `koma236` で、設定は一致確認用。runtime root/commitはreview済み設定を正本とする。このJSONもゲート制御面としてquality-checkとSecurityレビューの対象にする。
-- 設定不在時は従来classifierのみを使う。設定ありの場合はpotential v9 Git入力を先に識別し、既知の非送信actionは既存経路へ、それ以外は固定文法へ渡す。曖昧な入力をno-gate-wordの早期通過へ戻さない。POSIXのcanonical Bashだけを対象とする。
-- Rを登録rootとすると、許可文法は `AI_DEV_HARNESS_HOME=R R/bin/ai-dev v9 prepare-git --action push --project P --task T --remote origin --branch B` と `AI_DEV_HARNESS_HOME=R R/bin/ai-dev v9 git-action J --project P` の固定順序のみ。追加env・option・command・展開・wrapperは拒否する。一般のrunner登録やshell whitelistの拡張はしない。
-- PはSと同一cloneの実在worktree root、現在のnamed feature branch/HEADに一致すること。main/masterは大小を含め拒否する。Jは実HOME由来の正規private pathと閉じたschema10の送信proposalで、project/task/branch/HEAD/refspec/repo/account/originを照合する。digest・receipt・workflow・実効remoteと実accountの最終検証は正規v9が行う。
-- Rの実commit、bin/scriptsの純粋性・所有者・権限、両hookと設定のraw HEAD blob一致を毎回確認する。Git読取りはoptional locks・lazy fetch・promptを無効にし、repo選択envを除いた派生環境、最大8回・各2秒・全体12秒（既存20秒deadline内）で行う。既存callerの環境・時間契約は変えない。
-- runtimeの純粋性は、固定commitの`ls-tree`、通常stage-zeroの`ls-files --stage -v`、実ファイルのGit blob hash/modeの三者で確認する。`status`やclean filterの正規化結果をcode同一性の根拠にせず、indexの最適化flagは拒否する。Sの両hook/configは固定S commitのblobを`cat-file --batch`でまとめて取得し、長さ付きbinary frameを検証してraw byte比較する。呼出し回数はP≠Sで7回、P=Sで6回となり、上記上限を維持する。prefixの変数名と等号は引用されていない実際のPOSIX assignmentを要求し、projectの末端symlink判定は末尾separatorを正規化して行う。
-- 新入口専用のGit環境は`GIT_NO_REPLACE_OBJECTS=1`も強制し、runtime commitとSのblob読取りにreplace refsが影響しないようにする。既存callerのGit環境は変更しない。
-- `V9_GATE_RUNTIME_MISSING` は登録runtimeが未配置という診断コード。必要な配置先と採用作業を確認して停止し、別runtimeや直接Gitへ迂回しない。runtime汚染も自動cleanせず停止する。Pythonの実体とsession環境は信頼済みという前提で、送信前に採用記録へ照合する。
-- 既知の安全側の過剰拒否として、検索やhelpにv9 Git入口の語句を記述した場合、およびnon-push操作でもpath/taskにpush/pull/merge/rebaseがある場合は拒否し得る。調査時もこの制限を隠さず、送信commandの隠蔽・job改名・間接実行で迂回しない。
-- opt-inのnative診断は固定status commandとworktree固有Git dirのprivate nonce markerに限定し、通常のpermissionDecisionを変えない。実clientのtool名・読込みhashを確認し、所有nonceを照合して診断fileを除去する。模擬stdinのテストをnative実行証拠と呼ばない。
-
-詳細な受け入れ条件は `docs/personal-workflow-change-design.md`、回帰suiteは `node --test scripts/test-quality-gate-v9.cjs`。既存のtrunk・force・flag・review-budget規則は引き続き適用する。FitLogではmergeは人間がGitHubで行う。
 
 **脅威モデル**: この hook が防ぐのは、AI の普段の誤操作（品質チェックなしの main への push・マージ、別のリポジトリでの実行、別のブランチの push など）だけである。開発は必ず Issue → ブランチを切ってから始まる設計であり、main への push / マージが起きても最悪はリバートで戻せるため、hook は保険のブロックにすぎない。hook が読めないように意図して組み立てたコマンド（展開・エスケープ・エンコード・Unicode の類似字で語を隠す形、スクリプト・alias・npm script などの間接実行、push / merge の語を使わない git や GitHub API の経路、設定に置いた refspec 等）は対象外とし、hook 本体（`templates/hooks/quality-gate.cjs`）のヘッダに分類を載せるに留める。ただし、中身が読めない PowerShell のスクリプトは、ゲート語の有無にかかわらず拒否する（hook の `alwaysDeny`）。判定はコマンドの文字列を 1 回だけ読む規則で、小文字にし、引用符と行の継続を除いて語に分け、`powershell` / `pwsh`（パス・`.exe` 付きも同じ）の語の後の同じコマンドに、エンコードしたコマンドの指定（`-e`・`-ec`・`-en`〜`-encodedcommand`。`--` / `/` で始まる形も同じ）か、標準入力から読ませる `-command -` / `-c -` があれば拒否する。拒否の理由には、次に実行するコマンドを書く。別のシェルの中（`powershell -Command "…"`・`pwsh -c`・`cmd /c`・`bash -c` など）にゲート語が見える形は単純な形ではないので、フラグがあっても拒否される（push・merge はそれだけを単独のコマンドで実行する）。
 
@@ -812,27 +804,3 @@ PR が既にあるときは、フラグを作った（作り直した）後に P
 ### 最終確認
 - [ ] `git status` を実測し、レビュアー由来の残留ファイル（検証 probe）がないことを確認した
 - [ ] `.quality-check-passed`（branch + commit の JSON）作成済み
-
-## FitLogの環境差分復旧入口（WF-GIT-RECOVERY）
-
-この追加契約は通常v9のA/B形式と既存classifierを維持し、commit済みの正規
-`S/bin/ai-dev-git-env-recovery` によるprepare/execute/status/prepare-prだけを別laneで扱う。
-新入口を実行位置で検出した後は、config不在や不正形式でlegacyへfallbackしない。
-cat/rg/git add/git diffのファイル参照やtestファイル実行は新laneのcandidateにしない。
-
-S/Pの同clone確認、Pの現在feature/HEAD、元commit jobまたはprivate ticket/resultのnamespace・closed schemaを照合する。
-両hook・旧registry・新registry・launcher・scriptの6ファイルはS.HEADのraw blobに一致しなければ拒否する。
-launcherの実行bit、scriptの非実行bit、所有者、symlink、書込みmodeも検査する。
-controller側でGit tree modeとindex、元承認/receipt/runtime/policy/TTL/一度限り実行/remote/body hashを再検証する。
-hookだけで元承認連鎖全体の正当性を証明したとは扱わない。
-
-hookの7 Git callsはS metadata、P metadata、P branch、R identity/tree/index、Sの6 blob一括取得。
-既存の最大8 calls・各2秒・全体12秒を維持し、固定PythonのFS検査/hashも同じdeadline内で行う。
-Pythonのleaf hashとroot/wheel owner/group/modeは指定実体に限る検査であり、dylib/stdlibの完全固定ではない。
-危険な親環境変数名をhook/launcherが観測できる範囲で拒否し、子processは許可リストから新規envを作る。
-
-旧27件の回帰ファイルとfixtureのraw hashは固定設計と照合し、新回帰は別ファイルで追加する。
-変更候補をテストしてから両hookへ同じbytesを反映する。hook登録/trust設定は変更しない。
-fixture合格をnative採用とは扱わず、commit後に実Codex sessionで読取りprobeとcommit blob一致を確認する。
-Claude native採用は実行していない限りnot_runとする。結果保存失敗や実行後unknownは成功にせず、
-未解決intentを残して後続送信を止める。既存記録を編集する解決経路は提供しない。

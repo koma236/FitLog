@@ -1,6 +1,6 @@
 # FitLog - Codex Development Guide
 
-## FitLog 個人用v9運用（最優先）
+## FitLog 個人開発運用（最優先）
 
 作業前に `documents/development/personal-workflow.md` を読む。
 この節はユーザー指定に基づき、下記の配布元一般ルール・共通skillsに優先する。
@@ -10,11 +10,9 @@
 - 仕様・独立設計レビュー・実装計画を最初にまとめて承認する。範囲内は実装・検証・独立レビュー・修正・Issue作成・commit・feature pushまで追加申請せず進める。
 - 重大な範囲変更・不可逆操作・予算超過等だけ再確認する。PR作成は内容を完成させて最終報告で確認する。
 - mergeは人間がGitHub上で行う。AI merge、auto-merge、trunk直接更新、force、hook回避は禁止。
-- v9の正規proposal/receiptを維持する。計画承認は範囲内の正規TTY入力の委任を含む。実結果を確認して進め、receiptの直接生成・編集や本人入力の偽装をしない。
 - worktreeごとに書込み担当を1つに限定し、固定Compose/DB/imageの操作は排他にする。詳細は `documents/development/personal-parallel-workflow.md`。
 - スタック・ポート・checksは実設定を読む。未実行・失敗を成功扱いしない。
 - CIはbuild/lint/型/全テスト/migrationとci-requiredを使う。配布元skillsの古い「CIはビルド確認のみ」は適用しない。
-- `skills/ai-dev-chat/SKILL.md` を共通入口とし、v9操作前に読む。
 - skill探索先は `.claude/skills`・`.codex/skills`・`.agents/skills`。すべて共通 `skills/` を参照する。
 - 下記は配布元の一般説明。Git操作許可の説明はFitLogの承認を代替しない。
 
