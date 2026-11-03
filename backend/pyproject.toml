@@ -4,9 +4,11 @@ version = "0.1.0"
 requires-python = ">=3.13,<3.14"
 dependencies = [
   "Django>=5.2,<5.3",
-  "djangorestframework>=3.16,<3.17",
+  "djangorestframework>=3.18.3,<3.19",
   "psycopg[binary]>=3.2,<4",
   "Pillow>=13,<14",
+  "gunicorn>=23,<26",
+  "boto3>=1.36,<2",
 ]
 
 [dependency-groups]
@@ -19,6 +21,8 @@ dev = [
   "pytest-django>=4.11,<5",
   "jsonschema>=4.25,<5",
   "types-jsonschema>=4.25,<5",
+  "boto3-stubs[s3]>=1.36,<2",
+  "types-gunicorn",
 ]
 
 [tool.uv]

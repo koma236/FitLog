@@ -12,6 +12,10 @@ from django.http import HttpRequest
 METHODS = frozenset({"GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"})
 COMMANDS = frozenset({"cleanup_auth_security", "cleanup_images"})
 COUNT_KEYS = ("retired", "deleted", "reconciled", "temporary", "pending_jobs")
+SERVER_EVENTS = {
+    logging.INFO: "server_info", logging.WARNING: "server_warning",
+    logging.ERROR: "server_error", logging.CRITICAL: "server_critical",
+}
 COMMON = {"event", "request_id"}
 API = COMMON | {"method", "route_template", "status", "duration_ms"}
 MAINTENANCE = COMMON | {"command", "duration_ms"}
@@ -70,6 +74,10 @@ def _allowed(record: logging.LogRecord) -> dict[str, Any] | None:
         if (set(fields) != MAINTENANCE or fields["request_id"] is not None
                 or fields["command"] is not None or fields["duration_ms"] is not None
                 or record.levelno != logging.WARNING):
+            return None
+    elif record.name == "gunicorn.error" and event in SERVER_EVENTS.values():
+        if (set(fields) != COMMON or fields["request_id"] is not None
+                or SERVER_EVENTS.get(record.levelno) != event):
             return None
     else:
         return None

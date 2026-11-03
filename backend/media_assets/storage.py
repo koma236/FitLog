@@ -12,6 +12,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Protocol
 
 from django.conf import settings
 
@@ -180,3 +181,24 @@ class LocalStorage:
             if removed:
                 os.fsync(directory)
         return removed
+
+
+class PrivateStorage(Protocol):
+    def put_if_absent(self, key: str, data: bytes, digest: str) -> None: ...
+    def read(self, key: str) -> bytes: ...
+    def delete(self, key: str) -> None: ...
+    def list_page(self, cursor: str | None = None, limit: int = 100,
+                  ) -> tuple[list[StoredObject], str | None]: ...
+    def sweep_temporary(self, before: datetime) -> int: ...
+
+
+def get_storage() -> PrivateStorage:
+    from media_assets.configuration import storage_configuration_valid
+
+    if not storage_configuration_valid():
+        raise ImageError(503, "STORAGE_UNAVAILABLE")
+    if settings.PRIVATE_MEDIA_BACKEND == "local":
+        return LocalStorage()
+    from media_assets.s3_storage import S3Storage
+
+    return S3Storage()

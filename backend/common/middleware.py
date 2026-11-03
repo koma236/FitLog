@@ -26,7 +26,10 @@ class ApiBoundaryMiddleware:
         request.META["FITLOG_REQUEST_ID"] = str(uuid4())
         is_api = request.path == "/api" or request.path.startswith("/api/")
         response: HttpResponse
-        if is_api:
+        is_production_live = (settings.FITLOG_ENV == "production"
+                              and request.method in {"GET", "HEAD"}
+                              and request.path == "/api/health/live")
+        if is_api and not is_production_live:
             try:
                 request.get_host()
             except DisallowedHost:

@@ -10,9 +10,17 @@ quality-checkの保存報告とPRの検証欄を正本とします。
 今回のbootstrap継続では保持済みlockと固定イメージ参照を使用し、check・build・test・migration・
 サーバー起動・Git操作を実行していない。生成物は後続verifyへの入力であり、品質合格の証拠ではない。
 
+## 本番用部品（FL-09A）
+
+本番専用Dockerfile、Gunicorn、安全なserverログ、S3 adapterを追加した。
+設定・保存の契約、検証コマンドと公開前の残件は
+[production-readiness](../docs/production-readiness.md)を参照。
+通常Composeの開発起動は従来どおり。以下のbootstrap当時の記述は履歴であり、
+現在の承認・11 checks運用は[personal-workflow](../documents/development/personal-workflow.md)を正とする。
+
 ## 構成
 
-Python 3.13 / Django 5.2 / DRF 3.16 / PostgreSQL 17。
+Python 3.13 / Django 5.2 / DRF 3.18.3 / PostgreSQL 17。
 `accounts.User` はAbstractUserを継承し、初回migrationからUUID主キー。
 登録・ログイン・email制約などは後続タスク。認証APIは公開しない。
 

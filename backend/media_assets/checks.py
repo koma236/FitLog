@@ -1,17 +1,10 @@
-from django.conf import settings
 from django.core.checks import Error, register
+
+from media_assets.configuration import storage_configuration_valid
 
 
 @register()
 def private_storage_configuration(app_configs: object, **kwargs: object) -> list[Error]:
-    if (
-        settings.FITLOG_ENV != "local"
-        or getattr(settings, "PRIVATE_MEDIA_BACKEND", "local") != "local"
-    ):
-        return [
-            Error(
-                "Private image storage requires the local adapter until S3 deployment is configured.",
-                id="media_assets.E001",
-            )
-        ]
+    if not storage_configuration_valid():
+        return [Error("Invalid private storage environment configuration.", id="media_assets.E001")]
     return []

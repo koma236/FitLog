@@ -11,7 +11,7 @@ from media_assets.exceptions import ImageError
 from media_assets.models import ImageObject, PostImage, UserAvatar
 from media_assets.processing import NormalizedImage
 from media_assets.signals import retire
-from media_assets.storage import LocalStorage
+from media_assets.storage import get_storage
 from workouts.models import Post
 
 TargetKind = Literal["post", "avatar"]
@@ -119,7 +119,7 @@ def upload(
             if not matches(image, actor, kind, target, value) or image.state == "retired":
                 raise ImageError(409, "IMAGE_OPERATION_CONFLICT")
             if image.state == "pending":
-                LocalStorage().put_if_absent(image.key, value.data, value.digest)
+                get_storage().put_if_absent(image.key, value.data, value.digest)
                 image.written_at = timezone.now()
                 image.save(update_fields=["written_at"])
     except OperationalError as exc:
