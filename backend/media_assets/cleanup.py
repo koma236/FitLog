@@ -9,7 +9,7 @@ from django.utils import timezone
 from media_assets.exceptions import ImageError
 from media_assets.models import ImageCleanupJob, ImageObject, ImageScan
 from media_assets.signals import retire
-from media_assets.storage import LocalStorage
+from media_assets.storage import get_storage
 
 
 def clean_one(identity: UUID) -> bool:
@@ -21,7 +21,7 @@ def clean_one(identity: UUID) -> bool:
         if job.completed_at is not None or job.next_attempt_at > timezone.now():
             return False
         try:
-            LocalStorage().delete(image.key)
+            get_storage().delete(image.key)
         except ImageError:
             job.attempts += 1
             job.next_attempt_at = timezone.now() + timedelta(
@@ -61,7 +61,7 @@ def cleanup_images(limit: int = 100) -> dict[str, int]:
         ImageScan.objects.get_or_create(name="local")
         scan = ImageScan.objects.select_for_update().get(name="local")
         cursor = scan.cursor
-    storage = LocalStorage()
+    storage = get_storage()
     rows, next_cursor = storage.list_page(cursor, limit)
     for stored in rows:
         if stored.modified_at > before:

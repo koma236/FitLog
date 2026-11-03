@@ -15,7 +15,7 @@ from media_assets.exceptions import ImageError
 from media_assets.models import ImageObject
 from media_assets.presentation import resolve_token
 from media_assets.processing import normalize
-from media_assets.storage import LocalStorage
+from media_assets.storage import get_storage
 from media_assets.uploads import read_image
 from workouts.validation import canonical_uuid
 
@@ -91,7 +91,7 @@ def content(request: HttpRequest, token: str) -> HttpResponse:
     if asset is None:
         return error_response(request, 404)
     try:
-        data = LocalStorage().read(asset.key)
+        data = get_storage().read(asset.key)
     except ImageError as exc:
         return image_failure(request, exc)
     response = HttpResponse(data, content_type=asset.content_type)

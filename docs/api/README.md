@@ -18,7 +18,7 @@ limitは1〜50、既定20。不正値・不透明カーソルの改ざん・一�
 PUTは対象データの全置換。記録PUTは画像・コメント・いいねを変更しない。同時編集は後勝ちとし履歴・競合解決UIは初版外。POSTの記録・コメント作成は自動再試行せず、結果不明時は再取得して確認する。いいね・フォローは冪等。
 
 ## 画像
-FL-05の現行契約は下記「FL-05 実装契約」とOpenAPIを参照する。投稿保存と画像添付は別APIで、画像失敗時も投稿は保存済みとして画像だけ再試行できる。現在はprivate filesystemへの保存であり、S3保存・補償削除・孤立キーのログ出力は実装していない。S3の整合性・清掃方式はFL-09で別途設計・検証する。
+FL-05の現行契約は下記「FL-05 実装契約」とOpenAPIを参照する。投稿保存と画像添付は別APIで、画像失敗時も投稿は保存済みとして画像だけ再試行できる。FL-09Aでlocal filesystemとproduction S3をfactory経由で選択できるようにした。実AWS・公開配置の検証はFL-09Bへ残す。保存/清掃契約は下記と[本番準備](../production-readiness.md)を参照し、孤立キーをログへ出力しない。
 
 ## エラーコード
 | HTTP | code | 用途 |
@@ -75,7 +75,7 @@ POST /api/posts、GET/PUT/DELETE /api/posts/{id}、GET /api/users/{username}/pos
 
 ## FL-05 実装契約
 
-ローカルのprivate filesystemのみ実装し、S3 adapterと実AWS検証はFL-09に行う。FITLOG_ENV=local以外ではlocal adapterの起動を拒否し、storage操作時にも拒否する。専用Docker volumeを使用し、MEDIA_URL/staticで直接配信しない。S3はFL-09の対象であり、FL-05の実S3確認完了を意味しない。
+FL-09Aでstorage factoryとS3 adapterを実装。許可する組は(local,local)/(production,s3)だけで、他は起動時と操作時に拒否する。localは専用Docker volume、productionは非公開S3のimages/固定prefixを使う。MEDIA_URL/staticやS3署名URLで直接配信しない。IfNoneMatch=*と実bytesのdigest照合で不変保存し、NoSuchKeyだけ404、他のSDK障害は既存503 STORAGE_UNAVAILABLE。ExpectedBucketOwnerを全requestへ付ける。詳細は[本番準備](../production-readiness.md)。実AWS・IAM・公開配置はFL-09Bの未検証事項。
 
 PUT `/api/posts/{id}/image` と `/api/users/me/avatar` はmultipart field `image`を厳密に1個、owner header（X-Record-Owner/X-Profile-Owner）、X-CSRFToken、X-Image-Operation(UUIDv4)を要求する。DELETEは画像だけを削除し未設定も204。PUT成功はPostまたはProfile DTO、viewer_idとnullable image/avatarを返す。author.avatarも同じ形。画像情報はid/url/expires_at/width/height/content_typeだけでkey/digest/原本filenameは返さない。
 
