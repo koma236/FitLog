@@ -208,7 +208,9 @@ class CoreFixture:
   self.m=m;self.temp=tempfile.TemporaryDirectory(prefix='fitlog-legacy-fixture-',dir='/private/tmp')
   self.home=Path(self.temp.name)/'home';self.home.mkdir(mode=0o700)
   self.root=self.home/'project';self.root.mkdir(mode=0o700);self.task='FIXTURE-RECOVERY'
-  self.runtime=Path(json.loads((ROOT/'.ai-dev/v9-git-entrypoints.json').read_text())['harness_root'])
+  # The legacy recovery protocol is independently fixed to R0, not the active task runtime.
+  self.runtime=Path('/Users/saki/.codex-personal/runtimes/ai-dev-harness-169642d')
+  sys.dont_write_bytecode=True
   if str(self.runtime/'scripts') not in sys.path:sys.path.insert(0,str(self.runtime/'scripts'))
   self.w=importlib.import_module('v9.workflow');self.h=importlib.import_module('v9.handoff')
   self.c=importlib.import_module('v9.controller');self.g=importlib.import_module('v9.gitops')

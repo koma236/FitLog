@@ -7,7 +7,7 @@
 
 - 対象は個人リポジトリ `koma236/FitLog`。
 - 共通ハーネスの整備用checkoutは `~/project/ai-dev-harness`。実行runtimeとは区別する。
-- 本改訂の採用後は `.ai-dev/v9-git-entrypoints.json` に登録した専用runtimeをv9の実行入口とする。本運用の登録commitは `169642d0c8040e24e048ee5f04777345e5242016`、配置先は `/Users/saki/.codex-personal/runtimes/ai-dev-harness-169642d`。`AI_DEV_HARNESS_HOME=<登録root> <登録root>/bin/ai-dev v9 ...` を使い、4工程の確認・provider/checks・Git準備/実行でcode版を混在させない。
+- 本改訂の採用後は `.ai-dev/v9-git-entrypoints.json` に登録した専用runtimeをv9の実行入口とする。本運用の登録commitは `164e77f1c6d66c13f70cec2925a0f1f7224b5d1f`、配置先は `/Users/saki/.codex-personal/runtimes/ai-dev-harness-164e77f`。`AI_DEV_HARNESS_HOME=<登録root> <登録root>/bin/ai-dev v9 ...` を使い、4工程の確認・provider/checks・Git準備/実行でcode版を混在させない。
 - 設計レビュー候補を使う場合は、対象root・commit・用途をsource外の実行記録へ明示する。候補を登録済みruntimeやGit送信対応済みとは扱わない。`prepare-git` / `git-action` は登録runtime限定とし、標準checkoutへ暗黙fallbackしない。
 - runtime更新はcommitとcodeの一致確認、許可設定のquality-check/Securityレビュー、v9 bindingと承認の再照合を経て採用する。整備用checkoutが進んだだけでは実行版を変更しない。
 - runtimeのbyte検査は、個人sessionのPATH・python3・Python関連環境が信頼済みであることを前提とする。hookはinterpreterと継承環境を検証しないため、送信前にpython3の実体pathと版を採用記録へ照合し、不一致なら停止する。環境変数一覧を出力しない。
@@ -63,6 +63,16 @@ OS/sandboxの権限確認は別に扱い、書込み先と理由を説明する�
 provider実行とGit proposalのTTY確認は4工程の承認receiptと区別する。現行handoff/git-actionには独立actor引数がないため、初回承認で得たcodex-owner-delegated receiptと、その同一workflow/bindingに束縛されたjob/proposalを委任根拠にする。入力主体を人間と記録・報告しない。必要な委任receiptがない実行では通常の本人確認または操作を限定した明示委任を得る。入口の確認・binding検査を省略する許可にはしない。
 必須receiptの捏造や、通常Git/別provider直接実行への迂回は禁止。共有ハーネスの改修は別taskとして設計・検証する。
 
+### 固定新版の採用と旧作業の保全
+
+新規taskでは現在worktreeの固定登録と[採用契約](v9-chat-runtime-adoption.md)を読み、対応する公開approveのactorを使う。採用後の通常4工程は`--actor codex-owner-delegated`とし、実結果と保存actor/bindingを確認する。旧worktreeのruntime/link/state/receiptは自動移行しない。
+
+旧R0 taskの未送信・未PR状態と実際の起点Sを棚卸しする。Root起点が残る、起点が不明、復旧証拠をまだ確認できない場合はRootのCへの切替を保留して報告する。旧worktreeへ新版mainを取り込む場合も、必要な再束縛・再承認を済ませるまで停止する。新規taskは検証済み登録commitを基準とする別worktreeと起点を使う。
+
+切替完了まではRootでtrunk同期やREGISTER commitの取込みをしない。この制限は通常の同期許可より優先する。Rootのbranch/detached、HEADとR0登録をPR判断前・送信前・切替前に実読し、意図しない登録変更は停止して報告する。mainをcheckoutしていた場合も自動でdetached化せず、R0保全方法を本人判断へ含める。切替前には復帰先のR0登録commit、HEAD/branch、登録JSONのbytes/hash、ignored skillのlink先と実体版をsource外へ記録する。起点不明・未保存変更・他writerがあれば切り替えない。
+
+共通skillが未配置なら、そのworktreeの登録runtime内の`skills/ai-dev-chat/SKILL.md`を読む。整備用checkoutを参照する過去のsetup記録より本書の固定版を優先する。Rootのignoredリンク切替は、両PRの本人統合・CI・C到達性・Root cleanと上記棚卸しを確認した後だけに行う。
+
 ## Git・GitHub
 
 - 原則は1 Issue = 1作業ブランチ = 1 PR。Issue番号を捏造しない。
@@ -100,7 +110,7 @@ Codex管理の既存worktreeも使用でき、配置を揃えるだけの移動�
 
 ## 共通skill
 
-`skills/ai-dev-chat/SKILL.md` を必要時に読む。未配置なら共通ハーネスの同pathを読む。
+`skills/ai-dev-chat/SKILL.md` を必要時に読む。未配置または整備用checkoutを参照するリンクの場合は、現在worktreeの `.ai-dev/v9-git-entrypoints.json` に固定されたruntime内の同pathを読む。
 `.claude/skills`、`.codex/skills`、`.agents/skills` は同じ `skills/` を参照する。
 新しいセッションでのskill一覧掲載・実読込みを確認する。現セッションに自動反映したとは扱わない。
 
@@ -113,6 +123,10 @@ Codex管理の既存worktreeも使用でき、配置を揃えるだけの移動�
 `V9_ENV_RECOVERY` は、承認されたGit環境復旧controllerの固定診断コード。設定差分・元承認連鎖・path/権限・起動環境・期限・未解決intent・送信結果等を証明できない場合に拒否する。入力値、config本文、credential値を診断へ含めない。旧v9の成功resultやreceiptを編集して解消せず、詳細は本taskの承認済み設計とsource外reportを参照する。未実装・未実行を成功扱いしない。
 
 ## 承認済みcommitの環境差分復旧
+
+本節は旧R0専用の復旧手順であり、C登録の新しいRootからは意図的に拒否される。固定旧Sは`/Users/saki/.codex-personal/worktrees/5313/FitLog`、commit `f827b9fd3629c6550a60c6d37880fee1a58a785f`、登録runtimeは旧R0 `169642d0c8040e24e048ee5f04777345e5242016`。native cwdと読み込むhookもこのSを起点とし、元source/承認連鎖を既存正規入口で確認する。このSの登録・HEAD・link・stateは変更しない。新登録へ対応させるため復旧controllerやhookを拡張しない。
+
+hook preflightの受理だけでは旧復旧controllerで実行可能とは限らない。controllerはR0の固定登録を別に検査する。repo内の送信回帰fixtureのproducerもR0であり、現行Cの適合証拠とは区別する。Cは実producer・CLI parser・hook両形の隔離検査と実rootの読取り検査で照合する。
 
 通常v9のGit設定fingerprintが変わった場合、設定を一時的に戻したり元receipt/resultを編集して通さない。
 今回承認する例外は、共有configの唯一のmain節に編集用metadataの完全な1行が追加された場合だけ。

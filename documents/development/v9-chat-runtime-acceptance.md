@@ -1,0 +1,49 @@
+# 固定runtime登録の受け入れ条件
+
+## A1 / R1 登録値と実体
+
+`.ai-dev/v9-git-entrypoints.json`はR1の5項目と完全一致する。固定Cは配布元feature branchからの実SHAを根拠とし、登録file自身から期待値を作らない。候補runtimeのHEAD・tree・index・tracked bytes/mode・bin/scripts cache不在・固定Pythonを確認し、正常controllerのactor helpを読む。GitHubへの実送信は正規resultとremoteの両方で確認する。これをmain統合完了や新taskでの使用成功と混同しない。
+
+実C rootはhookの`v9Runtime`と同じ読取り条件で、realpath、HOMEとOS user home、祖先のuid/mode、bin/scriptsの全entryのuid/mode/type、4,096 entry上限、各file 1 MiB・合計16 MiB上限、tree/index/実file集合を確認する。隔離HOMEの互換結果だけで実rootの条件を満たしたとは扱わない。
+
+## A2 / R2 通常委任の境界
+
+personal-workflowはR1のC/pathを示し、通常approveのactor指定、初回承認範囲の再申請不要、実結果/bindingの逐次確認、4ゲートと品質・予算の維持、PR最後の別承認・本人統合を説明する。共通skillが未配置の場合はその固定runtime内のskillを読む。非Codex・委任なし・旧runtime未対応・破壊/予算超過の境界も維持する。
+
+## A3 / R3 旧作業と制御面の保全
+
+対象は登録JSON・運用文書・本taskの仕様/planと、下記の旧R0復旧テストfixtureだけ。hook本体とhook settings登録、checks、CI、models、既存worktreeのlink/state/receiptを変えない。Root起点は旧R0を保ち、REGISTERの正規状態も旧R0で作る。新runtimeは自分の採用を承認しない。将来の切替はR3の統合・CI・C到達性・root cleanの実読戻し後だけに行い、未実施は未実施と報告する。一時GATE資産は本PRへ追加しない。
+
+本変更では復旧テストfixtureのR0固定も対象へ追加する。Pythonの-Bを必ず指定し、新C登録にした隔離コピーで旧テストが異なるcoreへ入り失敗することを再現し、R0を独立期待値に固定した同じテストが成功することを確認する。実復旧controllerのR0 pinは変えない。C登録のSでは旧復旧laneが拒否されること、固定旧S/R0から旧操作を行う契約であることを明示する。
+
+fixture自身も固定R0をimportする前に`sys.dont_write_bytecode`を有効にする。-Bを省略する検査子processには`PYTHONPYCACHEPREFIX`を使い捨て領域へ指定し、欠陥時も実R0へ書き込ませない。prefix内のR0由来pyc不在と実R0のcache不在を前後で確認し、実R0のcache検出時は無断削除せず停止して本人へ報告する。旧復旧controllerの`public_lane`へ隔離したC登録を読ませる検査では、実送信をせず、先行する実環境検査の代替範囲を記録して`runtime_registry_refused`で拒否されることを確認する。hook preflight受理を復旧可能の証拠にしない。恒久controllerやhookの変更は含めない。
+
+未送信/未PRの旧taskと実起点Sを棚卸しし、旧Root依存・起点不明・復旧証拠不足があればRoot切替をしない。Pからのcwd変更だけで旧Sを偽装しない。旧taskのmain取込みは再束縛・再承認を満たすまで止める。整備用checkoutを案内する過去setup文書より、各worktreeの現行登録とpersonal-workflowの固定skill規則を優先する。
+
+Root切替完了まではtrunk同期とREGISTER commit取込みを禁止し、Rootのbranch/detached・HEAD・R0登録を読み戻す。意図しない登録変更を検出した場合はそのまま停止して報告し、自動復帰やskill切替をしない。mainをcheckoutしていた場合のR0保全方法も本人判断へ含める。
+
+## A4 / R1-R3 検証とGitの実結果
+
+baseline上の既存 `node scripts/test-quality-gate-v9.cjs` を確認し、登録後も既存hook回帰を実行する。宣言済み11 checks（compose-build、backend-lint/types、django-check、backend-migrate、migration-drift、backend-tests、frontend-lint/types/tests/build）を正式R0 verifyで実行する。共通leaseの保持主体・開始時DB状態・対象worktreeとsnapshot、今回起動したサービス、実行結果と返却をowner-only記録へ残す。migration graphが共有DBと矛盾する場合、無断のresetや逆migrationをしない。checksやgateを弱めて通さない。
+
+登録前後に`python3 -B -m unittest discover -s scripts -p test_v9_git_environment_recovery.py`と`node scripts/test-quality-gate-env-recovery.cjs`も実行する。fixtureをR0へ固定した後はC登録でも既存テストが通ることを期待し、失敗の放置・skipはしない。SのHEAD・両hook bytes・R0登録、Pとのsame clone、native cwd/必要なproject env、実TTYと個人送信先を毎送信前に読み戻す。4工程すべてactor=codex-owner-delegated、kind=human_approvedの実receiptと現在bindingを確認する。
+
+機械検査の後に独立品質を実行し、High/Mediumゼロを得る。正式Claude reviewを統合役とする。本変更は実行時登録JSONと復旧テストを含むため反証QAとSecurityを必須とし、同じ巡で確認する。4工程のactorとbinding、正常Issue→commit→通常送信の実結果、remote SHAを読み戻す。
+
+品質判定時は、未来のreview承認・commit・送信・PR・統合を完了条件にしない。そこでは現在の登録内容・docs・実checks・実体検査と旧作業保全を判定し、後続ライフサイクルの完了はその後の実resultで別に確認する。PR作成は2件の完成内容への最後の判断、source/REGISTERの統合は本人のみ。未実行・失敗・参照不可の証拠を成功や独立検証済みにしない。
+
+## 移行手順と新版producerの検証補足
+
+REGISTER限定の移行例外はR3の本人承認参照とsealの3つのSHA256、絶対期限1793750400を実照合する。公開入口と同等の実TTY・完全一致入力・4工程順序・入力後fresh binding検査を維持し、保存actorとreceiptを読む。根拠の欠落や期限切れは停止して相談し、owner入力での代替を受入とはしない。
+
+C実体から隔離runtimeとHOMEを作り、fake transportのfixtureでCのprepare_actionを実行する。生成された送信proposalを現行hookのpreflightに渡して受理を確認する。実送信や個人の正常stateは使わず、手作りproposalで代替しない。不適合なら登録PRを止める。全Python再現は-B付きで行い、終了後に実体Cのtracked bytesとmode、cache不在を再確認する。
+
+互換検査は`prepare-git`とC生成proposalを使う`git-action`の両形を対象とする。隔離HOMEのためvm内でOS user identity等をfixture値へ置換する場合は、置換した事実を記録する。この置換が実C rootの祖先/所有者条件を検証するわけではないため、実rootはA1で別に照合する。Cを登録した実Sでの初回確認は、将来の切替後の実結果として別記し、隔離結果を付け替えない。
+
+Cの実CLI parserにもhookが受理するliteral argvを渡し、`prepare-git`と`git-action`両形の引数受理を確認する。parser確認は実Cのparserを使い、dispatch以降をfixtureで停止する隔離子processで行う。CLI互換・producer生成・hook受理を別々の観測として記録し、実送信や個人のstate操作をしない。
+
+旧task棚卸しと旧PRへの影響をPR作成判断の最終報告に含め、切替直前にも再確認する。PR本文には作成時点の事実と未確認の確認項目だけを記載し、source統合方式とC到達性の実結果はsource統合後にR3の個人wrapperで読み、本人へ報告する。今回の委任で承認済みPR本文を編集したりコメントを投稿したりしない。順序違いやC未到達が判明したらRoot切替を保留する。切替後の不適合はR3の停止・旧R0登録commitへの条件付き復帰手順に従う。
+
+Issue案・具体的な時間/回数上限はR2「本taskの委任と予算」とsource外の会話参照を照合する。4回目の設計判定は不合格として保持し、その後の追加最大3回・各回3,600秒の承認と実消費をR2および正規台帳で照合する。本修正の自己確認を正規の合格に置き換えない。期限切れ時は未完了確認・本移行委任による送信を停止して既存receipt/resultを保全する。repo内のR0 producer fixtureとC実producerの隔離検査を区別し、C用恒久fixtureは今回の完了条件へ追加しない。
+
+本manifestはrequirements文書内にR1-R3の採用設計を含めるため、独立したdesign roleを省略する。正規validatorで許容されることを実確認し、不許可なら仕様を修正する。

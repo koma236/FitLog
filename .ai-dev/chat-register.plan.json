@@ -1,0 +1,34 @@
+{
+  "schema_version": 10,
+  "baseline_commit": "60582e73771c059840e1b917efbe7f02fca68663",
+  "tasks": [
+    {
+      "id": "V9-CHAT-REGISTER",
+      "kind": "standard",
+      "title": "FitLogの新規task向け固定runtimeとactor運用の登録",
+      "requirements": [
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "acceptance": [
+        "A1",
+        "A2",
+        "A3",
+        "A4"
+      ],
+      "depends_on": [],
+      "paths": [
+        ".ai-dev/v9-git-entrypoints.json",
+        "documents/development/personal-workflow.md",
+        "documents/development/v9-chat-runtime-adoption.md",
+        "documents/development/v9-chat-runtime-acceptance.md",
+        ".ai-dev/chat-register.spec.json",
+        ".ai-dev/chat-register.plan.json",
+        "scripts/test_v9_git_environment_recovery.py"
+      ],
+      "test_oracle": "R1の公開Cを独立期待値とし、R0固定の復旧fixture、登録前後のPython復旧回帰と2つのNode gate回帰、11checks、旧起点棚卸しと切替保留をA1-A4で確認。復旧controllerとhookは変更しない。 移行sealの3hashと固定期限、本人承認参照、実TTYとfresh binding、C実producerと現行hookの隔離互換検査も必須。 fixture自身のbytecode抑止、実C rootのuid/祖先/size等の全条件、隔離producerの両送信形と置換範囲、旧controllerのC登録拒否を区別する。Root同期禁止と読戻し、PR本文とsource統合後の本人報告を分離する。",
+      "done_when": "品質判定は現在の登録内容と実checks、独立品質のH/Mゼロ。以後の4receipt完了、Issue/commit/送信/remote一致と、最後の2PR判断/本人統合後の採用読戻しは別段階で実結果から確認する。 予算は採用設計R2に固定。設計4回の消費を保持し、追加最大3回・各回3600秒（累計7回上限）を正規台帳で管理する。合格時点で追加設計レビューを終了し、有効な設計判定後に実装する。"
+    }
+  ]
+}

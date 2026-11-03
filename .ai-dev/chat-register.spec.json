@@ -1,0 +1,75 @@
+{
+  "schema_version": 9,
+  "required_roles": [
+    "requirements",
+    "acceptance"
+  ],
+  "sources": [
+    {
+      "id": "requirements",
+      "role": "requirements",
+      "path": "documents/development/v9-chat-runtime-adoption.md",
+      "sha256": "86a23a4cdeca142b6288bd4f66e1d0fd3315f250acdbaa922971578c1d1a4945"
+    },
+    {
+      "id": "acceptance",
+      "role": "acceptance",
+      "path": "documents/development/v9-chat-runtime-acceptance.md",
+      "sha256": "20a5fa55b79cbe94ea50f6fb50e6928316d11beaffb78ffea15f6a5bd0f71001"
+    }
+  ],
+  "requirements": [
+    {
+      "id": "R1",
+      "source": "requirements",
+      "text": "固定Cと専用runtimeを登録"
+    },
+    {
+      "id": "R2",
+      "source": "requirements",
+      "text": "初回承認範囲の通常委任と正規actorを運用"
+    },
+    {
+      "id": "R3",
+      "source": "requirements",
+      "text": "旧作業保全と本人統合後の段階採用"
+    }
+  ],
+  "acceptance": [
+    {
+      "id": "A1",
+      "source": "acceptance",
+      "requirements": [
+        "R1"
+      ],
+      "text": "公開Cと登録実体一致"
+    },
+    {
+      "id": "A2",
+      "source": "acceptance",
+      "requirements": [
+        "R2"
+      ],
+      "text": "運用と委任境界が一致"
+    },
+    {
+      "id": "A3",
+      "source": "acceptance",
+      "requirements": [
+        "R3"
+      ],
+      "text": "旧作業と制御面を保全"
+    },
+    {
+      "id": "A4",
+      "source": "acceptance",
+      "requirements": [
+        "R1",
+        "R2",
+        "R3"
+      ],
+      "text": "実11checksと独立品質、後続の正常Git結果を区別"
+    }
+  ],
+  "questions": []
+}
