@@ -1,7 +1,8 @@
 # FL-01 backend / ローカル運用
 
 このREADMEは起動・検証の手順書です。実施日時・対象snapshot・image ID・テスト件数は、
-v9 verifyの保存結果とPRの検証欄を正本とします。手順の記載だけで合格を示しません。
+quality-checkの保存報告とPRの検証欄を正本とします。
+11 checksは親がproject.tomlのargvを共有runtime排他枠内で直接実行し、対象commit・check id・終了コードを記録します。手順の記載だけで合格を示しません。
 
 参照する設計は [FL-01](../docs/fl-01-foundation-design.md)、API正本は
 [OpenAPI](../docs/api/openapi.json)。仕様原本・manifest・plan・project.toml・承認状態は今回変更しない。
@@ -108,7 +109,7 @@ DB準備の途中で失敗した場合も、停止していたDBを今回起動�
 ## checks・独立オラクル
 
 全checkは `.ai-dev/fl-01.plan.json` のargvと順番を提案へ写したもの。
-実行結果はv9 verifyの保存結果とPRの検証欄を参照してください。各runは `--rm --no-deps`、host portを追加で確保しない。
+実行結果はquality-checkの保存報告とPRの検証欄を参照してください。各runは `--rm --no-deps`、host portを追加で確保しない。
 
 | 順番 | check | 検出する対象 |
 |---|---|---|
