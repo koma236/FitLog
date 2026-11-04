@@ -4,6 +4,12 @@
 
 現在このディレクトリに実行可能なTerraform定義はない。以下は実装予定の運用契約であり、実行手順の完成・検証済みを意味しない。[インフラ設計](../docs/09_infrastructure.md)参照。
 
+## FL-09B1のFunction部品（Issue #30、2026-11-04）
+
+`functions/client-ip.js` はCloudFront Functions runtime 2.0のviewer-request用。接続元 `event.viewer.ip` を `X-Fitlog-Client-IP` へ設定し、利用者の同名headerをmultiValueごと上書きする。`node --test terraform/functions/client-ip.test.cjs` で変換を検証できる。AWSへのpublish/関連付けは行っていない。
+
+後続Terraformでは自distributionの全API behaviorへ関連付け、このheaderをoriginへ転送する。APIキャッシュ無効とALB/taskへの迂回防止を含む[本番準備の信頼境界](../docs/production-readiness.md)を実AWSで確認してからアプリのcloudfrontモードを有効化する。viewer.ipはCloudFrontが観測した接続元であり、VPN等の手前のIPを復元するものではない。[AWS公式例](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/example_cloudfront_functions_add_true_client_ip_header_section.html)を根拠にする。
+
 ## 前提
 個人AWSアカウント・専用環境であることを操作前に確認する。具体的なリージョン、ドメイン、利用リソース、概算料金、稼働時間を示す。認証情報はコピー・表示しない。
 公開ドメインはCloudFrontが発行する `*.cloudfront.net` とし、既定証明書でHTTPSを使う。独自ドメインの購入・DNS設定は不要。新たなapply後はoutputに出るURLを使い、以前のURLを固定しない。

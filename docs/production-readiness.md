@@ -17,6 +17,7 @@ Issue #28。アプリ側の本番用部品を用意する段階。AWS資源、�
 | POSTGRES_HOST / DB / USER / PASSWORD | すべて必須。DB/USERはそれぞれPOSTGRES_DB/POSTGRES_USER |
 | POSTGRES_SSLROOTCERT | container内の読取り可能な有効CA bundle。配置時にRDS用CAを検証する |
 | FITLOG_TRUST_PROXY | 0が既定。1のみ下記専用headerを信頼 |
+| FITLOG_AUTH_CLIENT_IP_SOURCE | remote_addrが既定。cloudfrontはproductionかつFITLOG_TRUST_PROXY=1の場合だけ許可 |
 
 productionはDEBUG=False、DBは`sslmode=verify-full`・connect timeout5秒。設定の不備は値を表示せず拒否する。base moduleを使うローカル開発は従来どおり。storage factory/apps.ready/system checkは(local,local)/(production,s3)だけを許す。production moduleのbackend既定はs3で、明示した別backendも拒否する。
 
@@ -49,11 +50,19 @@ python3 backend/tests/production_smoke.py
 
 smokeはnetwork=none・host port非公開の専用containerで、実アプリの起動/非root/check/cleanup help/live/Host/SIGTERMを確認する。別のtest-only WSGI fixtureでGunicorn自身の例外と不正requestを起こし、stdout/stderrの非漏洩を確認する。fixtureはproduction imageから除外し、試験時だけread-only mountする。今回作成したcontainerだけをfinallyで停止・削除する。system CAによる構文検査はRDS用CA/実接続の検証を代替しない。
 
+## FL-09B1：認証の利用者IP（Issue #30、2026-11-04）
+
+signup/loginのIP選択は既定の直接接続元を維持する。`FITLOG_AUTH_CLIENT_IP_SOURCE=cloudfront` の明示設定時だけ `X-Fitlog-Client-IP` を使用する。不正・欠落ヘッダは503で拒否し、接続元やX-Forwarded-Forへのfallbackはしない。10回/60秒の固定窓、IPv4 /32・IPv6 /64・mapped IPv6の正規化とHMAC保存は既存どおり。[認証契約](api/auth-implementation.md)参照。
+
+`terraform/functions/client-ip.js` はviewer-requestで `event.viewer.ip` から専用headerのフィールド全体を上書きし、利用者のvalue/multiValueを残さない。ローカルtestは `node --test terraform/functions/client-ip.test.cjs`。Functionのpublish/関連付けや実AWS経路は未実施。
+
+有効化には後続IaCと実AWSで、自distributionのAPI behavior全体へのFunction関連付け、専用headerのorigin転送、APIキャッシュ無効、CloudFront origin-facing prefix list＋秘密origin headerのALB制限、ALBのみを許すtask SG、HTTPS強制と専用proto header上書きを検証する。別distribution・ALB/task直接経由での偽装拒否も確認する。単にヘッダが存在することを信頼境界の実証にしない。
+
 ## FL-09B：公開前に必要な実証
 
 - AWS/IaC/課金・対象・期限の具体化と承認、IAM role、ListBucketを含む最小権限、bucket policy/期待owner、実S3障害・RDS CAとverify-full接続。
 - CloudFrontのHost転送、HTTPS強制、専用headerの上書き、origin認証、proxyのみから到達するSG/経路。実ALBのhealthを確認。
-- 利用者IPの信頼経路とsignup/loginの実機レート制限。現行はREMOTE_ADDRのためALB配下で枠を共有し得る。この状態では公開しない。
+- 利用者IPの信頼経路とsignup/loginの実機レート制限。FL-09B1のFunction/アプリ契約だけでは実証未完了。既定REMOTE_ADDRのままALB配下で枠を共有する状態では公開しない。
 - sync worker2での低速upload・画像配信・同時利用時の受信期限/接続数/memory/livenessと、worker終了・結果不明からの回復。
 
 SDK設定の原典: [botocore Config](https://docs.aws.amazon.com/botocore/latest/reference/config.html)。実AWSを使う検証は今回の成功へ含めない。

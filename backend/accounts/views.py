@@ -12,7 +12,7 @@ from django.utils import timezone
 from django.views.decorators.csrf import csrf_protect
 
 from accounts.models import User
-from accounts.rate_limit import consume_attempt
+from accounts.rate_limit import client_ip, consume_attempt
 from accounts.services import DuplicateAccount, create_account
 from accounts.validation import normalized_email
 from common.errors import error_response
@@ -83,7 +83,7 @@ def read_credentials(request: HttpRequest, registering: bool) -> dict[str, str] 
 def authenticate_request(request: HttpRequest, registering: bool) -> HttpResponse:
     if request.method != "POST":
         return method_error(request, "POST")
-    retry = consume_attempt(request.META.get("REMOTE_ADDR", ""))
+    retry = consume_attempt(client_ip(request))
     if retry is not None:
         response = error_response(request, 429)
         response["Retry-After"] = str(retry)

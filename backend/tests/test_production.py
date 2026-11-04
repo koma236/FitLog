@@ -73,3 +73,36 @@ def test_only_explicit_proxy_mode_trusts_dedicated_header(production_env: dict[s
     r = run_settings(production_env, "from django.test import RequestFactory; r=RequestFactory().get('/',HTTP_X_FITLOG_FORWARDED_PROTO='https',HTTP_X_FORWARDED_PROTO='https'); print(r.is_secure())")
     assert r.returncode == 0, r.stderr
     assert r.stdout.strip() == str(want)
+
+
+@pytest.mark.parametrize("source", ["", "CLOUDFRONT", " cloudfront", "remote_addr ", "xff"])
+def test_unknown_source_refuses_startup(production_env: dict[str, str], source: str) -> None:
+    production_env["FITLOG_AUTH_CLIENT_IP_SOURCE"] = source
+    result = run_settings(production_env)
+    assert result.returncode != 0
+    assert "S" * 64 not in result.stderr and "H" * 64 not in result.stderr
+
+
+@pytest.mark.parametrize("environment,proxy,source,ok", [
+    ("local", "0", "remote_addr", True),
+    ("local", "1", "cloudfront", False),
+    ("production", "0", "cloudfront", False),
+    ("production", "1", "cloudfront", True),
+    ("production", "1", "remote_addr", True),
+])
+def test_source_requires_explicit_production_proxy(
+    production_env: dict[str, str], environment: str, proxy: str, source: str, ok: bool,
+) -> None:
+    production_env.update(FITLOG_ENV=environment, FITLOG_TRUST_PROXY=proxy, FITLOG_AUTH_CLIENT_IP_SOURCE=source)
+    if environment == "local":
+        production_env["DJANGO_SETTINGS_MODULE"] = "config.settings"
+    result = run_settings(production_env, "print(settings.FITLOG_AUTH_CLIENT_IP_SOURCE)")
+    assert (result.returncode == 0) is ok, result.stderr
+    if ok:
+        assert result.stdout.strip() == source
+
+
+def test_default_source_is_remote_addr(production_env: dict[str, str]) -> None:
+    result = run_settings(production_env, "print(settings.FITLOG_AUTH_CLIENT_IP_SOURCE)")
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == "remote_addr"
