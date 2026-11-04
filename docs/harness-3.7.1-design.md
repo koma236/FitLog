@@ -154,6 +154,8 @@ PR番号を示したユーザーのOKの後にAIがマージするか、ユー�
 2. `.ai-dev-helm.json`に`gate.controlPlane`を宣言し、hookでも免除しない。CLAUDE.md・AGENTS.mdだけのPRがフラグなしでAIにマージできたため。
 3. 回帰テストの追加（`scripts/test-quality-gate.cjs`。マージ手順と上記の宣言）。
 
+検証レビュー（上限の2巡目）で、差異2の宣言が下位階層の`CLAUDE.md`・`AGENTS.md`に当たらないことが高の指摘として残った。宣言を`**/CLAUDE.md`・`**/AGENTS.md`へ広げたが、この修正は上限に達した後の変更で独立レビューを受けていない。延長はオーナーの判断待ち。
+
 細部: personal-workflow.mdとharness-setup.mdの「本人の統合」「本人統合」から「本人」を除いた（受け入れ条件の検索に当たる、過去の作業を指す文）。
 
 ## 実装計画

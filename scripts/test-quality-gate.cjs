@@ -75,7 +75,7 @@ for(const hook of hooks) {
   });
   test(`${hook}: harness-only diffs need the flag under the declared controlPlane`,()=>{
     const declared=fs.readFileSync(path.join(root,'.ai-dev-helm.json'));
-    for(const file of ['CLAUDE.md','AGENTS.md','.claude/x.md','.codex/x.md','skills/project/x/SKILL.md','.github/review-docs.md','documents/development/coding-rules/x.md']) {
+    for(const file of ['CLAUDE.md','AGENTS.md','backend/CLAUDE.md','docs/AGENTS.md','.claude/x.md','.codex/x.md','skills/project/x/SKILL.md','.github/review-docs.md','documents/development/coding-rules/x.md']) {
       const f=fixture();try {
         f.git('checkout','-q','main');
         fs.writeFileSync(path.join(f.cwd,'.ai-dev-helm.json'),declared);

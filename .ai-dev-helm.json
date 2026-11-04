@@ -106,8 +106,8 @@
   ],
   "gate": {
     "controlPlane": [
-      "CLAUDE.md",
-      "AGENTS.md",
+      "**/CLAUDE.md",
+      "**/AGENTS.md",
       ".cursorrules",
       ".claude/**",
       ".codex/**",
