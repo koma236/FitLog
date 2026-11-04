@@ -10,7 +10,7 @@
 - 仕様・独立設計レビュー・実装計画を最初にまとめて承認する。範囲内は実装・検証・独立レビュー・修正・Issue作成・commit・feature push・PR作成・mergeまで追加申請せず進める。
 - 重大な範囲変更・不可逆操作・予算超過等だけ再確認する。
 - mergeは原則AIが行う（quality-check 完了・設計との差異なしのとき。helm の development-policy『承認後の進め方』に従う）。ユーザーが作業ごとにマージしないと明示した場合はマージ前で止める。GitHub の auto-merge、trunk への直接更新、force、hook の回避は禁止。
-- `.github/workflows/` または `.github/ci/` を変えるPRは、常にマージ前で止める（例外X2。PR番号を示したユーザーのOKの後にAIがマージするか、ユーザーがGitHubでマージする）。
+- CI（`.github/workflows/`・`.github/ci/`）、ゲート制御面（`.ai-dev-helm.json`の`gate.controlPlane`に当たるファイル）、または宣言自身を変えるPRは、常にマージ前で止める（例外X2。PR番号を示したユーザーのOKの後にAIがマージするか、ユーザーがGitHubでマージする）。
 - worktreeごとに書込み担当を1つに限定し、固定Compose/DB/imageの操作は排他にする。詳細は `documents/development/personal-parallel-workflow.md`。
 - スタック・ポート・checksは実設定を読む。未実行・失敗を成功扱いしない。
 - CIはbuild/lint/型/全テスト/migrationとci-requiredを使う。配布元skillsの古い「CIはビルド確認のみ」は適用しない。

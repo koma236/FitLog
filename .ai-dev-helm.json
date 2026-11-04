@@ -114,7 +114,34 @@
       ".cursor/**",
       "skills/**",
       ".github/review-*.md",
-      "documents/development/coding-rules/**"
+      "documents/development/coding-rules/**",
+      "scripts/check-pr-stop.cjs"
+    ],
+    "denyCommands": [
+      {
+        "all": [
+          "\\bgh(?:-koma236)?[\"']?\\s+[\"']?api\\b",
+          "\\bgraphql\\b",
+          "\\bmergePullRequest\\b"
+        ],
+        "reason": "GraphQL mergePullRequest is prohibited. Use the reviewed PR procedure in personal-workflow.md."
+      },
+      {
+        "all": [
+          "\\bgh(?:-koma236)?[\"']?\\s+[\"']?api\\b",
+          "\\brepos/[^/\\s\"']+/[^/\\s\"']+/rulesets(?:/|[\\s\"'?]|$)",
+          "(?:-X[\"']?(?:=|\\s*)|--method[\"']?(?:\\s+|=))[\"']?(?:PUT|PATCH|POST|DELETE)\\b"
+        ],
+        "reason": "Ruleset writes are prohibited for AI operations; preserve repository protection."
+      },
+      {
+        "all": [
+          "\\bgh(?:-koma236)?[\"']?\\s+[\"']?api\\b",
+          "\\brepos/[^/\\s\"']+/[^/\\s\"']+/rulesets(?:/|[\\s\"'?]|$)",
+          "(?:^|\\s)[\"']?(?:-f|--(?:field|raw-field|input))"
+        ],
+        "reason": "Ruleset payload options are prohibited, including implicit POST. Use a plain GET for inspection."
+      }
     ]
   }
 }

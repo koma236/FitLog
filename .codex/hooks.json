@@ -12,7 +12,7 @@
         ]
       },
       {
-        "matcher": "^(Agent|Task|spawn_agent|followup_task|send_message|send_input|resume_agent)$",
+        "matcher": "^(Agent|Task|spawn_agent|followup_task|send_message|send_input|resume_agent|collaboration.*)$",
         "hooks": [
           {
             "type": "command",
@@ -24,7 +24,7 @@
     ],
     "PostToolUse": [
       {
-        "matcher": "^(Agent|Task|spawn_agent|followup_task|send_message|send_input|resume_agent)$",
+        "matcher": "^(Agent|Task|spawn_agent|followup_task|send_message|send_input|resume_agent|collaboration.*)$",
         "hooks": [
           {
             "type": "command",
