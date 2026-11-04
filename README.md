@@ -16,7 +16,7 @@ PRのChecksで結果と失敗stepのlogを確認してください。失敗・�
 
 mainの保護は、CI導入PRで初回runと発行元を確認した後にRepository rulesetを設定します。PR必須、最新main、GitHub Actions由来のci-required、bypassなし、削除/force push禁止を対象とします。実設定の適用結果は導入PRへ記録し、workflowがあるだけで保護済みとは扱いません。mergeの担当は下の「個人開発環境」の節に従います。
 
-workflowと検査scriptもPR側で変更できるため、CIのgreenは差分レビューの代わりにはなりません。`.github/workflows/`・`.github/ci/` を変えるPRは、常にmerge前で止めます。CIの判定は `compose.yaml` や `package.json` のscriptsなどからも変えられるため、この例外ですべての変更が止まるわけではありません。設定検査器は誤編集を検出する回帰ガードであり、悪意ある同時改変を防ぐ境界ではありません。
+workflowと検査scriptもPR側で変更できるため、CIのgreenは差分レビューの代わりにはなりません。CI（`.github/workflows/`・`.github/ci/`）、ゲート制御面（`.ai-dev-helm.json`の`gate.controlPlane`に当たるファイル）、または宣言自身を変えるPRは、常にmerge前で止めます。検出・X2のOK後の続行は[個人運用のマージ手順](documents/development/personal-workflow.md#承認と自律実行)に従います。CIの判定は `compose.yaml` や `package.json` のscriptsなどからも変えられるため、この例外ですべての変更が止まるわけではありません。設定検査器は誤編集を検出する回帰ガードであり、悪意ある同時改変を防ぐ境界ではありません。
 
 CIは機械チェックによるmerge条件です。独立AIレビュー・mutation・目視検証はハーネス側に残し、CIへLLM判定を組み込みません。テスト失敗は原因を調査して修正し、rerunを繰り返してgreenへ寄せません。明確なインフラ障害だけ、理由とrunへのリンクを記録して同一SHAを手動で1回再実行できます。
 
@@ -37,5 +37,5 @@ CI相当をローカルで再現するときは、既存fitlog-devと別のCompo
 
 個人アカウントは `koma236`。個人Codex環境 `~/.codex-personal` と個人Git/GitHub接続を使います。[個人運用](documents/development/personal-workflow.md)を正とします。
 
-仕様・独立設計レビュー・短い計画を最初に一括承認し、範囲内のIssue作成・実装・検証・修正・commit・feature push・PR作成・mergeまで委任します。工程ごとの承認は不要です。mergeは原則AIが行い、ユーザーが作業ごとに明示した場合と `.github/workflows/`・`.github/ci/` を変えるPRはmerge前で止めます。
+仕様・独立設計レビュー・短い計画を最初に一括承認し、範囲内のIssue作成・実装・検証・修正・commit・feature push・PR作成・mergeまで委任します。工程ごとの承認は不要です。mergeは原則AIが行い、ユーザーが作業ごとに明示した場合、設計との差異がある場合、およびCI・ゲート制御面・宣言自身を変えるPRはmerge前で止めます。
 11 checksは`.ai-dev/project.toml`のコマンドを親が直接実行し、対象commit・check id・終了コードを品質報告とPRへ残します。
