@@ -41,11 +41,11 @@
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "^(Bash|PowerShell)$",
+        "matcher": "^(Bash|PowerShell|Monitor)$",
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const find=(r)=>{const s=p.join(r,'.claude','hooks','quality-gate.cjs');return fs.existsSync(s)?s:''};let s=process.env.CLAUDE_PROJECT_DIR?find(process.env.CLAUDE_PROJECT_DIR):'';let g='';if(!s)try{s=find(execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/quality-gate.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Reinstall it with npx @crearize/ai-dev-helm init.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','quality-gate.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';let g='';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r);else g=' (the git root '+r+' is another repository than CLAUDE_PROJECT_DIR, so its hook is not run)'}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/quality-gate.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Restore it with npx @crearize/ai-dev-helm upgrade.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
             "timeout": 30
           }
         ]
@@ -55,7 +55,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const find=(r)=>{const s=p.join(r,'.claude','hooks','review-budget.cjs');return fs.existsSync(s)?s:''};let s=process.env.CLAUDE_PROJECT_DIR?find(process.env.CLAUDE_PROJECT_DIR):'';let g='';if(!s)try{s=find(execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/review-budget.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Reinstall it with npx @crearize/ai-dev-helm init.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','review-budget.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';let g='';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r);else g=' (the git root '+r+' is another repository than CLAUDE_PROJECT_DIR, so its hook is not run)'}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/review-budget.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Restore it with npx @crearize/ai-dev-helm upgrade.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
             "timeout": 30
           }
         ]
@@ -67,8 +67,54 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const find=(r)=>{const s=p.join(r,'.claude','hooks','review-budget.cjs');return fs.existsSync(s)?s:''};let s=process.env.CLAUDE_PROJECT_DIR?find(process.env.CLAUDE_PROJECT_DIR):'';let g='';if(!s)try{s=find(execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/review-budget.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Reinstall it with npx @crearize/ai-dev-helm init.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','review-budget.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';let g='';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r);else g=' (the git root '+r+' is another repository than CLAUDE_PROJECT_DIR, so its hook is not run)'}catch{g=' (git could not find the repository root, so the hook may exist but was not located)'}if(s){const child=spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(child.status??2)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}const m='ai-dev-helm: .claude/hooks/review-budget.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so this hook is not running. Restore it with npx @crearize/ai-dev-helm upgrade.'+g;const o={systemMessage:m};if(['PreToolUse','PostToolUse'].includes(e))o.hookSpecificOutput={hookEventName:e,additionalContext:m};process.stdout.write(JSON.stringify(o))\"",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','context-handoff.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r)}catch{}if(s){spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(0)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}if(e==='SessionStart')process.stdout.write(JSON.stringify({systemMessage:'ai-dev-helm: .claude/hooks/context-handoff.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so the conversation record is not kept across /compact and /clear. Restore it with npx @crearize/ai-dev-helm upgrade.'}));process.exit(0)\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionStart": [
+      {
+        "matcher": "compact|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','context-handoff.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r)}catch{}if(s){spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(0)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}if(e==='SessionStart')process.stdout.write(JSON.stringify({systemMessage:'ai-dev-helm: .claude/hooks/context-handoff.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so the conversation record is not kept across /compact and /clear. Restore it with npx @crearize/ai-dev-helm upgrade.'}));process.exit(0)\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "matcher": "clear",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','context-handoff.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r)}catch{}if(s){spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(0)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}if(e==='SessionStart')process.stdout.write(JSON.stringify({systemMessage:'ai-dev-helm: .claude/hooks/context-handoff.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so the conversation record is not kept across /compact and /clear. Restore it with npx @crearize/ai-dev-helm upgrade.'}));process.exit(0)\"",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node -e \"const{execFileSync,spawnSync}=require('node:child_process');const fs=require('node:fs');const p=require('node:path');const real=(x)=>{let v;try{v=fs.realpathSync(x)}catch{v=p.resolve(x)}return process.platform==='win32'?v.toLowerCase():v};const same=(r,d)=>{if(real(r)===real(d))return true;try{return real(execFileSync('git',['-C',d,'rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim())===real(r)}catch{return false}};const find=(r)=>{const s=p.join(r,'.claude','hooks','context-handoff.cjs');return fs.existsSync(s)?s:''};const d=process.env.CLAUDE_PROJECT_DIR;let s=d?find(d):'';if(!s)try{const r=execFileSync('git',['rev-parse','--show-toplevel'],{encoding:'utf8',timeout:5000,stdio:['ignore','pipe','ignore']}).trim();if(!d||same(r,d))s=find(r)}catch{}if(s){spawnSync(process.execPath,[s],{stdio:'inherit'});process.exit(0)}let e;try{e=JSON.parse(fs.readFileSync(0,'utf8')).hook_event_name}catch{}if(e==='SessionStart')process.stdout.write(JSON.stringify({systemMessage:'ai-dev-helm: .claude/hooks/context-handoff.cjs was not found under CLAUDE_PROJECT_DIR or the git root, so the conversation record is not kept across /compact and /clear. Restore it with npx @crearize/ai-dev-helm upgrade.'}));process.exit(0)\"",
+            "timeout": 10
           }
         ]
       }

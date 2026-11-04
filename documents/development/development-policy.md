@@ -1,4 +1,6 @@
-> **FitLog優先ルール:** `personal-workflow.md` を先に読む。仕様・計画・実装結果・レビュー結果と各Git操作は個別承認。mergeは人間のみ。本書の包括承認・自動Git操作の記述は適用しない。
+<!-- ai-dev-helm:local:start -->
+> **FitLog優先ルール:** `personal-workflow.md` を先に読む。
+<!-- ai-dev-helm:local:end -->
 
 # Development Guidelines
 
@@ -12,10 +14,10 @@ Development policies, standards, and processes for this project.
 
 - 前提: 各種 AI モデル・AI ツール上で動作し、単一モデルに依存しない。品質は構造で担保する。テストは根拠を添えれば信用してよい（ミューテーションはそのための道具で必須ではない）。
 - 1 Issue とブランチ。
-- 2 設計（brainstorming）: 設計が完了したら、実装に入る前に必ず「設計レビュー → ユーザーへのレビュー依頼と承認」を行う（brainstorming の Design Gate）。設計レビューは専任レビュアー（`document-reviewer`）による基本 1 回で、よほどの問題や大規模のときだけ複数回。ユーザーへは設計・レビュー指摘とその対応を 1 通で示し、明示の承認を得るまで実装しない。小さな変更も対象。免除（正本）: 設計上の選択を含まない誤字の修正と、明らかに正しい数行の修正。承認済みの設計の範囲内の修正（quality-check の指摘への対応など。承認済みの設計を変えないもの）は、新しい設計ゲートを要しない。設計が存在する前の「実装して」は設計の承認ではない。ここのレビューがタスク単位レビューを不要にする。ユーザーへの確認は纏める — 質問は 1 通に纏めて聞き、重要な設計判断は一括提示する。一問一答・節ごとの承認はしない。承認の後は再確認しない（下の「承認後の進め方」）[^batch]。
+- 2 設計（brainstorming）: 設計が完了したら、実装に入る前に必ず「設計レビュー → ユーザーへのレビュー依頼と承認」を行う（brainstorming の Design Gate）。設計レビューは専任レビュアー（`document-reviewer`）による基本 1 回で、よほどの問題や大規模のときだけ複数回。ユーザーへは設計・レビュー指摘とその対応を 1 通で示し、明示の承認を得るまで実装しない。小さな変更も対象。指示に「スピード優先」とある作業（会話の中のユーザー本人の発言に限る。quality-check「スピード優先モード」）では設計・計画の文書レビューを省き、設計を示して承認を受ける 1 通だけを残す。免除（正本）: 設計上の選択を含まない誤字の修正と、明らかに正しい数行の修正。承認済みの設計の範囲内の修正（quality-check の指摘への対応など。承認済みの設計を変えないもの）は、新しい設計ゲートを要しない。設計が存在する前の「実装して」は設計の承認ではない。ここのレビューがタスク単位レビューを不要にする。ユーザーへの確認は纏める — 質問は 1 通に纏めて聞き、重要な設計判断は一括提示する。一問一答・節ごとの承認はしない。承認の後は再確認しない（下の「承認後の進め方」）[^batch]。
 - 3 計画（writing-plans）: 設計済みが前提。計画のレビューはしてよいが、その後のユーザー確認は不要。
 - 4〜6 実装: 親が直接実装するか、独立した課題を委譲するかを、計画・引き継ぎ・再探索・統合・手戻りを含む総労力で選ぶ。親モデルの直接実装を禁止しない。計画は影響範囲・契約・検証に必要な深さとし、コードの二重執筆を求めない。開発中のレビューループはしない（設計意図との合致は 7 で見る）。
-- 7 quality-check: まず機械的チェック（ビルド、テスト、Lint / CheckStyle 等の静的チェック）。通ってから体制レビュー（統合レビュアー＋反証型 QA＋専門家最大 1 体）。実装内容に応じて体制を絞り、不要なレビュアーは動かさない。
+- 7 quality-check: まず機械的チェック（ビルド、テスト、Lint / CheckStyle 等の静的チェック）。通ってから体制レビュー（体制・巡の数・優先度の基準・完了条件は quality-check スキルが正本）。実装内容に応じて体制を絞り、不要なレビュアーは動かさない。指示に「スピード優先」とあれば（会話の中のユーザー本人の発言に限る）、レビューと追加テストの実行を後回しの Issue にする。認証・認可、課金・決済、DB マイグレーション、ハーネス自体の変更には使わない（条件の全文は quality-check「スピード優先モード」）。
 - 8 hook: quality-gate は main（相当ブランチ）への直接 push / merge を禁止する装置。別の review-budget フックはレビューだけの回数上限を制御し、実装・探索・通常テストを数えない（`harness-runtime.md`）。加えて 7 の状態・実装状態に応じてミューテーション / E2E を判定し、推奨が強く範囲が小さいものは確認なしで実施し、それ以外は最後の報告で確認する（test-recommendation）[^8]。
 - 通過判定: レビュー結果・品質チェックの結果。AI の申告でもよいが必ず根拠を添える[^report]。
 - 品質原則と製品固有の保護条件は維持する。スキルは適用条件に合うものを使う。自己改善は通常の完了条件から外し、必要時に改善候補を記録する。恒久対応では文章規則の追加より設定・ラッパー・hook 等の原因箇所の修正、既存ルールの削除・統合を先に検討する。
@@ -44,7 +46,7 @@ Development policies, standards, and processes for this project.
 
 5. **レビュー上限（quality-check 以外）**: 設計の承認後、計画レビュー（`plan`）などのフェーズが上限に達したら、追加のレビューを求めずに進み、残った指摘と扱いを記録する。ミューテーションの分類検証（`mutation`、上限 1）も、上限なら残りを記録して進む。止まるのは quality-check と制作物の最終品質レビュー（`production`）の打ち切り（X1）と、承認前・X4 の設計レビュー（`requirements` を含む）だけ。
 6. **X4 の手順（止まるのは 1 回）**: ①差異の部分の設計を自己点検して書く ②設計レビューの予約に残りがあれば受け、残りが無ければ受けずに ③1 通で「差異の設計（レビュー済みならその指摘と対応）」と、レビュー未実施なら「追加のレビュー 1 周（`extend --phase design --rounds 1`）」の承認をまとめて求める ④承認後、AI が `extend` → レビュー → 指摘の修正を行い、修正が承認された設計を変えなければそのまま実装に戻る（レビューの結果は最後の報告に書く）。修正で承認された内容が変わる場合だけ、もう一度 1 通で示す。
-7. **最後の報告（1 通）と順序**: 実装 → quality-check Step 1〜4 → Step 5 の自動実施分 → Step 5 の差分のコミット → 未追跡の確認（`quality-context --check-untracked`。最初の push の前。最後の行が `untracked-check: OK` のときだけ先へ進む — quality-check Step 6 の手順。フラグの前の確認とは別に行う）→ (A) 確認の対象が無い: 設計との差異が無ければ、フラグ作成 → push → PR 作成 → マージ → 最後の 1 通。差異があれば、push → PR 作成 → 最後の 1 通（「この差異を認めてマージしてよいか」を独立した項目で聞く。フラグは作らない）→ OK → フラグ作成 → PR 本文の Flag commit を更新 → マージ → 短い報告。(B) 確認の対象がある: push → PR 作成（確認の対象は「確認待ち（判断は最後の 1 通）」と書く）→ 最後の 1 通（quality-check は未完了で、フラグは作らない）→ 返答 → 実行・記録し、同じ PR にコミット → PR 本文の再生成・更新 → フラグ作成 → PR 本文の Flag commit を更新 → push → 設計との差異が無ければマージ → 同じ書式の短い報告。差異がある場合は、最後の 1 通に「この差異を認めてマージしてよいか」を独立した項目として含め、その項目への OK があるときだけマージする。返答の後に新しい差異が生じた場合（E2E の失敗の修正で振る舞いが変わった等）は、マージせずにその差異を示してもう一度確認する。返答が来なければその状態で止まる（フラグなし＝マージできない）。(B) になるのは Step 5 の確認の区分があるときだけで、「判断が必要なこと」のほかの項目（self-improvement の候補、機能ドキュメントの保存場所、Lint の振動、X2 のマージ承認）はフラグを止めない。(B) の PR は通常の PR で作る（draft にはしない。マージは AI がその PR のブランチの作業ツリーで行い、そこにはフラグが無いのでフックが止めるため）。確認待ちの PR は、その PR の作業ツリーで、返答 → フラグ作成の後にだけマージする。別の作業ツリーから PR 番号を指定してマージしない。リモートが無いプロジェクト（PR を作る remote（通常は origin）の trunk の remote-tracking ref が無い。PR を受けない remote（公開用・デプロイ先・バックアップ）しか無い場合を含み、その remote に feature ブランチを push しない。または導入先の規則で PR を使わないプロジェクト）では、(A)(B) とも push・PR 作成を省く。(A) は差異が無ければフラグ作成 → プロジェクトの統合手順（リモートが無ければ `branch-workflow` のローカルでの統合）→ 最後の 1 通。差異があれば、仕上げた feature ブランチで最後の 1 通を送り、OK の後にフラグ作成 → 統合。(B) は完了欄を「確認待ち」にして最後の 1 通を送り、返答 → 実行・コミット → フラグ作成 → 統合の順。PR 本文に書く内容（設計との差異・テスト結果・指摘と対応）は、そのプロジェクトの作業記録に書き、最後の 1 通ではその場所を示す。
+7. **最後の報告（1 通）と順序**: 実装 → quality-check Step 1〜4 → Step 5 の自動実施分 → Step 5 の差分のコミット → 未追跡の確認（`quality-context --check-untracked`。最初の push の前。最後の行が `untracked-check: OK` のときだけ先へ進む — quality-check Step 6 の手順。フラグの前の確認とは別に行う）→ (A) 確認の対象が無い: 設計との差異が無ければ、フラグ作成 → push → PR 作成 → マージ → 最後の 1 通。差異があれば、push → PR 作成 → 最後の 1 通（「この差異を認めてマージしてよいか」を独立した項目で聞く。フラグは作らない）→ OK → フラグ作成 → PR 本文の Flag commit を更新 → マージ → 短い報告。(B) 確認の対象がある: push → PR 作成（確認の対象は「確認待ち（判断は最後の 1 通）」と書く）→ 最後の 1 通（quality-check は未完了で、フラグは作らない）→ 返答 → 実行・記録し、同じ PR にコミット → PR 本文の再生成・更新 → フラグ作成 → PR 本文の Flag commit を更新 → push → 設計との差異が無ければマージ → 同じ書式の短い報告。差異がある場合は、最後の 1 通に「この差異を認めてマージしてよいか」を独立した項目として含め、その項目への OK があるときだけマージする。返答の後に新しい差異が生じた場合（E2E の失敗の修正で振る舞いが変わった等）は、マージせずにその差異を示してもう一度確認する。返答が来なければその状態で止まる（フラグなし＝マージできない）。(B) になるのは Step 5 の確認の区分があるときだけで、「判断が必要なこと」のほかの項目（self-improvement の候補、機能ドキュメントの保存場所、Lint の振動、X2 のマージ承認）はフラグを止めない。(B) の PR は通常の PR で作る（draft にはしない。マージは AI がその PR のブランチの作業ツリーで行い、そこにはフラグが無いのでフックが止めるため）。確認待ちの PR は、その PR の作業ツリーで、返答 → フラグ作成の後にだけマージする。別の作業ツリーから PR 番号を指定してマージしない。リモートが無いプロジェクト（PR を作る remote（通常は origin）の trunk の remote-tracking ref が無い。PR を受けない remote（公開用・デプロイ先・バックアップ）しか無い場合を含み、その remote に feature ブランチを push しない。または導入先の規則で PR を使わないプロジェクト）では、(A)(B) とも push・PR 作成を省く。(A) は差異が無ければフラグ作成 → プロジェクトの統合手順（リモートが無ければ `branch-workflow` のローカルでの統合）→ 最後の 1 通。差異があれば、仕上げた feature ブランチで最後の 1 通を送り、OK の後にフラグ作成 → 統合。(B) は完了欄を「確認待ち」にして最後の 1 通を送り、返答 → 実行・コミット → フラグ作成 → 統合の順。PR 本文に書く内容（設計との差異・テスト結果・指摘と対応）は、そのプロジェクトの作業記録に書き、最後の 1 通ではその場所を示す。(C) スピードモード（quality-check「スピード優先モード」）: 実装 → quality-check Step 0〜3 → Step 4-0 → Step 5 の判定と台帳のコミット → 未追跡の確認 → push → PR 作成 → 後回しの Issue の作成 → 台帳の Issue 番号を埋めてコミット・push → PR 本文にリンク → 未追跡の確認 → フラグ作成（スピードモード用のコマンド）→ 設計との差異が無ければマージ → Issue にマージのコミットを追記 → 最後の 1 通。差異があれば、最後の 1 通で OK を受けてからフラグ作成 → マージ。リモートや Issue が無いプロジェクトではスピードモードを使わない。
 
    ```
    完了: <マージ済み / マージ前（設計との差異の最終確認待ち）/ 確認待ち（quality-check は未完了） 等 1 行。PR の URL を添える>
@@ -66,7 +68,7 @@ Development policies, standards, and processes for this project.
    - 具体的なコマンドはマージ方式で変わる。ここは原則と例であり、プロジェクトの手順書（そのプロジェクトの development-policy 等）に具体の手順を書く。
 
 [^8]: 後半（ミューテーション / E2E の判定・自動実施・確認）は hook ではなく quality-check Step 5 → `test-recommendation` スキルが担う。hook はコマンド行の静的分類のみで、提案機能を持たない。
-[^report]: quality-check SKILL.md の「実装 Agent の自己申告を Quality Gate にしない」は、「実装に合わせて期待値を修正した」型の申告を根拠と認めない規定であり、本項と両立する。
+[^report]: quality-check スキル の「実装 Agent の自己申告を Quality Gate にしない」は、「実装に合わせて期待値を修正した」型の申告を根拠と認めない規定であり、本項と両立する。
 [^batch]: 配布する brainstorming / writing-plans の本文に同じ確認手順を適用する。同期時は patch を再適用し、適用できなければ同期を失敗させる。外部プラグインを直接読む導入先は、その読み込み経路にも同じ方針の対応が必要。project スキルも既存の承認を再取得せず、承認後の確認は「承認後の進め方」の例外か最後の 1 通に限る。配布物に新しい停止点を足すときは、`lib/approval-scan.test.js` の許可の一覧に例外との対応を足す。
 
 #### 充足済み項目（既存配布物で対応済み・変更なし）
@@ -75,12 +77,19 @@ Development policies, standards, and processes for this project.
 |---|---|
 | 1 Issue とブランチ | `CLAUDE.md`（ルートの規則）Critical Rules Level 0 / 1、quick-checklist |
 | テストは根拠を添えれば信用 / ミューテーションは必須でない | quality-policy §2（推奨度・範囲で自動実施または確認・非ブロック） |
-| 通過判定は根拠を添える | quality-check SKILL.md「実装 Agent の自己申告を Quality Gate にしない」（脚注参照） |
+| 通過判定は根拠を添える | quality-check スキル「実装 Agent の自己申告を Quality Gate にしない」（脚注参照） |
 
 ### 1.1 Basic Principles
 - **AI as primary developer**: Code development and review driven by AI tools
 - **Human role**: Requirements definition, design decisions (one approval per design), reading the final report of deviations from the design, and confirming a merge when there are deviations
 - **Prompt-based**: Development instructions communicated via clear prompts
+
+#### 事実・識別子・実測の書き方（実装・修正・文書のすべてで）
+
+- **識別子はコマンドの出力から取る**: コミットの SHA・イメージのタグ・リソースの ID などは、コマンドの出力（`git rev-parse`・`terraform output` 等）の値をそのまま使う。先頭の数桁から残りを推して補わない（推した SHA をタグに書くと、タグがどのコミットも指さない）。並べて実行するコマンドに識別子を埋め込むときは、先にその値だけを単独で取得してから埋め込む。
+- **修正で新しい事実を主張しない**: 指摘への対応では、主張を観測が支える範囲まで弱める・未確認を未確認と書く・参照を足す方向に限り、新しい事実・測定の主張を足さない。過去の測定に触れるときは、その時の一次記録（`git show <旧コミット> -- <ファイル>` 等）を自分で確かめてから書く。複数の仕組みが同時に効く構成で「どれが効いているか」、複数の仮説が同じ観測を生む測定からの結論は、片方を外した実測か仕様の排他の定めが無ければ断定しない。レビュアーの訂正も、受け入れる前に一次資料で裏を取る（訂正が過剰なこともある）。保存物・残置物の棚卸しは、訂正文や台帳の転記ではなく、保存する経路の実装と実行の一次データから導く。
+- **削除・置換の参照の走査はリポジトリ全体で**: ファイル・ルート・画面の要素を消す・置き換えるときは、実行コードだけでなく文書（`docs/`・`README.md`・`CLAUDE.md` 等）・`Dockerfile` を含むリポジトリ全体で参照を探し、追従するものを設計に列挙する。履歴として残す文書には、置き換え先と日付の行を足す。
+- **実測は、数値の前に集計の粒度と測定点を決めて書く**: 集計したメトリクス（例: 60 秒集計の `Maximum`）は「その粒度の中の最大」であって瞬間のピークではないので、粒度を添えずに「ピーク」「飽和なし」と書かない。所要時間は、何から何までを含み何を含まないかを実装で確かめてから書き、手順書の定義と実装が食い違えば逸脱として記録して手順書も同じ変更で直す。文書・コードのコメントに書く実測値は、書き手が一次データ（レポート・ログ）を開いて確かめ、ファイル名と測定点を添える。その挙動を決めるコードを後で直したら、同じ変更で測り直すか「旧実装での値」と書く。
 
 ### 1.2 Development Flow
 
@@ -168,6 +177,8 @@ A project that does not use GitHub Issues keeps the rest of this policy unchange
 - `implementation-report` finds the plan by branch name only when there is no Issue.
 - The default `branch-naming` lint pattern does not require an Issue number. A project that wants one overrides `pattern` (see `lint-scaffolding`).
 - The "Create GitHub Issue" and "Issue number required" rules in the three entry files apply only to projects that use Issues.
+
+A project records its shape in `.ai-dev-helm.json` `workflow`: `"issues": "none"` applies the list above, and `"remote": "none"` applies the no-remote path of the final report (no push or PR; `branch-workflow`'s local integration). Either one also rules out the speed-first mode. `workflow.protectedBranches` lists the branches beyond main / master that must not be force-pushed (platform: `["main", "release"]`); `init` and `upgrade` turn it into the `.claude/settings.json` denials and the Codex safety rules.
 
 ### PR Creation and Review
 1. Meaningful commit units
