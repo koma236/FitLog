@@ -11,7 +11,8 @@
 | FL-07 / FL-08 | PR #19 / #22は統合済み。検索・フォロー・タイムライン、ログ・healthを実装 |
 | FL-09A | PR #29は統合済み。production起動・S3 storage部品。backend/frontend/ci-required成功を確認 |
 | FL-09B1（#30） | 承認済みの認証IP選択とCloudFront Function部品を実装。本branchの品質結果は別途記録 |
-| FL-09Bの残り | Terraform定義・AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
+| FL-09B2（#32） | 専用VPC・非公開S3/ECR・IAM・logsのTerraform基盤とmock planテストを実装。実AWS未接続 |
+| FL-09Bの残り | ALB/CloudFront/ECS/RDSの定義、TerraformのCI組込み、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
 | FL-10 | 最終E2E・性能・AWS撮影証跡の照合は未実施 |
 
 FL-09B1の[設計と検証範囲](fl-09b-client-ip-design.md)、[公開前条件](production-readiness.md)参照。実装済み部品からAWS動作完了を推定しない。
