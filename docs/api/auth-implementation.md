@@ -89,8 +89,9 @@ CSRF→メソッド→UPSERT単独autocommit→認証済み409→入力検証→
 ATOMIC_REQUESTS=Falseとnon_atomic_requestsで外側transactionを排除し、保証できなければ503とする。
 User保存のみ短いatomicに入れ、rollbackで確定済みcounterを消さない。
 
-直接接続元だけをIPv4 /32、IPv4-mapped IPv6はIPv4、IPv6 /64へ正規化しHMAC-SHA256で保存する。
-欠落/不正IPは503。X-Forwarded-Forを変更しても制限キーは変わらない。
+選択した接続元をIPv4 /32、IPv4-mapped IPv6はIPv4、IPv6 /64へ正規化しHMAC-SHA256で保存する。
+`FITLOG_AUTH_CLIENT_IP_SOURCE=remote_addr` が既定で、直接接続元だけを使用し、専用ヘッダもX-Forwarded-Forも無視する。欠落/不正IPは503。
+FL-09B1（Issue #30、2026-11-04）で `cloudfront` を追加した。productionかつ `FITLOG_TRUST_PROXY=1` の明示設定時だけ許可し、それ以外・未知の設定値は起動拒否する。cloudfrontでは `X-Fitlog-Client-IP` の単一IPリテラル（45文字以内、port・zone ID・空白・カンマ不可）だけを使用する。不正/欠落は既存の503 `SERVICE_UNAVAILABLE` とし、直接接続元へのfallback、カウンタ更新、認証処理を行わない。CSRFとmethodの既存検査順序は維持する。
 生IP・メール・password・cookie・request body・DB例外本文をログへ出さない。
 AUTH_RATE_LIMIT_HMAC_KEYは32文字以上必須、productionでは既知の公開ローカルサンプルを拒否する。
 鍵変更は認証受付停止→最後の受付から120秒以上待機→全worker同時更新→再開とし、稼働中変更を行わない。
@@ -103,6 +104,6 @@ docker compose --project-name fitlog-dev -f compose.yaml run --rm --no-deps back
 
 継続稼働では毎時実行が必要。clearsessionsで失効済みDBセッションを、独自清掃で現在窓より2分以上前の窓を削除する。
 schedulerの配置はFL-08/09で扱う。固定窓の境界を跨ぐ集中、共有IPv6 prefix、多IP攻撃の限界を保持する。
-trusted proxy・TLS終端・実接続元/Originの検証と多IP対策評価はFL-09の公開前条件で、今回設定を推測しない。
+trusted proxy・TLS終端・実接続元/Originの実AWS検証と多IP対策評価はFL-09の公開前条件。ヘッダの真正性はアプリ単体では保証できないため、[本番準備](../production-readiness.md)の経路制限を実証するまでcloudfrontモードを公開環境で有効化しない。
 
 検証根拠はbackend/tests/TEST-ORACLES.md。本文書はテスト実行・独立品質レビュー・v9承認済みを意味しない。

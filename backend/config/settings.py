@@ -94,6 +94,12 @@ if FITLOG_ENV not in {"local", "production"} or FITLOG_LOCAL_HTTP not in {"0", "
     raise ImproperlyConfigured("Invalid FitLog environment configuration")
 if FITLOG_ENV != "local" and FITLOG_LOCAL_HTTP == "1":
     raise ImproperlyConfigured("Local HTTP is only permitted in local environment")
+FITLOG_AUTH_CLIENT_IP_SOURCE = os.environ.get("FITLOG_AUTH_CLIENT_IP_SOURCE", "remote_addr")
+if FITLOG_AUTH_CLIENT_IP_SOURCE not in {"remote_addr", "cloudfront"} or (
+    FITLOG_AUTH_CLIENT_IP_SOURCE == "cloudfront"
+    and (FITLOG_ENV != "production" or os.environ.get("FITLOG_TRUST_PROXY", "0") != "1")
+):
+    raise ImproperlyConfigured("Invalid authentication client IP configuration")
 AUTH_RATE_LIMIT_HMAC_KEY = os.environ.get("AUTH_RATE_LIMIT_HMAC_KEY", "")
 LOCAL_HMAC_SAMPLE = "fitlog-local-only-public-hmac-key-never-use-in-production"
 if len(AUTH_RATE_LIMIT_HMAC_KEY) < 32 or (

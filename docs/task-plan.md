@@ -1,5 +1,21 @@
 # FitLog Issue単位のtask plan
 
+## 製品進捗（2026-11-04確認）
+
+以下はGitHubの統合済みPRとmain `1b32d4d` の確認結果。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
+
+| 範囲 | 確認した状態 |
+|---|---|
+| FL-01〜06 | 基盤・認証・プロフィール・記録・画像・コメント/いいねは統合済み |
+| CI-01 | PR #14は統合済み。mainのPR/最新main/ci-required必須・削除/force禁止のrulesetがactive |
+| FL-07 / FL-08 | PR #19 / #22は統合済み。検索・フォロー・タイムライン、ログ・healthを実装 |
+| FL-09A | PR #29は統合済み。production起動・S3 storage部品。backend/frontend/ci-required成功を確認 |
+| FL-09B1（#30） | 承認済みの認証IP選択とCloudFront Function部品を実装。本branchの品質結果は別途記録 |
+| FL-09Bの残り | Terraform定義・AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
+| FL-10 | 最終E2E・性能・AWS撮影証跡の照合は未実施 |
+
+FL-09B1の[設計と検証範囲](fl-09b-client-ip-design.md)、[公開前条件](production-readiness.md)参照。実装済み部品からAWS動作完了を推定しない。
+
 > 初期の機能分割を起点としたtask一覧。CI-01は2026-10-31に設計採用済み。実装・CI実run・main保護の完了は各Issue/PRの証跡で確認する。
 
 FL/CI識別子はローカル計画IDでありGitHub Issue番号ではない。FL-01〜06は実装済みの基準、CI-01はIssue #13で次機能より先に進める。以降の機能範囲はその都度設計と承認を確定する。
