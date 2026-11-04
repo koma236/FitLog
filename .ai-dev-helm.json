@@ -1,12 +1,12 @@
 {
-  "version": "3.4.3",
+  "version": "3.7.1",
   "tools": [
     "claude-code",
     "codex"
   ],
   "stacks": [],
   "skillScope": "all",
-  "appliedAt": "2026-10-26T18:02:12.293Z",
+  "appliedAt": "2026-11-04T15:31:30.278Z",
   "files": {
     ".github/review-docs.md": "7db2e14032c2fdb79212c3bb5118029786161bf9881c7f34ce6169e45e18fc48",
     ".github/review-infra.md": "8b4e36b185f88263007646a2608097787332bb0ec19b3ad9aa96f98c15b49e1d",
@@ -39,9 +39,9 @@
     "lint/ast-grep/security/no-eval-js.yml": "7c5101d0e5e3b43a1207f12c0b775319d425d8ebc70e62136e1fd07e7ec54c05",
     "lint/ast-grep/security/no-eval-ts.yml": "2900e0c492170d19ce52e919e40372f329b3d850b28af8c9515e8b41d9e83e7e",
     "lint/ast-grep/security/no-eval-tsx.yml": "221c9cc177d8bf7ad104c1f99934b1a6591c0c73304966ebe94066538ec16d10",
-    "lint/ast-grep/security/no-exec-string-interp-js.yml": "efb47dc7e696f9172fd7bc9d1428abcd63f0e951f190f088765c6f5cfd2df7ec",
-    "lint/ast-grep/security/no-exec-string-interp-ts.yml": "61134189628f26e31033a439aa7016fc161747f71d8e9d8eac8ea949a41a2f85",
-    "lint/ast-grep/security/no-exec-string-interp-tsx.yml": "30324bbb510bf54b52d5a0badfc1084c56d3175fef826943daf5fa62754f71ab",
+    "lint/ast-grep/security/no-exec-string-interp-js.yml": "4df403624f3c02401b23c096d0f75ad5e49598d9a7f0bafcafabeed0a3e9ba71",
+    "lint/ast-grep/security/no-exec-string-interp-ts.yml": "3e145b33c19700388a0f439295dcd5b5b54740f30f658176a0f7b169b3f207ba",
+    "lint/ast-grep/security/no-exec-string-interp-tsx.yml": "5ba1add1956661264e4c1760589fdc146f893d23b4439b068ce47ccf14f26b73",
     "lint/ast-grep/security/no-tls-verify-off-js.yml": "98e75218edd7719c465113c365c1f69ad6bf886aae429c699eea886c82609e08",
     "lint/ast-grep/security/no-tls-verify-off-ts.yml": "2eb8c0c30f787354d68b51b6ce04b17763ddcc6c02c8b7d042c309e6dff1f8e8",
     "lint/ast-grep/security/no-tls-verify-off-tsx.yml": "d4c0d3aa8f52c6a81c664ca05b919137bec56566779a68dc9eb2b0195c06ff84",
@@ -50,11 +50,71 @@
     "lint/ast-grep/security/no-weak-hash-ts.yml": "abc31282297a7483e3bf0a4f601179e8c0b3450cdb13ddf8e00cbd8b80e25d88",
     "lint/ast-grep/security/no-weak-hash-tsx.yml": "a19a319ab0dcd9155bd272b642a0d5a8439cb78d66fbd16d4f6031f191504db5",
     "lint/ast-grep/test-quality/README.md": "d61b257288783de39f76d08f64b53a5cdc78050c0efac0a5a38cf52819409ae8",
-    "lint/ast-grep/test-quality/no-focused-test-js.yml": "d9b1665dceae02cc0a96f23c23bb608d7b8c7f768d2710240ead657bcd48d174",
-    "lint/ast-grep/test-quality/no-focused-test-ts.yml": "e3926977923771400d8fa200a67007370ae2293556fe35e47c87f142cfd826df",
-    "lint/ast-grep/test-quality/no-focused-test-tsx.yml": "69b4300cd95bc6626b2df558f395d8d35c16dd02c97e923bf2d4c2364bf6f0f4",
+    "lint/ast-grep/test-quality/no-focused-test-js.yml": "03a32b2b577015dd4ae8fa98ceaf2f7bc8098b7aa98807f7c96a934ed29e7c8e",
+    "lint/ast-grep/test-quality/no-focused-test-ts.yml": "014b434aa1a9bbad8071e4050cd41262e13e770ec663b14aeebee0ccb406668a",
+    "lint/ast-grep/test-quality/no-focused-test-tsx.yml": "72af048572d052c1c56080cb8a20b8fe064f0c5b4667d36a6016b375524f799e",
     "lint/ast-grep/test-quality/no-trivial-assert-js.yml": "bf357c95ba011d851cec53e12e264607a91b9b16590f43440724d061fa14758e",
     "lint/ast-grep/test-quality/no-trivial-assert-ts.yml": "563583203a16e6d5e45f6b6c28c13d97104e474c34253c034190af9dd2cebb65",
     "lint/ast-grep/test-quality/no-trivial-assert-tsx.yml": "080b608473265642b1abbf5a982ba7d8136186fc35df5a877f4e9d74aa9136b6"
+  },
+  "projectName": "FitLog",
+  "upgradedFrom": "3.4.3",
+  "complete": true,
+  "resolved": [
+    {
+      "path": ".claude/hooks/quality-gate.cjs",
+      "version": "3.7.1",
+      "conflict": "b8bc0d3d39c5b78e53adf86b7093bfd906667e7389170f78b02db440c8b19192",
+      "conflictRaw": [
+        "b8bc0d3d39c5b78e53adf86b7093bfd906667e7389170f78b02db440c8b19192"
+      ]
+    },
+    {
+      "path": ".codex/hooks/quality-gate.cjs",
+      "version": "3.7.1",
+      "conflict": "b8bc0d3d39c5b78e53adf86b7093bfd906667e7389170f78b02db440c8b19192",
+      "conflictRaw": [
+        "b8bc0d3d39c5b78e53adf86b7093bfd906667e7389170f78b02db440c8b19192"
+      ]
+    },
+    {
+      "path": "skills/project/quality-check/SKILL.md",
+      "version": "3.7.1",
+      "conflict": "de59c2da36bf56011f93fb4cdef32462f242bfe34a4e80fe51d2528ffa38ba29",
+      "conflictRaw": [
+        "de59c2da36bf56011f93fb4cdef32462f242bfe34a4e80fe51d2528ffa38ba29"
+      ]
+    },
+    {
+      "path": "CLAUDE.md",
+      "block": "harness",
+      "version": "3.7.1",
+      "conflict": "97c940bd3f7599d4ac0e4765f39e49fdb02502d8051df87152052d11ecf618c5",
+      "conflictRaw": [
+        "97c940bd3f7599d4ac0e4765f39e49fdb02502d8051df87152052d11ecf618c5"
+      ]
+    },
+    {
+      "path": "AGENTS.md",
+      "block": "harness",
+      "version": "3.7.1",
+      "conflict": "465eaf13c8c886b58eb5c4e4e51510eea96fe93738ee447725b360cb4bdc529e",
+      "conflictRaw": [
+        "465eaf13c8c886b58eb5c4e4e51510eea96fe93738ee447725b360cb4bdc529e"
+      ]
+    }
+  ],
+  "gate": {
+    "controlPlane": [
+      "CLAUDE.md",
+      "AGENTS.md",
+      ".cursorrules",
+      ".claude/**",
+      ".codex/**",
+      ".cursor/**",
+      "skills/**",
+      ".github/review-*.md",
+      "documents/development/coding-rules/**"
+    ]
   }
 }

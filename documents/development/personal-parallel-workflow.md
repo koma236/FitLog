@@ -62,7 +62,7 @@ Git管理領域も共有するため、index/worktree/refsに関わる変更操�
 
 ## 統合と完全分離への移行
 
-先行PRの人間によるmerge後、後続branchを許可された通常手順で更新し、競合解消と必要な再検証を行う。
+先行PRのmerge後、後続branchを許可された通常手順で更新し、競合解消と必要な再検証を行う。
 baseline更新や競合解消が必要な場合はfeature branchで通常手順を使い、影響する検証と品質確認を行う。承認範囲を超える変更はまとめて相談する。
 
 検証自体も並列化する場合は別taskで、worktree固有のCompose project、imageタグ、DB/volume、

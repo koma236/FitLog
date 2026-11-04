@@ -61,6 +61,46 @@ for(const hook of hooks) {
       assert.equal(judge(hook,f,'git push --force origin main'),'block');
     }finally{f.close();}
   });
+  test(`${hook}: the AI merge procedure in personal-workflow.md is gated by the flag`,()=>{
+    const f=fixture();try {
+      const merge=`gh pr merge 1 --merge --match-head-commit ${f.head}`;
+      for(const command of ['gh api user --jq .login','gh repo view --json nameWithOwner','gh pr view 1 --json headRefName,headRefOid','gh pr diff 1 --name-only']) assert.equal(judge(hook,f,command),'allow',command);
+      assert.equal(judge(hook,f,merge),'block');
+      const flag=path.join(f.cwd,'.quality-check-passed');
+      fs.writeFileSync(flag,JSON.stringify({branch:'feature/fixture',commit:f.base}));
+      assert.equal(judge(hook,f,merge),'block');
+      fs.writeFileSync(flag,JSON.stringify({branch:'feature/fixture',commit:f.head}));
+      assert.equal(judge(hook,f,merge),'allow');
+    }finally{f.close();}
+  });
+  test(`${hook}: harness-only diffs need the flag under the declared controlPlane`,()=>{
+    const declared=fs.readFileSync(path.join(root,'.ai-dev-helm.json'));
+    for(const file of ['CLAUDE.md','AGENTS.md','.claude/x.md','.codex/x.md','skills/project/x/SKILL.md','.github/review-docs.md','documents/development/coding-rules/x.md']) {
+      const f=fixture();try {
+        f.git('checkout','-q','main');
+        fs.writeFileSync(path.join(f.cwd,'.ai-dev-helm.json'),declared);
+        fs.writeFileSync(path.join(f.cwd,'.gitignore'),'.quality-check-passed\n');
+        f.git('add','.'); f.git('commit','-qm','manifest');
+        f.git('update-ref','refs/remotes/origin/main',f.git('rev-parse','HEAD'));
+        f.git('checkout','-qb','harness/only');
+        fs.mkdirSync(path.dirname(path.join(f.cwd,file)),{recursive:true});
+        fs.writeFileSync(path.join(f.cwd,file),'changed\n');
+        f.git('add','.'); f.git('commit','-qm','harness');
+        assert.equal(judge(hook,f,'gh pr merge 1 --merge'),'block',file);
+        fs.writeFileSync(path.join(f.cwd,'.quality-check-passed'),JSON.stringify({branch:'harness/only',commit:f.git('rev-parse','HEAD')}));
+        assert.equal(judge(hook,f,'gh pr merge 1 --merge'),'allow',file);
+      }finally{f.close();}
+    }
+  });
+  test(`${hook}: without the declaration a root rule diff is exempt, so the declaration is what closes it`,()=>{
+    const f=fixture();try {
+      f.git('checkout','-q','main');
+      f.git('checkout','-qb','harness/only');
+      fs.writeFileSync(path.join(f.cwd,'CLAUDE.md'),'changed\n');
+      f.git('add','.'); f.git('commit','-qm','harness');
+      assert.equal(judge(hook,f,'gh pr merge 1 --merge'),'allow');
+    }finally{f.close();}
+  });
   test(`${hook}: shell inputs fail closed and old delivery syntax has no exception`,()=>{
     const f=fixture();try {
       assert.equal(judge(hook,f,'',{tool_input:{}}),'block');

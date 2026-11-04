@@ -6,16 +6,22 @@
 ## 承認と自律実行
 
 - 仕様・独立設計レビュー結果・短い実装計画をまとめて提示し、チャットで一度承認する。
-- 承認には範囲内のIssue作成、隔離branch/worktree、実装、文書、検証、独立品質レビュー、指摘修正、commit、feature branchへの通常pushを含める。
+- 承認には範囲内のIssue作成、隔離branch/worktree、実装、文書、検証、独立品質レビュー、指摘修正、commit、feature branchへの通常push、PR作成、mergeを含める。
 - 工程ごとの再承認や専用のTTY入力を要求しない。実行結果を確認し、未実行・失敗を成功扱いしない。
 - 重大な範囲変更、不可逆操作、本番反映、予算超過、原因不明で安全に進めない障害はまとめて相談する。既存development-policyの例外を適用する。
-- PR作成は内容を完成させて最後に確認する。mergeは本人がGitHubで行う。AI merge、auto-merge、trunk直接更新、force、hook回避は禁止。
+- mergeは原則AIが行う（quality-check 完了・設計との差異なしのとき。helm の development-policy『承認後の進め方』に従う）。ユーザーが作業ごとにマージしないと明示した場合はマージ前で止める。GitHub の auto-merge、trunk への直接更新、force、hook の回避は禁止。
+- `.github/workflows/` または `.github/ci/` を変えるPRは、常にマージ前で止める（例外X2。PR番号を示したユーザーのOKの後にAIがマージするか、ユーザーがGitHubでマージする）。
+- AIがmergeするときは、ハーネスのみの差分でも免除を使わず、常にquality-checkを通して`.quality-check-passed`を作る（`.ai-dev-helm.json`の`gate.controlPlane`でhookも免除しない）。次の順に行う。
+  1. `gh api user`がkoma236、`gh repo view --json nameWithOwner`がkoma236/FitLogであることを確認する。違えばmergeしない。
+  2. `gh pr view <n> --json state,baseRefName,headRefName,headRefOid`で、`state`がOPEN、`baseRefName`がmain、`headRefName`が`.quality-check-passed`の`branch`、`headRefOid`が同じファイルの`commit`と完全に一致することを確認する。違えばmergeしない。
+  3. `gh pr diff <n> --name-only`で`.github/workflows/`と`.github/ci/`の変更がないことを確認する。あれば止める。
+  4. `gh pr merge <n> --merge --match-head-commit <.quality-check-passedのcommit>`で実行する。`--auto`と`--admin`は使わない。
 - OS/sandbox権限申請は工程承認とは別に扱う。拒否時に制御を迂回しない。
 
 ## 個人環境とGitHub
 
 - 対象はkoma236/FitLog。CodexはCODEX_HOME=$HOME/.codex-personalを使う。会社用~/.codex、会社repo、manabi-backofficeを含むpathを探索・変更しない。
-- GitHubには既存の~/.local/bin/gh-koma236を使う。既定ghやtoken環境変数へfallbackしない。wrapperはGH token上書きを除去し、個人gh configを選択する。
+- GitHubには`gh`を使う。Issue・PR・マージなどの操作の前に`gh api user`がkoma236、対象のrepoがkoma236/FitLogであることを確認し、違えば操作しない。
 - commitには~/.config/git-koma236/configの個人name/emailを使用する。共有Git設定や既定global設定は変更しない。
 - 通常Gitの送信には既存SSH接続先github-koma236を使う。操作直前にoriginの実効URLがgit@github-koma236:koma236/FitLog.gitであり、SSH認証応答のaccountがkoma236であることを確認する。別のpush URLが設定されている場合も同じ照合を行う。不一致・未確認なら送信しない。
 - SSH認証を確認できないとき、HTTPSや別accountへ自動切替しない。credential helperを使うHTTP操作が必要なら、個人wrapperを指す既存個人Git設定を明示し、選択を確認してから実行する。
@@ -37,7 +43,7 @@
 
 - [並列開発運用](personal-parallel-workflow.md)を正とする。1 worktreeのwriterは1セッション。他taskのrestore/stash/cleanやbranch切替を行わない。
 - skillの入口は.claude/skills・.codex/skills・.agents/skillsから共通skills/を参照する。リンク不足は導入済み版のlink-skillsで整備する。
-- 共有ai-dev-chatへのlocalリンクは新規導入しない。既存Rootのリンク解除は本人の統合と採用確認後にリンクだけを対象として行い、共有sourceや共通excludeを変更しない。旧sessionへの自動反映は保証しない。
+- 共有ai-dev-chatへのlocalリンクは新規導入しない。既存Rootのリンク解除は統合と採用確認後にリンクだけを対象として行い、共有sourceや共通excludeを変更しない。旧sessionへの自動反映は保証しない。
 
 ## 旧運用の履歴
 
