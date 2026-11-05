@@ -115,7 +115,9 @@
       "skills/**",
       ".github/review-*.md",
       "documents/development/coding-rules/**",
-      "scripts/check-pr-stop.cjs"
+      "scripts/check-pr-stop.cjs",
+      "scripts/run-checks.py",
+      ".ai-dev/project.toml"
     ],
     "denyCommands": [
       {

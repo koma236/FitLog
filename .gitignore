@@ -5,6 +5,7 @@ docs/superpowers/plans/
 .claude/worktrees/
 .quality-check-report.json
 .quality-check-passed
+.quality-check-runs/
 .stryker-tmp/
 **/reports/mutation/
 *.ai-dev-helm-new
