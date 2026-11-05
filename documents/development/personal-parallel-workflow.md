@@ -38,6 +38,8 @@ worktreeを分けただけでは分離されない。project名だけ変えて�
 
 ### 排他枠の取得・返却
 
+登録11 checksは[checks実行手順](run-checks.md)の事前照合後に `python3 -B scripts/run-checks.py` で実行する。下記の排他・DB状態確認・migration記録・返却をスクリプトが担当するため、呼出し元で同じlockを先に取得しない。他の共有runtime作業では引き続き下記手順を用いる。Git/gh・品質フラグはスクリプトの対象外。
+
 1. 共通Git管理領域を `git rev-parse --path-format=absolute --git-common-dir` で確認する。
 2. その直下の `fitlog-runtime.lock` ディレクトリを通常の `mkdir`（`-p`なし）で原子的に作成する。既存（EEXIST）なら取得失敗とし、共有環境へ触れず他の編集を進める。権限拒否（EACCES）など既存以外のエラーは競合待ちにせず、原因を報告して共有操作を停止する。
 3. 取得者は `owner.json` を排他作成し、task、worktree絶対path、branch、ホスト、保持主体のPID、開始日時、使用資源を記録する。PIDはlockを取得し返却まで生存する調整役または専用保持processを指し、providerや短命なCompose processと区別する。子process/コンテナは使用資源として別記する。秘密を含めない。書込み失敗時は実行を開始せず、自分が作成したと確認できる途中ファイルだけを除去して、空になった自分のlockディレクトリをrmdirする。他のファイルや所有権を確認できないものが残った場合は削除せず報告する。

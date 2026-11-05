@@ -17,6 +17,7 @@
   3. `git fetch origin`の後、手順2を再取得し、`baseRefOid`と`headRefOid`のcommit objectがローカルにあることを確認する。`node scripts/check-pr-stop.cjs --base <baseRefOid> --head <headRefOid>`でCI・制御面・宣言自身の変更を検出する。CLIはリネーム元と先の両方、base/head両方の`gate.controlPlane`を調べる。終了0は対象なし、2はX2対象あり、1は判定失敗。対象があればPR番号・head OID・検出パスを示して止める。PR番号を示したユーザーのX2のOKの後、手順1〜3を再実行し、承認対象のheadと対象範囲が同じ場合だけ手順4へ進む。headが変わったら新しいheadへのOKを取り直す。判定失敗・object不足は原因を直すまで止め、OKで読み飛ばさない。
   4. 直前に手順2を再取得し、判定したbase/headが変わっていないことを確認する。変わっていれば手順2〜3に戻る。CIの`ci-required`成功とquality-checkの証跡を確認し、`gh pr merge <n> --merge --match-head-commit <.quality-check-passedのcommit>`で実行する。`--auto`と`--admin`は使わない。
   5. PRがMERGEDであることと統合結果を確認した後、今回のbranch/commitに対応する`.quality-check-passed`だけを削除する。失敗・結果不明を成功扱いして後始末しない。
+  6. 統合後のmain更新と今回作成したworktree/branchの削除は、下記「マージ後の後片付け」に従ってAIが行う。X2でマージ前停止中は実行しない。
 - mainが進んでmergeを拒否されたら、fetchして差分と失敗理由を確認する。必要ならfeature branchへ最新mainを通常mergeし、競合・失敗原因を修正して、quality-check・commit・通常push・CI成功確認・手順1〜3をやり直す。forceや`--admin`で回避しない。headが変わればX2のOKも取り直す。
 - OS/sandbox権限申請は工程承認とは別に扱う。拒否時に制御を迂回しない。
 
@@ -34,7 +35,7 @@
 ## 品質と実行記録
 
 - 通常の設計・実装・test-design・quality-check skillを使う。レビュー予算と独立レビューを維持する。別モデルだけを独立性の証明にしない。
-- .ai-dev/project.tomlは11 checksのコマンド台帳として残す。親が登録argv/cwdを順番に直接実行し、新しいrunnerを作らない。
+- .ai-dev/project.tomlは11 checksのコマンド台帳として残す。親は[checks実行手順](run-checks.md)に従い、採用済み共通Git管理領域を確認して `python3 -B scripts/run-checks.py` を実行する。スクリプトが排他・DB状態・migration記録・登録argv/cwd/env/timeoutの順次実行・後始末を担当する。Git/gh・snapshot対応づけ・品質合否・フラグ操作は親の担当とする。
 - 各checkのid、終了コード、実行時のcommitと未commit差分の対象snapshot、日時をquality-check報告へ保存し、PR本文の検証欄へ要約する。
 - checksは[並列開発運用](personal-parallel-workflow.md)の共有runtime排他枠内で実施する。スタック・port・checksは実設定を読み、他担当のDB/image/processを変更しない。
 - GitHub Actionsはbuild/lint/型/全テスト/migrationとci-requiredを維持する。AIレビューはCIの判定に使わない。配布元skillの古い「CIはビルドのみ」は適用しない。
@@ -45,9 +46,24 @@
 
 ## 作業の分離
 
+- 作業は対象worktreeを作業場所（cwd）にしたセッションで行う。本体側のセッションはworktreeの作成と引継ぎまでを担当する。引継ぎ後の設計レビュー・実装・検証・GitHub操作を、本体側のセッションから別worktreeへのpath指定だけで続行しない。マージ後の本体main更新・資源削除は下記の専用手順で扱う。
 - [並列開発運用](personal-parallel-workflow.md)を正とする。1 worktreeのwriterは1セッション。他taskのrestore/stash/cleanやbranch切替を行わない。
 - skillの入口は.claude/skills・.codex/skills・.agents/skillsから共通skills/を参照する。リンク不足は導入済み版のlink-skillsで整備する。
 - 共有ai-dev-chatへのlocalリンクは新規導入しない。既存Rootのリンク解除は統合と採用確認後にリンクだけを対象として行い、共有sourceや共通excludeを変更しない。旧sessionへの自動反映は保証しない。
+
+## マージ後の後片付け
+
+AIは次の条件を順に照合する。判断できないもの・使用中のものは残して報告する。古い資源の棚卸しや一括削除はしない。stash/restore/clean、force、hookの回避は使わない。
+
+1. マージ手順でPRのMERGED、統合commit、今回のheadが統合commitの祖先であることを確認する。対象のPR番号・head・作成したbranch/worktreeの絶対pathを作業記録と照合する。今回作成したことが確認できない資源は対象外。
+2. 今回のbranch/commitに対応する品質フラグだけを除去する。checksの結果・ログ、品質報告、必要なローカル計画は削除するworktreeの外へ保存し、保存先と内容を確認する。元の証跡を失敗扱いのまま消さない。
+3. 本体のpathは `git worktree list --porcelain` と共通Git管理領域から確認する。本体がmain、index/worktreeに変更がなく、未追跡ファイルがなく、他セッションの書込み・Git操作がないことを確認できる場合だけ、本体を通常fetchして `git merge --ff-only origin/main` で更新する。最新origin/mainのOIDと一致したことを確認する。branch切替・既存変更の退避・履歴の書換えはしない。条件不成立やgate拒否なら更新せず報告する。
+4. 削除対象worktreeは今回作成したものに限る。tracked/index/未追跡の変更、必要なignoredファイルや未保存成果物、実行中process・container・runtime lock・他セッション利用がないことを確認する。ignoredな証跡を退避したことも確認する。使用なしを確認できなければ残す。
+5. 実行するシェルのcwdを本体pathへ移してから `git worktree remove <今回の絶対path>` を通常実行する。これは対象worktreeに対する最後の操作とし、削除後にそのcwdへ戻ってコマンドを実行しない。本体側の別セッションに作業を再開させる必要はない。失敗時にforceで再試行しない。
+6. 対象branchが他worktreeでcheckoutされていないこと、記録したheadから進んでいないこと、更新後mainに統合済みであることを再照合して、今回のローカルbranchだけを `git branch -d <branch>` で削除する。
+7. remote branchも今回作成分だけを対象とし、account/repo/SSH照合後にremote OIDが記録headと同じでmainに統合済み、他セッションが利用していないと確認できる場合だけ通常削除する。他者による更新との競合を避ける排他を確認できない場合は残す。force・leaseによる強制更新を使わない。削除後はremote refの不存在を確認する。
+
+セッションの利用状況はGitの一覧だけでは証明できない。引継ぎ・作業記録と生存processを照合し、確認不能なら推測で削除しない。常時許可設定は[設定案](command-permissions-proposal.md)を参照する。このPRで外部設定は変更しない。
 
 ## 旧運用の履歴
 

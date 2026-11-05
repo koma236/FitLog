@@ -9,6 +9,6 @@
 - Codex /hooksのquality-gate、review-budget（Pre/Post）、context-handoffの信頼を確認する。信頼記録を直接編集したり、信頼を迂回するflagを使ったりしない。
 - Claudeも/hooksの登録を確認する。実clientでの起動確認と、模擬stdin試験は区別する。未確認は未確認のまま報告する。
 - 仕様・独立設計レビュー・計画の一括承認後、範囲内の実装からPR作成・mergeまで進める。例外は[個人開発運用](../development/personal-workflow.md)の「承認と自律実行」による。
-- build/lint/型/テスト/migrationはproject.tomlの実コマンドを親が共有排他枠で実行する。対象snapshotと終了コードをquality-check報告へ保存する。
+- build/lint/型/テスト/migrationはproject.tomlの実コマンドを[checksスクリプト](../development/run-checks.md)で共有排他枠の中で実行する。親が対象snapshotとrun-id・終了コードをquality-check報告へ対応づける。
 
 既存のlocal専用chat skillリンクはこのPRのGit差分では削除できない。統合と採用確認後、Rootのリンクだけを解除する。通常skillsのリンク、共有source、共通excludeは維持する。旧sessionを終了して新規sessionで現行規則を読む。
