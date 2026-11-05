@@ -1,11 +1,13 @@
 mock_provider "aws" {
   override_during = plan
+  source          = "./tests/mocks"
 }
 
 variables {
-  expected_account_id = "123456789012"
-  environment_name    = "fitlog-demo-test"
-  availability_zones  = ["ap-northeast-1a", "ap-northeast-1c"]
+  origin_verify_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  expected_account_id  = "123456789012"
+  environment_name     = "fitlog-demo-test"
+  availability_zones   = ["ap-northeast-1a", "ap-northeast-1c"]
 }
 
 # Only provider-computed identifiers are fixtures. Policies and rules stay real.
@@ -122,6 +124,12 @@ override_resource {
   values          = { id = "rtb-00000000000000002" }
 }
 
+override_resource {
+  override_during = plan
+  target          = aws_vpc_security_group_ingress_rule.cloudfront
+  values          = { security_group_rule_id = "sgr-00000000000000006" }
+}
+
 run "closed_network_and_private_artifacts" {
   command = plan
 
@@ -203,7 +211,7 @@ run "closed_network_and_private_artifacts" {
   }
   assert {
     condition = toset(keys(aws_vpc_security_group_rules_exclusive.boundary)) == toset(["ingress", "app", "database"]) && (
-      length(aws_vpc_security_group_rules_exclusive.boundary["ingress"].ingress_rule_ids) == 0 &&
+      aws_vpc_security_group_rules_exclusive.boundary["ingress"].ingress_rule_ids == toset(["sgr-00000000000000006"]) &&
       aws_vpc_security_group_rules_exclusive.boundary["ingress"].security_group_id == "sg-00000000000000001" &&
       aws_vpc_security_group_rules_exclusive.boundary["ingress"].egress_rule_ids == toset(["sgr-00000000000000003"]) &&
       aws_vpc_security_group_rules_exclusive.boundary["app"].security_group_id == "sg-00000000000000002" &&
@@ -213,7 +221,7 @@ run "closed_network_and_private_artifacts" {
       aws_vpc_security_group_rules_exclusive.boundary["database"].ingress_rule_ids == toset(["sgr-00000000000000002"]) &&
       length(aws_vpc_security_group_rules_exclusive.boundary["database"].egress_rule_ids) == 0
     )
-    error_message = "Exclusive rule sets must keep ingress closed and DB egress empty."
+    error_message = "Exclusive rule sets allow only the CloudFront ingress rule and keep DB egress empty."
   }
   assert {
     condition = toset(keys(aws_s3_bucket.private)) == toset(["static", "media"]) && (
@@ -235,15 +243,19 @@ run "closed_network_and_private_artifacts" {
   assert {
     condition = alltrue([for purpose, p in aws_s3_bucket_policy.tls : jsondecode(p.policy) == {
       Version = "2012-10-17"
-      Statement = [{
+      Statement = concat([{
         Sid       = "DenyInsecureTransport", Effect = "Deny", Principal = "*", Action = ["s3:*"],
         Resource  = ["arn:aws:s3:::fitlog-demo-test-${purpose}-123456789012-ap-northeast-1", "arn:aws:s3:::fitlog-demo-test-${purpose}-123456789012-ap-northeast-1/*"],
         Condition = { Bool = { "aws:SecureTransport" = "false", "aws:PrincipalIsAWSService" = "false" } }
-      }]
+        }], purpose == "static" ? [{
+        Sid       = "CloudFrontStaticRead", Effect = "Allow", Principal = { Service = "cloudfront.amazonaws.com" },
+        Action    = ["s3:GetObject"], Resource = ["arn:aws:s3:::fitlog-demo-test-static-123456789012-ap-northeast-1/*"],
+        Condition = { StringEquals = { "AWS:SourceArn" = "arn:aws:cloudfront::123456789012:distribution/EFITLOGTEST" } }
+      }] : [])
       }]) && toset(keys(aws_s3_bucket_policy.tls)) == toset(["static", "media"]) && alltrue([
       for k, p in aws_s3_bucket_policy.tls : p.bucket == "fitlog-demo-test-${k}-123456789012-ap-northeast-1"
     ])
-    error_message = "Real planned bucket policies must deny non-TLS requests and contain no public grants."
+    error_message = "Only static GetObject may be granted to this distribution; both buckets still deny insecure transport."
   }
   assert {
     condition = aws_ecr_repository.backend.name == "fitlog-demo-test/backend" && aws_ecr_repository.backend.image_tag_mutability == "IMMUTABLE" && (

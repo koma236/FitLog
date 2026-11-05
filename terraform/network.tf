@@ -102,11 +102,13 @@ resource "aws_vpc_security_group_egress_rule" "https" {
 }
 
 # No inline SG rules: mixing them with standalone rules causes competing owners.
-# An empty ingress set keeps the public boundary closed until a later design.
+# CloudFront is the only public ingress; app/DB still accept only their upstream SG.
 resource "aws_vpc_security_group_rules_exclusive" "boundary" {
   for_each          = aws_security_group.boundary
   security_group_id = each.value.id
-  ingress_rule_ids = each.key == "ingress" ? [] : [
+  ingress_rule_ids = each.key == "ingress" ? [
+    aws_vpc_security_group_ingress_rule.cloudfront.security_group_rule_id
+    ] : [
     aws_vpc_security_group_ingress_rule.connection[each.key].security_group_rule_id
   ]
   egress_rule_ids = each.key == "ingress" ? [
