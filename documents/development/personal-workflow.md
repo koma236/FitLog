@@ -21,6 +21,29 @@
 - mainが進んでmergeを拒否されたら、fetchして差分と失敗理由を確認する。必要ならfeature branchへ最新mainを通常mergeし、競合・失敗原因を修正して、quality-check・commit・通常push・CI成功確認・手順1〜3をやり直す。forceや`--admin`で回避しない。headが変わればX2のOKも取り直す。
 - OS/sandbox権限申請は工程承認とは別に扱う。拒否時に制御を迂回しない。
 
+## 高リスクPRの手動相互レビュー
+
+最終更新: 2026-11-05。関連: [Issue #40](https://github.com/koma236/FitLog/issues/40)、[レビューAI向け手順](cross-review.md)。根本さんが実装していない側のprovider（Codex / Claude）をPRのworktreeで手動起動し、相互レビューを依頼する。これは根本さんが定めたhelmのreview-budget外の運用であり、通常の設計レビュー・quality-checkとその予算は維持する。自動化・hook組込み・外部CLIの自動呼出しは行わない。
+
+相互レビュー対象の高リスクPRは、認証・認可、決済、DB migration、ゲート制御面、CIを変更するPR、および根本さんが相互レビューを指定したPRとする。以下は現在の実構成の例で、パスの限定リストではない。これらの挙動・設定・テストを他のパスから変更する場合も対象。quality-policy全体のHighリスク定義を狭めるものではない。
+
+| 対象 | 現在の実構成・判定箇所 |
+|---|---|
+| 認証 | `backend/accounts/` の `views.py`、`backends.py`、`services.py`、`validation.py`、`rate_limit.py`、`models.py`。`backend/config/` の `settings.py`、`production.py`、`urls.py`、`backend/common/middleware.py`、`frontend/src/auth/`、`frontend/src/App.tsx`。Djangoメール認証、セッションCookie、CSRF、レート制限と関連設定・テスト |
+| 認可 | `backend/accounts/profile_views.py`・`profile_service.py`、`backend/workouts/` の `views.py`・`service.py`・`timeline.py`、`backend/media_assets/` の `views.py`・`service.py`・`presentation.py`、`backend/social/` の `views.py`・`service.py`・`follow_views.py`・`follow_service.py` 等。本人・所有者、公開範囲、フォロー関係、画像参照の制御と関連設定・テスト |
+| 決済 | 現在のbackend、frontend/src、APIルート・依存に製品の決済・課金実装はない。共通文書のPayment例やエラーコード名は実装の存在を意味しない。将来導入する場合も対象 |
+| DB migration | `backend/**/migrations/` と、その適用・互換性を変更する処理・設定 |
+| ゲート制御面 | `.ai-dev-helm.json` のbase/head双方の `gate.controlPlane` に当たるファイルと宣言自身。既存マージ手順の検出を使う |
+| CI | `.github/workflows/`・`.github/ci/` |
+
+実装AIは次の順に進める。
+
+1. 通常のchecks・quality-checkを完了しPRを作成・更新する。対象PR本文に実装provider・実際のモデル、対象headの完全OID、状態「相互レビュー待ち」を記載し、マージ前で止める。待ち中の修正・統合は自動で進めない。
+2. 根本さんが別providerを対象PRのworktreeで開き、「cross-review.md に従って PR #N をレビューして」と依頼する。レビューAIは読取りと依頼された `gh pr comment` のみを行い、サブエージェントを起動しない。詳細は[手順書](cross-review.md)を正とする。
+3. 根本さんの「PR #N のコメントに対応して」で実装AIが再開する。対象コメントのheadと現headを照合し、High指摘を技術的に検証して修正する。既修正・誤指摘・head差異は根拠を記録し、未解決のHighを黙って無視しない。Medium/LowはPR本文へ記録し、自動で範囲を広げない。
+4. checksとquality-checkを再実行し、Highの対応結果、最新head、相互レビュー対象headからの差分をPR本文に記録する。修正不要の場合も、コメント対応後の再検証結果を記録する。相互レビューの再実施は根本さんが指定した場合だけとし、実装AIから自動起動しない。
+5. 対応と再検証が完了したら「相互レビュー待ち」を解除して結果を記録し、以降は通常のマージ条件に従う。未解決High、品質チェック、`ci-required`、設計との差異、X2のPR番号を示したOK等の条件を維持する。コメント対応の指示はX2のマージ承認を兼ねない。指摘ゼロのコメントも自動再開のトリガーにせず、根本さんの対象PRへの対応・再開指示を待つ。
+
 ## 個人環境とGitHub
 
 - Codex は `codex-me` で起動する（`CODEX_HOME=$HOME/.codex-personal`）。

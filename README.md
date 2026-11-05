@@ -31,11 +31,12 @@ CI相当をローカルで再現するときは、既存fitlog-devと別のCompo
 ## 個人開発環境
 
 - [個人開発運用](documents/development/personal-workflow.md)
+- [手動相互レビュー（レビューAI向け手順）](documents/development/cross-review.md)
 - [並列開発運用](documents/development/personal-parallel-workflow.md)
 - [task plan](docs/task-plan.md)
 - [初期セットアップ記録](documents/setup/harness-setup.md)
 
 個人アカウントは `koma236`。個人Codex環境 `~/.codex-personal` と個人Git/GitHub接続を使います。[個人運用](documents/development/personal-workflow.md)を正とします。
 
-仕様・独立設計レビュー・短い計画を最初に一括承認し、範囲内のIssue作成・実装・検証・修正・commit・feature push・PR作成・mergeまで委任します。工程ごとの承認は不要です。mergeは原則AIが行い、ユーザーが作業ごとに明示した場合、設計との差異がある場合、およびCI・ゲート制御面・宣言自身を変えるPRはmerge前で止めます。
+仕様・独立設計レビュー・短い計画を最初に一括承認し、範囲内のIssue作成・実装・検証・修正・commit・feature push・PR作成・mergeまで委任します。工程ごとの承認は不要です。mergeは原則AIが行い、ユーザーが作業ごとに明示した場合、設計との差異がある場合、およびCI・ゲート制御面・宣言自身を変えるPRはmerge前で止めます。高リスクPRは実装していない側のproviderによる手動相互レビューを待って停止します。対象と再開条件は[個人運用](documents/development/personal-workflow.md#高リスクprの手動相互レビュー)に従います。
 11 checksは[実行手順](documents/development/run-checks.md)に従い `python3 -B scripts/run-checks.py` で実行します。排他・必要時のDB起動・migration記録・後始末を含み、対象commit・run-id・check id・終了コードを親が品質報告とPRへ残します。
