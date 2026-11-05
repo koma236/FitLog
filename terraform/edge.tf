@@ -21,6 +21,8 @@ resource "aws_lb" "api" {
   preserve_host_header       = true
   drop_invalid_header_fields = true
   idle_timeout               = 65
+  # Internet-facing ALB creation requires an attached IGW and public routing.
+  depends_on = [aws_route_table_association.public]
 }
 
 resource "aws_lb_target_group" "api" {

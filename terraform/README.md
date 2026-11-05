@@ -38,6 +38,7 @@ AWS管理prefix listのweightは55で、TCP80の1ポートだけに適用する�
 ```sh
 terraform -chdir=terraform fmt -check -recursive
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform init -backend=false -input=false -lockfile=readonly
+python3 -B -m unittest discover -s terraform/tests -p test_dependency_graph.py
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform validate
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform test -no-color
 ```
@@ -45,6 +46,8 @@ env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTO
 全test runは`command=plan`、`mock_provider aws`を使う。共有mockは`tests/mocks/*.tfmock.hcl`にcomputed ID/ARN/DNSだけを置く。mockと個別のID/ARN overrideには`override_during=plan`を設定する。実policy JSONは`jsonencode`で生成し、全Statementを独立した期待値と比較する。policy自体をmockへ置換しない。テストfixtureのaccount `123456789012` は架空値。mockを誤って外しても、上の最小環境はprofile/role/OIDC/container資格情報を引き継がず、共有credential/configとmetadataを探索しない。
 
 mock成功はAPI可用性・AWSでのIAM評価・SG疎通・account照合・課金の実証ではない。real providerのplan/apply/destroyはこのタスクで実行しない。
+
+依存グラフの回帰テストは資格情報なしで `terraform graph` を実行し、public ALBがpublic route associationとIGW接続の完成を待つことを検査する。初回構築の順序をmockの計画値だけで保証せず、実グラフも確認する。初回は先に上記`init`でproviderを取得してから実行する。
 
 ## stateとデータ削除
 
