@@ -29,3 +29,21 @@ variable "availability_zones" {
     error_message = "Supply exactly two distinct ap-northeast-1 availability zones."
   }
 }
+
+variable "origin_verify_secret" {
+  description = "Private CloudFront-to-ALB verifier; protect state and saved plans containing this value."
+  type        = string
+  nullable    = false
+  sensitive   = true
+  validation {
+    condition     = can(regex("^[0-9a-f]{64}$", var.origin_verify_secret))
+    error_message = "Origin verifier must be exactly 64 lowercase hexadecimal characters."
+  }
+}
+
+variable "enable_public_distribution" {
+  description = "Keep disabled until the separately approved deployment and real-AWS checks are ready."
+  type        = bool
+  nullable    = false
+  default     = false
+}

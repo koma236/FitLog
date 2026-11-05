@@ -1,8 +1,8 @@
 # FitLog Issue単位のtask plan
 
-## 製品進捗（2026-11-04確認）
+## 製品進捗（2026-11-06更新）
 
-以下はGitHubの統合済みPRとmain `1b32d4d` の確認結果。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
+FL-09B2までの基礎記録はGitHubの統合済みPRとmain `1b32d4d` の確認結果。FL-09B3はIssue #42の本branchで実装した状態で、mainへの統合は未実施。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
 
 | 範囲 | 確認した状態 |
 |---|---|
@@ -12,7 +12,8 @@
 | FL-09A | PR #29は統合済み。production起動・S3 storage部品。backend/frontend/ci-required成功を確認 |
 | FL-09B1（#30） | 承認済みの認証IP選択とCloudFront Function部品を実装。本branchの品質結果は別途記録 |
 | FL-09B2（#32） | 専用VPC・非公開S3/ECR・IAM・logsのTerraform基盤とmock planテストを実装。実AWS未接続 |
-| FL-09Bの残り | ALB/CloudFront/ECS/RDSの定義、TerraformのCI組込み、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
+| FL-09B3（#42） | CloudFront/ALB/OACの公開入口・API転送・キャッシュ無効・空target groupとmock planテストを実装。公開既定無効、実AWS未接続 |
+| FL-09Bの残り | ECS/RDS・CA/秘密注入の定義、TerraformのCI組込み、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
 | FL-10 | 最終E2E・性能・AWS撮影証跡の照合は未実施 |
 
 FL-09B1の[設計と検証範囲](fl-09b-client-ip-design.md)、[公開前条件](production-readiness.md)参照。実装済み部品からAWS動作完了を推定しない。

@@ -29,3 +29,18 @@ output "backend_log_group" {
 output "role_arns" {
   value = { for key, role in aws_iam_role.ecs : key => role.arn }
 }
+
+output "distribution" {
+  description = "Future endpoint metadata; disabled by default and not evidence of deployment or readiness."
+  value = {
+    id          = aws_cloudfront_distribution.edge.id
+    arn         = aws_cloudfront_distribution.edge.arn
+    domain_name = aws_cloudfront_distribution.edge.domain_name
+    url         = "https://${aws_cloudfront_distribution.edge.domain_name}"
+  }
+}
+
+output "api_target_group_arn" {
+  description = "Empty target group for the follow-up ECS service."
+  value       = aws_lb_target_group.api.arn
+}
