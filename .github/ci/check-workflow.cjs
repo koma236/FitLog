@@ -39,7 +39,7 @@ module.exports = function validate(document, config) {
       keys(job, ['runs-on', 'timeout-minutes', 'steps'], 'no Terraform execution overrides')
       same(job.steps.length, 4, 'checkout, setup, entrypoint tests and real checks')
       same(job.steps[1], {
-        uses: 'hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd',
+        uses: 'hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e',
         with: { terraform_version: '1.15.1', terraform_wrapper: false },
       }, 'immutable official setup with exact CLI version and no wrapper')
       same(job.steps.slice(2), [

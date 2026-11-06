@@ -9,6 +9,8 @@ const root = __dirname
 const document = yaml.load(fs.readFileSync(fs.existsSync(path.join(root, 'workflow.yml')) ? path.join(root, 'workflow.yml') : path.join(root, '../workflows/ci.yml'), 'utf8'))
 const config = fs.readFileSync(fs.existsSync(path.join(root, 'project.toml')) ? path.join(root, 'project.toml') : path.join(root, '../../.ai-dev/project.toml'), 'utf8')
 assert(document.jobs.terraform, 'Terraform must run on every PR/main')
+// Oracle: official v4.0.1 tag and its node24 action.yml, verified for Issue #49.
+assert.equal(document.jobs.terraform.steps[1].uses, 'hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e', 'use the verified Node.js 24 release')
 const baseline = () => structuredClone(document)
 assert.doesNotThrow(() => validate(baseline(), config))
 const negative = (name, change) => {
@@ -58,8 +60,12 @@ negative('Terraform command omitted', value => { value.jobs.terraform.steps.pop(
 negative('Terraform wrong version', value => { value.jobs.terraform.steps[1].with.terraform_version = 'latest' })
 negative('Terraform wrapper enabled', value => { value.jobs.terraform.steps[1].with.terraform_wrapper = true })
 negative('mutable setup action', value => { value.jobs.terraform.steps[1].uses = 'hashicorp/setup-terraform@v3' })
+negative('old Node.js 20 setup action', value => { value.jobs.terraform.steps[1].uses = 'hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd' })
+negative('mutable setup major tag', value => { value.jobs.terraform.steps[1].uses = 'hashicorp/setup-terraform@v4' })
+negative('mutable setup release tag', value => { value.jobs.terraform.steps[1].uses = 'hashicorp/setup-terraform@v4.0.1' })
+negative('unapproved setup commit', value => { value.jobs.terraform.steps[1].uses = 'hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85' })
 negative('Terraform credentials', value => { value.jobs.terraform.env = { AWS_ACCESS_KEY_ID: '${{ secrets.AWS_KEY }}' } })
 negative('Terraform OIDC', value => { value.jobs.terraform.permissions = { 'id-token': 'write' } })
 negative('missing script tests', value => { value.jobs.terraform.steps.splice(2, 1) })
 negative('unsafe Bash startup', value => { value.jobs.terraform.steps.at(-1).run = 'bash .github/ci/terraform-checks.sh' })
-console.log('workflow: valid configuration and 46 negative fixtures passed')
+console.log('workflow: valid configuration and 50 negative fixtures passed')
