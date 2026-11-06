@@ -161,7 +161,7 @@ def collect(
                               f'{manifest.environment}/') + r'[a-f0-9]{32}', task))
     deadline = time.monotonic() + timeout
     while True:
-        manifest.authorize(datetime.now(UTC))
+        manifest.authorize(datetime.now(UTC), step)
         result = api.call('ecs', 'describe_tasks', cluster=manifest.environment, tasks=[task])
         require(not result.get('failures') and len(result['tasks']) == 1)
         actual = result['tasks'][0]

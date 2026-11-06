@@ -12,6 +12,22 @@ python3 -B -m unittest discover -s scripts/deployment -p 'test_*.py'
 python3 -B scripts/deployment/deploy.py --manifest /protected/manifest.json
 ```
 
+準備中の未決値を含む設定は `--draft` を付けて検査する。項目省略/nullは許容し、入力済み値と未知項目を検査する。draftはAWS指定と併用できない。
+
+```sh
+python3 -B scripts/deployment/deploy.py --manifest /protected/draft.json --draft
+```
+
+例えば `{"schema_version":1,"region":"ap-northeast-1","account":null,"resources":{"backend_task":null}}` は有効な下書き。実行用manifestでは全項目を埋める。追加必須項目は `state: {"path":"/protected/environment/terraform.tfstate","sha256":"<実内容の64桁SHA256>"}` と `approval.steps`。後者は `inspect/static/bootstrap-inspect/bootstrap/migrate/seed/check/verify` から今回許可された工程だけを列挙する。検査だけの承認なら `["inspect"]` とし、bootstrap等は接続前に拒否される。再収集でも当該工程の許可が必要。
+
+stateは実行者が所有する非symlinkの通常ファイル、親directory0700・file0600（readonlyなら0400）で保護し、pathはsymlinkのない正規絶対pathを記録する。内容hashを次のローカル操作で取得できる。本文を表示/共有しない。
+
+```sh
+python3 -c 'import hashlib; from pathlib import Path; print(hashlib.sha256(Path("/protected/environment/terraform.tfstate").read_bytes()).hexdigest())'
+```
+
+AWS接続前にpath/保護/hashを照合する。各Terraform apply後は同じstate pathの新hashをmanifestへ反映し、承認stepsと期限も実承認範囲で照合する。hash更新では既存runの先行証跡との対応を維持し、state pathが変われば同runの対応は不一致となる。state自体の正当性は保存planとAWS正本で確認する。
+
 manifestの完全schema/公開fixtureは `scripts/deployment/test_contract.py::fixture`。実用時は架空accountを実accountへ置換し、`resources`をTerraformの**非秘密outputを選択して**転記する。bootstrap task ARNはbootstrap_runner、Web task ARNはbackend_service、master secret ARN/hostはdatabase、SG/subnets/distributionも照合する。secret値を入力しない。approval.referenceはチャットの対象操作承認記録を指し、budget_usd/expires_atを埋める。
 
 証跡pathはrepo外の専用0700フォルダ、ファイル0600。失敗runも残す。同時操作禁止。CLIはそのフォルダのdeployment.lockをmkdirで取得し終了時返却する。このlockは別path/別端末の操作を防がないため、operatorを1主体に限定する。lockは古さで除去しない。中断時はprocess/taskの残存を調べ、本人承認後に自分の空lockだけ除去する。

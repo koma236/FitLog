@@ -1,4 +1,5 @@
 """Offline contract oracles from the approved FL-09B7 design, not AWS outputs."""
+import hashlib
 import json
 import sys
 import tempfile
@@ -19,7 +20,10 @@ def fixture():
         'source_revision': 'b' * 40, 'image_digest': 'sha256:' + 'a' * 64,
         'frontend_sha256': 'c' * 64,
         'bootstrap_id': '22222222-2222-4222-8222-222222222222',
+        'state': {'path': '/protected/terraform.tfstate', 'sha256': 'd' * 64},
         'approval': {'reference': 'chat-aws-approval-1', 'budget_usd': '20.00',
+                     'steps': ['inspect', 'static', 'bootstrap-inspect', 'bootstrap',
+                               'migrate', 'seed', 'check', 'verify'],
                      'expires_at': (datetime.now(UTC) + timedelta(hours=2)).isoformat()},
         'resources': {
             'distribution': 'EFITLOGTEST', 'database_host': 'fixture.ap-northeast-1.rds.amazonaws.com',
@@ -31,6 +35,17 @@ def fixture():
             'security_group': 'sg-00000000000000001',
         },
     }
+
+
+def protected_state(data, root):
+    directory = root.resolve() / 'state'
+    directory.mkdir(mode=0o700)
+    path = directory / 'terraform.tfstate'
+    content = b'{"version":4,"fixture":"LOCAL-STATE-MUST-NOT-LEAK"}'
+    path.write_bytes(content)
+    path.chmod(0o600)
+    data['state'] = {'path': str(path), 'sha256': hashlib.sha256(content).hexdigest()}
+    return path
 
 
 class ContractTests(unittest.TestCase):

@@ -8,13 +8,14 @@
 | account / operator | 個人専用12桁account、STSで照合するrole完全ARN。既存の共有/会社資格を使わない |
 | 配置先 | ap-northeast-1、実利用可能な2AZ、PG17完全minor/db.t4g.micro/CAの提供確認、prefix-list/SG quota |
 | 対象 | 初回/再構築の異なるenvironment名、各resource ID/ARN、snapshot ID/DbiResourceId、bootstrap UUID、source commit、ECR digest |
-| 秘密の保管 | state/tfvars/保存plan/バックアップの絶対pathと0700/0600保護、保持期限、アクセス担当。秘密値を申請へ貼らない |
+| 秘密の保管 | state/tfvars/保存plan/バックアップの絶対pathと0700/0600保護、保持期限、アクセス担当。manifest.stateへ正規絶対path/実内容SHA256を記録。秘密値を申請へ貼らない |
 | 期間 | UTC/JSTの開始、最大公開時間、停止期限、再構築の期限、残存確認日と担当 |
 | 上限 | 2構築分のUSD見積りと上限、JPY参考額の為替/税/余裕、残存費用の上限・許容期限 |
 | 単価根拠 | 実行日にAWS公式料金表/Calculatorで確認。free tierを前提にしない |
 | 数量 | Fargate通常1/更新最大2/one-off、public IPv4、ALB+LCU、RDS+20GiB+backup/snapshot、S3/ECR/log/secret/API/転送量、対照distribution/fixture |
 | 公開 | CloudFront既定ドメインの一時公開、public signup、origin区間HTTP、試験成功後のURL共有範囲。動画外部公開は含めない |
 | 変更 | ECR限定初回作成、image/static送信、専用IAM/runner、初期化/migration/seed、service/proxy/public切替、障害時distribution無効化/service0 |
+| CLI許可工程 | 承認したinspect/static/bootstrap-inspect/bootstrap/migrate/seed/check/verifyだけをmanifest.approval.stepsへ転記。収集再開も対象工程の現承認を必要とする。公開/破棄等の手動工程の実承認も別途明示 |
 | 破棄 | デモDB/画像/static/ECR/対照fixture削除、RDS保護解除、通常destroy、final snapshot/保持backup削除、2回目構築と再破棄 |
 | 残すもの | ローカル映像/非秘密証跡/秘密state。7日削除待ちsecretの消滅予定日と後日確認。既存共有資源は対象外 |
 | 停止判断 | 期限/見込み費用上限に達する前の停止担当・退避・連絡先。Budget通知はhard capではない |

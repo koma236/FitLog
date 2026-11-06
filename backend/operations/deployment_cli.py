@@ -15,6 +15,7 @@ from typing import Any
 from operations.deployment_assets import upload
 from operations.deployment_aws import Api, Gateway, collect, preflight, task_definition
 from operations.deployment_contract import (
+    OPERATIONS,
     STEPS,
     DeploymentError,
     Manifest,
@@ -32,6 +33,7 @@ def identity(manifest: Manifest) -> str:
     """Allow reviewed task revisions/expiry updates without changing the deployment."""
     data = json.loads(canonical(manifest.data))
     del data['approval']
+    del data['state']['sha256']  # Terraform apply updates bytes, not the run's state path.
     del data['resources']['backend_task'], data['resources']['bootstrap_task']
     return hashlib.sha256(canonical(data)).hexdigest()
 
@@ -79,6 +81,7 @@ def execute(
     verify_input: dict[str, Any] | None = None, resume_task: str | None = None,
 ) -> str:
     """Intent is durable before RunTask. An unknown outcome requires reconciliation."""
+    manifest.authorize(datetime.now(UTC), step)
     if step != 'verify':
         require(phase == 'private' and verify_input is None)
     else:
@@ -111,7 +114,7 @@ def execute(
     intent_path = folder / f"{manifest.data['run_id']}-{label}.intent"
     if resume_task is None:
         save_private(intent_path, intent)
-        manifest.authorize(datetime.now(UTC))
+        manifest.authorize(datetime.now(UTC), step)
         result = api.call('ecs', 'run_task', cluster=manifest.environment,
                           taskDefinition=task_definition(manifest, step), count=1,
                           launchType='FARGATE', platformVersion='1.4.0',
@@ -204,8 +207,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--manifest', type=Path, required=True)
     parser.add_argument('--evidence', type=Path)
     parser.add_argument('--aws-approved', action='store_true')
-    parser.add_argument('--step', choices=('inspect', 'bootstrap-inspect', 'bootstrap', 'migrate',
-                                          'seed', 'check', 'verify', 'static'), default='inspect')
+    parser.add_argument('--draft', action='store_true', help='Validate incomplete metadata offline')
+    parser.add_argument('--step', choices=OPERATIONS, default='inspect')
     parser.add_argument('--phase', choices=('private', 'backend', 'public'), default='private')
     parser.add_argument('--verify-input', type=Path)
     parser.add_argument('--collect-task', help='Reconcile an existing intent; never launches a task')
@@ -218,13 +221,17 @@ def main(argv: list[str] | None = None) -> int:
     logging.disable(logging.CRITICAL)
     try:
         args = parser.parse_args(argv)
-        manifest = Manifest.parse(json.loads(args.manifest.read_text()))
+        require(not (args.draft and args.aws_approved))
+        manifest = Manifest.parse(json.loads(args.manifest.read_text()), draft=args.draft)
         if not args.aws_approved:
-            require(args.step == 'inspect' and args.evidence is None and args.verify_input is None)
-            print(json.dumps({'event': 'deployment_manifest_validated',
+            require(args.step == 'inspect' and args.evidence is None and args.verify_input is None
+                    and args.collect_task is None and args.static_root is None and args.assets is None)
+            event = 'deployment_manifest_draft_validated' if args.draft else 'deployment_manifest_validated'
+            print(json.dumps({'event': event,
                               'manifest_sha256': manifest.fingerprint}))
             return 0
-        manifest.authorize(datetime.now(UTC))
+        manifest.authorize(datetime.now(UTC), args.step)
+        manifest.validate_state()
         require(args.evidence is not None)
         args.evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
         require(not args.evidence.is_symlink() and args.evidence.stat().st_mode & 0o777 == 0o700)

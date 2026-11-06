@@ -5,14 +5,19 @@ import hashlib
 import json
 import os
 import re
+import stat
 import uuid
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
+from functools import partial
 from pathlib import Path
 from typing import Any
 
 REGION = 'ap-northeast-1'
+OPERATIONS = ('inspect', 'static', 'bootstrap-inspect', 'bootstrap', 'migrate', 'seed',
+              'check', 'verify')
 STEPS = ('inspect', 'bootstrap-inspect', 'bootstrap', 'migrate', 'seed', 'check',
          'backend', 'verify', 'verify-backend-database', 'verify-public-database',
          'verify-public-permissions', 'verify-public-ip',
@@ -40,57 +45,101 @@ def canonical(value: object) -> bytes:
     return json.dumps(value, sort_keys=True, separators=(',', ':'), allow_nan=False).encode()
 
 
+def _fields(value: Any, names: set[str], draft: bool) -> dict[str, Any]:
+    require(isinstance(value, dict) and set(value) <= names
+            and (draft or set(value) == names))
+    assert isinstance(value, dict)
+    return value
+
+
+def _field(data: dict[str, Any], name: str, draft: bool,
+           check: Callable[[Any], bool]) -> None:
+    value = data.get(name)
+    if value is None:
+        require(draft)
+    else:
+        require(check(value))
+
+
+def _timestamp(value: Any) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        return datetime.fromisoformat(value).tzinfo is not None
+    except ValueError:
+        return False
+
+
+def _absolute_path(value: Any) -> bool:
+    return (isinstance(value, str) and 0 < len(value) <= 4096 and '\x00' not in value
+            and Path(value).is_absolute() and '..' not in Path(value).parts)
+
+
 @dataclass(frozen=True)
 class Manifest:
     """Validated metadata; authorize separately immediately before AWS operations."""
 
     data: dict[str, Any]
+    draft: bool = False
 
     @classmethod
-    def parse(cls, data: Any) -> Manifest:
-        require(isinstance(data, dict) and set(data) == {
+    def parse(cls, data: Any, *, draft: bool = False) -> Manifest:
+        data = _fields(data, {
             'schema_version', 'run_id', 'account', 'region', 'environment', 'source_revision',
-            'image_digest', 'frontend_sha256', 'bootstrap_id', 'approval', 'resources',
-        })
-        require(data['schema_version'] == 1 and data['region'] == REGION)
-        require(matches(r'[0-9]{12}', data['account']))
-        env = data['environment']
-        require(matches(r'fitlog-demo-[a-z0-9]+(?:-[a-z0-9]+)*', env) and len(env) <= 24)
+            'image_digest', 'frontend_sha256', 'bootstrap_id', 'approval', 'resources', 'state',
+        }, draft)
+        _field(data, 'schema_version', draft, lambda v: type(v) is int and v == 1)
+        _field(data, 'region', draft, lambda v: v == REGION)
+        _field(data, 'account', draft, lambda v: matches(r'[0-9]{12}', v))
+        _field(data, 'environment', draft, lambda v:
+               matches(r'fitlog-demo-[a-z0-9]+(?:-[a-z0-9]+)*', v) and len(v) <= 24)
         for name in ('run_id', 'bootstrap_id'):
-            require(isinstance(data[name], str) and str(uuid.UUID(data[name])) == data[name])
-        require(matches(r'[a-f0-9]{40}', data['source_revision']))
-        require(matches(r'sha256:[a-f0-9]{64}', data['image_digest']))
-        require(matches(r'[a-f0-9]{64}', data['frontend_sha256']))
-        approval = data['approval']
-        require(isinstance(approval, dict) and set(approval) == {
-            'reference', 'budget_usd', 'expires_at',
-        })
-        require(matches(r'[a-zA-Z0-9_.:/#-]{1,160}', approval['reference']))
-        require(matches(r'[0-9]{1,6}\.[0-9]{2}', approval['budget_usd'])
-                and Decimal(approval['budget_usd']) > 0)
-        expiry = datetime.fromisoformat(approval['expires_at'])
-        require(expiry.tzinfo is not None)
-        resources = data['resources']
-        require(isinstance(resources, dict) and set(resources) == {
+            _field(data, name, draft, lambda v:
+                   matches(r'[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}', v))
+        for name, pattern in (('source_revision', r'[a-f0-9]{40}'),
+                              ('image_digest', r'sha256:[a-f0-9]{64}'),
+                              ('frontend_sha256', r'[a-f0-9]{64}')):
+            _field(data, name, draft, partial(matches, pattern))
+        if data.get('approval') is not None or not draft:
+            approval = _fields(data.get('approval'), {
+                'reference', 'budget_usd', 'expires_at', 'steps'}, draft)
+            _field(approval, 'reference', draft, lambda v: matches(r'[a-zA-Z0-9_.:/#-]{1,160}', v))
+            _field(approval, 'budget_usd', draft, lambda v:
+                   matches(r'[0-9]{1,6}\.[0-9]{2}', v) and Decimal(v) > 0)
+            _field(approval, 'expires_at', draft, _timestamp)
+            _field(approval, 'steps', draft, lambda v:
+                   isinstance(v, list) and 0 < len(v) <= len(OPERATIONS)
+                   and all(isinstance(step, str) and step in OPERATIONS for step in v)
+                   and len(set(v)) == len(v))
+        if data.get('state') is not None or not draft:
+            state = _fields(data.get('state'), {'path', 'sha256'}, draft)
+            _field(state, 'path', draft, _absolute_path)
+            _field(state, 'sha256', draft, lambda v: matches(r'[a-f0-9]{64}', v))
+        if data.get('resources') is None and draft:
+            return cls(json.loads(canonical(data)), draft=True)
+        resources = _fields(data.get('resources'), {
             'distribution', 'database_host', 'application_secret', 'master_secret',
             'backend_task', 'bootstrap_task', 'subnets', 'security_group',
-        })
-        account = data['account']
-        require(matches(r'[A-Z0-9]{1,32}', resources['distribution']))
-        require(matches(r'[a-z0-9.-]+\.ap-northeast-1\.rds\.amazonaws\.com',
-                        resources['database_host']))
+        }, draft)
+        account = re.escape(data['account']) if data.get('account') else r'[0-9]{12}'
+        env = (re.escape(data['environment']) if data.get('environment')
+               else r'fitlog-demo-[a-z0-9]+(?:-[a-z0-9]+)*')
+        _field(resources, 'distribution', draft, lambda v: matches(r'[A-Z0-9]{1,32}', v))
+        _field(resources, 'database_host', draft, lambda v:
+               matches(r'[a-z0-9.-]+\.ap-northeast-1\.rds\.amazonaws\.com', v))
         prefix = f'arn:aws:secretsmanager:{REGION}:{account}:secret:'
-        require(matches(re.escape(prefix + env + '/application-') + r'[A-Za-z0-9]{6}',
-                        resources['application_secret']))
-        require(matches(re.escape(prefix) + r'rds!db-[A-Za-z0-9-]+', resources['master_secret']))
+        _field(resources, 'application_secret', draft, lambda v:
+               matches(prefix + env + r'/application-[A-Za-z0-9]{6}', v))
+        _field(resources, 'master_secret', draft, lambda v:
+               matches(prefix + r'rds!db-[A-Za-z0-9-]+', v))
         for role in ('backend', 'bootstrap'):
-            require(matches(re.escape(f'arn:aws:ecs:{REGION}:{account}:task-definition/{env}-')
-                            + role + r':[1-9][0-9]*', resources[role + '_task']))
-        require(isinstance(resources['subnets'], list) and len(resources['subnets']) == 2
-                and all(matches(r'subnet-[a-f0-9]{17}', v) for v in resources['subnets'])
-                and len(set(resources['subnets'])) == 2)
-        require(matches(r'sg-[a-f0-9]{17}', resources['security_group']))
-        return cls(json.loads(canonical(data)))
+            pattern = f'arn:aws:ecs:{REGION}:{account}:task-definition/{env}-{role}:[1-9][0-9]*'
+            _field(resources, role + '_task', draft, partial(matches, pattern))
+        _field(resources, 'subnets', draft, lambda v:
+               isinstance(v, list) and len(v) == 2
+               and all(matches(r'subnet-[a-f0-9]{17}', item) for item in v) and len(set(v)) == 2)
+        _field(resources, 'security_group', draft, lambda v: matches(r'sg-[a-f0-9]{17}', v))
+        return cls(json.loads(canonical(data)), draft=draft)
 
     @property
     def fingerprint(self) -> str:
@@ -104,9 +153,26 @@ class Manifest:
     def resources(self) -> dict[str, Any]:
         return dict(self.data['resources'])
 
-    def authorize(self, now: datetime) -> None:
-        require(now.tzinfo is not None
+    def authorize(self, now: datetime, step: str | None = None) -> None:
+        require(not self.draft and now.tzinfo is not None
                 and now < datetime.fromisoformat(self.data['approval']['expires_at']))
+        if step is not None:
+            require(step in self.data['approval']['steps'])
+
+    def validate_state(self) -> None:
+        """Bind the protected local artifact without displaying/parsing secret state."""
+        require(not self.draft)
+        path = Path(self.data['state']['path'])
+        require(path == path.resolve(strict=True)
+                and path.parent.stat().st_mode & 0o777 == 0o700
+                and path.parent.stat().st_uid == os.getuid())
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd, 'rb') as stream:
+            metadata = os.fstat(stream.fileno())
+            require(stat.S_ISREG(metadata.st_mode) and metadata.st_uid == os.getuid()
+                    and stat.S_IMODE(metadata.st_mode) in (0o400, 0o600))
+            digest = hashlib.file_digest(stream, 'sha256').hexdigest()
+        require(digest == self.data['state']['sha256'])
 
 
 def write_evidence(

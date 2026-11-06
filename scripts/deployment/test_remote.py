@@ -8,7 +8,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
-from test_contract import fixture
+from test_contract import fixture, protected_state
 
 from operations.deployment_aws import collect, preflight
 from operations.deployment_cli import execute, identity, main, validate_verify_input
@@ -121,9 +121,10 @@ class EnvironmentApi(Fake):
 class ExecutionTests(unittest.TestCase):
     def test_evidence_matches_executed_mode_when_input_file_changes(self):
         data = fixture()
-        manifest = Manifest.parse(data)
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
+            protected_state(data, root)
+            manifest = Manifest.parse(data)
             evidence = root / 'evidence'
             write_evidence(evidence, manifest, 'check', 'pass',
                            deployment_identity=identity(manifest))

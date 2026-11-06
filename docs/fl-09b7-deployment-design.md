@@ -20,6 +20,12 @@ CI/Compose/依存lock/checks台帳/OpenAPI/Django migration/製品認証認可�
 
 manifestはschema version、実行UUID、期待account/region/environment、承認記録参照、費用/期限、source commit、frontend成果物sha256、backend ECR digest、保護stateのローカル参照、resource ID/ARN、bootstrap UUIDを持つ。local draftは未決値を許す。AWSモードは空欄/期限切れ/他account/region/environment/未承認工程を拒否する。承認参照は監査補助で、人間の実承認を代替しない。
 
+`--draft`はローカル専用で、未決値は項目省略またはnullで表す。入力済み値・未知項目・既知account/environmentとARNの不一致は完全manifestと同じ規則で拒否する。draftとAWS指定の併用は拒否し、draftオブジェクトは全項目が揃っても実行権限を持たない。
+
+`state={path,sha256}`はstateファイルの正規絶対pathと実内容SHA256。AWS接続前に非symlinkの通常file、実行者所有、親0700・file0600または0400、hash一致を確認し、state本文を出力/証跡へ保存しない。これは参照artifactの拘束であり、state内容のTerraform上の意味的正当性は保存planとAWS metadata照合で確認する。各apply後はhashを更新し、同runでstate pathを変更しない。run identityからは変更可能なstate hash・承認情報・task revisionを除き、各呼出しのmanifest hashには全値を含める。
+
+`approval.steps`は実装済みCLI工程inspect/static/bootstrap-inspect/bootstrap/migrate/seed/check/verifyから選ぶ重複なしの非空一覧。現在工程がなければGateway接続前に拒否し、collect-onlyも現在の承認へ同工程を必要とする。verifyのphase/modeは別途既存guardで照合する。人間の承認内容をこの一覧へ転記する責任と、その真正性の確認はoperatorが担う。
+
 証跡はsnapshot/commit、開始終了UTC、工程、manifest hash、task ARN/digest、exit code、観測点、pass/fail/not_runをrunごとに保存。失敗/timeout/判定不能を成功にしない。再実行前にAWS正本を照合。SDK例外本文、秘密、SCRAM verifier、state/plan JSON、origin header、Cookie/token/password、HTTP全header/bodyを記録しない。保存先0700・記録0600。映像は合成デモデータのUIのみ。
 
 manifestだけを正本にせずTerraform管理対象の非秘密metadataとSTS/Describe/tagsを相互照合。output全体のdumpをしない。raw state/保存planは秘密扱い。環境名一致だけで削除対象を決めない。
@@ -140,7 +146,7 @@ Highリスク。承認後、実装前に `docs/superpowers/plans/2026-11-06-fl-0
 - [PutSecretValueの既存version不変契約](https://docs.aws.amazon.com/secretsmanager/latest/apireference/API_PutSecretValue.html)
 - [CloudWatch Logs読取り権限](https://docs.aws.amazon.com/AmazonCloudWatch/latest/logs/permissions-reference-cwl.html)
 
-## 実装時の差異
+## manifestの運用境界
 
-品質レビューで、manifestの文書上の保証範囲と実schemaの差を確認した。実装は全値が揃ったmanifestを検査し、未決値のlocal draft検査・state pathの機械管理・承認工程ごとのallowlistを提供していない。承認reference/金額/期限の形式と期限は検査するが、実承認範囲/保護stateの対応はoperatorが申請書と正本で照合する。実AWSモードの明示opt-inと実AWSの別承認方針は維持する。Medium指摘としてPRへ記録し、これらの追加機能へ範囲を広げない。この差異の承認前に品質フラグを発行せず、mergeしない。
+下書き検査・保護stateの参照とhash照合・工程別承認一覧の強制を提供する。承認referenceやstepsは人間の実承認を暗号的に証明するものではない。operatorは実承認を正しく転記し、state/planの意味とAWS正本の対象を照合する。実AWSモードの明示opt-inと実AWSの別承認を必要とする。
 

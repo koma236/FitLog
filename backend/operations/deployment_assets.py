@@ -29,13 +29,14 @@ def bundle(root: Path) -> dict[str, Any]:
 
 
 def upload(api: Api, manifest: Manifest, root: Path, assets: dict[str, Any]) -> None:
+    manifest.authorize(datetime.now(UTC), 'static')
     require(bundle(root) == assets and assets['sha256'] == manifest.data['frontend_sha256'])
     bucket = f"{manifest.environment}-static-{manifest.data['account']}-{REGION}"
     api.call('s3', 'head_bucket', Bucket=bucket, ExpectedBucketOwner=manifest.data['account'])
     # Read and verify each object again immediately before sending it. A source
     # mutation fails this run; it cannot silently deploy a different artifact.
     for item in assets['files']:
-        manifest.authorize(datetime.now(UTC))
+        manifest.authorize(datetime.now(UTC), 'static')
         path = root / item['key']
         require(not path.is_symlink())
         content = path.read_bytes()
