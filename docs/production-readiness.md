@@ -84,3 +84,8 @@ PR/mainのTerraform jobは資格情報を渡さず、既存mock/plan・依存グ
 ## FL-09B7 配置準備（Issue #52）
 
 [承認設計](fl-09b7-deployment-design.md)と[runbook](fl-09b7-deployment-runbook.md)で、専用bootstrap task/role、Web非管理者roleのmigration・seed・verify、manifest/完了証跡、公開試験・撮影・破棄・新環境での再構築を定義する。先行CI更新PR #51は統合済み・ci-required成功を確認。実AWS API/配置/秘密値投入/公開/実権限/撮影/破棄/再構築は未実施。[申請様式](fl-09b7-aws-approval-template.md)にaccount・費用上限・期間・対象削除を具体化し別承認後に実行する。RDS保護解除は既定falseで、final snapshot/保持backup/7日削除待ちsecretの残存確認を省略しない。
+
+## FL-10B / FL-09B8 課金前準備（Issue #55）
+
+2026-11-07。[性能試験仕様](13_performance_test.md)と[ローカル実測](fl-10b-local-results.md)を追加した。専用PostgreSQL/画像volume・共有runtime排他で通常/最大境界/画像/認証集中を分離し、共有DB resetは行わない。Django開発server/ローカルstorageの合格をAWS/RDS/S3/Gunicornの実証へ読み替えない。
+[AWS readiness](fl-09b8-prebilling-readiness.md)は既存配置CLIのオフラインdraft予行と工程・証跡の対応表、[費用](fl-10b-aws-costs.md)は公式公開単価による2構築/保持数量の仮定である。実account/role/予算/期限は未決、実AWS操作・撮影・破棄/再構築・後日請求確認は未承認/未実施。削除予約済みsecretは課金なしだが残存/名前衝突確認が必要で、未削除secretやsnapshot/backup等の費用と区別する。
