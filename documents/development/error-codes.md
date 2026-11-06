@@ -63,3 +63,9 @@ PAYMENT_VALIDATION_ERROR
 
 **Note**: When adding new error codes, place them in the appropriate category.
 If no suitable category exists, create a new section.
+
+### Bootstrap operator command (CLI)
+
+| Event | Exit | Description |
+|---|---|---|
+| `bootstrap_failed` | 2 | 初期化コマンドの入力・対象・状態・権限・外部処理の失敗。秘密や上流例外を表示せず停止。同じoperation UUIDで状態を再検証する。詳細は `docs/fl-09b6-bootstrap-runbook.md` |
