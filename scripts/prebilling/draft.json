@@ -1,0 +1,9 @@
+{
+  "schema_version": 1,
+  "region": "ap-northeast-1",
+  "account": null,
+  "environment": null,
+  "approval": null,
+  "state": null,
+  "resources": {"backend_task": null, "bootstrap_task": null}
+}

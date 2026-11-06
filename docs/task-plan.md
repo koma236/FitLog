@@ -77,3 +77,8 @@ FL-09で撮影と破棄を行い、FL-10で証跡を仕上げる。FL-10待ち�
 ## CI-01（Issue #13）
 
 既存11チェック相当をbackend/frontend jobで実行し、ci-requiredへ集約する。PRとmain pushで起動し、独立レビュー等はハーネス側。実run成功後にmain rulesetのPR/strict/Actions必須/bypassなし/削除・nonFF禁止を適用し、結果をPRへ記録する。未解決flakeがあれば必須化・workflowのみのmerge・次機能着手はユーザー判断まで保留する。
+
+## FL-10B / FL-09B8 課金前準備（Issue #55）
+
+2026-11-07。担当Bで[固定性能試験](13_performance_test.md)・[ローカル実測](fl-10b-local-results.md)・[AWS実行前準備](fl-09b8-prebilling-readiness.md)・[2構築費用](fl-10b-aws-costs.md)を追加した。通常/最大境界は各5人・1000投稿・5分/1500要求を実行し、画像/認証集中は別DBで確認。各実行の合否・環境・source・件数・cleanupは結果文書を参照。
+実AWS接続/資格確認/配置/公開/撮影/2構築・破棄/課金停止・後日請求確認はnot_run。account/role/AZ/予算/実期限は未決で、実AWS操作は別承認。FL-09/10全体完了ではない。Aのブラウザ/E2E・撮影と分担し、統合順はB→A。登録11 checksと品質レビューの最終証跡はPRへ記録する。
