@@ -28,6 +28,8 @@ python3 -c 'import hashlib; from pathlib import Path; print(hashlib.sha256(Path(
 
 AWS接続前にpath/保護/hashを照合する。各Terraform apply後は同じstate pathの新hashをmanifestへ反映し、承認stepsと期限も実承認範囲で照合する。hash更新では既存runの先行証跡との対応を維持し、state pathが変われば同runの対応は不一致となる。state自体の正当性は保存planとAWS正本で確認する。
 
+初回接続前に証跡folderへ `<run UUID>-binding.json` を保存し、以降の全工程で同じ不変identityを照合する。inspect→static等にも適用し、state path/対象の変更は接続前に拒否する。bindingを削除・編集して通さず、誤った対象で開始したrunは新run UUIDへ移る。書込み不完了も成功扱いしない。
+
 manifestの完全schema/公開fixtureは `scripts/deployment/test_contract.py::fixture`。実用時は架空accountを実accountへ置換し、`resources`をTerraformの**非秘密outputを選択して**転記する。bootstrap task ARNはbootstrap_runner、Web task ARNはbackend_service、master secret ARN/hostはdatabase、SG/subnets/distributionも照合する。secret値を入力しない。approval.referenceはチャットの対象操作承認記録を指し、budget_usd/expires_atを埋める。
 
 証跡pathはrepo外の専用0700フォルダ、ファイル0600。失敗runも残す。同時操作禁止。CLIはそのフォルダのdeployment.lockをmkdirで取得し終了時返却する。このlockは別path/別端末の操作を防がないため、operatorを1主体に限定する。lockは古さで除去しない。中断時はprocess/taskの残存を調べ、本人承認後に自分の空lockだけ除去する。

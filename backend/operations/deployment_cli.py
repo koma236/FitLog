@@ -47,6 +47,20 @@ def save_private(path: Path, data: object) -> None:
         os.fsync(stream.fileno())
 
 
+def bind_run(folder: Path, manifest: Manifest) -> None:
+    """Pin immutable run metadata before every AWS connection, including static."""
+    path = folder / f"{manifest.data['run_id']}-binding.json"
+    binding = {'run_id': manifest.data['run_id'], 'deployment_identity': identity(manifest)}
+    if path.exists() or path.is_symlink():
+        require(not path.is_symlink())
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+        with os.fdopen(fd) as stream:
+            require(json.load(stream) == binding)
+    else:
+        # An incomplete local write fails closed. No AWS connection has begun.
+        save_private(path, binding)
+
+
 def predecessor(folder: Path, manifest: Manifest, step: str) -> None:
     if step not in PREVIOUS:
         return
@@ -238,6 +252,7 @@ def main(argv: list[str] | None = None) -> int:
         candidate = args.evidence / 'deployment.lock'
         candidate.mkdir()  # Do not steal another operator's lock.
         lock = candidate
+        bind_run(args.evidence, manifest)
         api = Gateway.connect()
         task = None
         verify_input = None

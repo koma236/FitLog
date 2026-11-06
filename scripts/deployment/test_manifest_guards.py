@@ -1,4 +1,5 @@
 """Approved draft/state/operation boundaries exercised without AWS credentials."""
+import hashlib
 import io
 import json
 import tempfile
@@ -17,11 +18,12 @@ from operations.deployment_contract import DeploymentError, Manifest
 
 
 class ManifestGuardTests(unittest.TestCase):
-    def invoke(self, data, root, *arguments):
+    def invoke(self, data, root, *arguments, api=None):
         source = root / 'manifest.json'
         source.write_text(json.dumps(data))
         output, error = io.StringIO(), io.StringIO()
-        with patch('operations.deployment_cli.Gateway.connect', return_value=EnvironmentApi()) as gateway, \
+        with patch('operations.deployment_cli.Gateway.connect',
+                   return_value=api if api is not None else EnvironmentApi()) as gateway, \
                 redirect_stdout(output), redirect_stderr(error):
             result = main(['--manifest', str(source), *arguments])
         return result, output.getvalue(), error.getvalue(), gateway
@@ -147,3 +149,47 @@ class ManifestGuardTests(unittest.TestCase):
             with self.assertRaises(DeploymentError):
                 upload(api, Manifest.parse(data), root, assets)
             self.assertEqual(api.calls, [])
+
+    def test_state_binding_applies_across_inspect_and_static(self):
+        class StaticApi(EnvironmentApi):
+            def call(self, service, operation, **kwargs):
+                if operation in ('head_bucket', 'put_object'):
+                    self.calls.append((service, operation, kwargs))
+                    return {}
+                return super().call(service, operation, **kwargs)
+
+        for change_path in (True, False):
+            with self.subTest(change_path=change_path), tempfile.TemporaryDirectory() as folder:
+                root = Path(folder)
+                data = fixture()
+                state = protected_state(data, root)
+                assets_root = root / 'static'
+                assets_root.mkdir()
+                (assets_root / 'index.html').write_text('public fixture')
+                assets = bundle(assets_root)
+                assets_path = root / 'assets.json'
+                assets_path.write_text(json.dumps(assets))
+                data['frontend_sha256'] = assets['sha256']
+                evidence = root / 'evidence'
+                result, _, _, _ = self.invoke(data, root, '--aws-approved',
+                                              '--evidence', str(evidence))
+                self.assertEqual(result, 0)
+                if change_path:
+                    other = state.parent / 'other.tfstate'
+                    other.write_bytes(state.read_bytes())
+                    other.chmod(0o600)
+                    data['state']['path'] = str(other)
+                else:
+                    # A legitimate apply changes state bytes but keeps its run-bound path.
+                    state.write_text('{"version":4,"serial":2}')
+                    data['state']['sha256'] = hashlib.sha256(state.read_bytes()).hexdigest()
+                api = StaticApi()
+                result, _, _, gateway = self.invoke(data, root, '--aws-approved',
+                    '--evidence', str(evidence), '--step', 'static',
+                    '--static-root', str(assets_root), '--assets', str(assets_path), api=api)
+                self.assertEqual(result, 2 if change_path else 0)
+                if change_path:
+                    gateway.assert_not_called()
+                    self.assertEqual(api.calls, [])
+                else:
+                    self.assertEqual(sum(op == 'put_object' for _, op, _ in api.calls), 1)

@@ -26,6 +26,8 @@ manifestはschema version、実行UUID、期待account/region/environment、承�
 
 `approval.steps`は実装済みCLI工程inspect/static/bootstrap-inspect/bootstrap/migrate/seed/check/verifyから選ぶ重複なしの非空一覧。現在工程がなければGateway接続前に拒否し、collect-onlyも現在の承認へ同工程を必要とする。verifyのphase/modeは別途既存guardで照合する。人間の承認内容をこの一覧へ転記する責任と、その真正性の確認はoperatorが担う。
 
+同じrun UUIDの全AWS工程は、専用証跡folderのlock内で不変identityのbindingを保存・照合してから接続する。先行工程のないinspect/bootstrap-inspectやstaticも対象で、同じ内容のstateを別pathへ移しても拒否する。bindingの不完全/不一致を上書きして通さず、新しい対象で開始する場合は新run UUIDを使う。保存前の失敗ではAWSへ接続しない。
+
 証跡はsnapshot/commit、開始終了UTC、工程、manifest hash、task ARN/digest、exit code、観測点、pass/fail/not_runをrunごとに保存。失敗/timeout/判定不能を成功にしない。再実行前にAWS正本を照合。SDK例外本文、秘密、SCRAM verifier、state/plan JSON、origin header、Cookie/token/password、HTTP全header/bodyを記録しない。保存先0700・記録0600。映像は合成デモデータのUIのみ。
 
 manifestだけを正本にせずTerraform管理対象の非秘密metadataとSTS/Describe/tagsを相互照合。output全体のdumpをしない。raw state/保存planは秘密扱い。環境名一致だけで削除対象を決めない。
