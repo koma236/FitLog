@@ -1,14 +1,17 @@
 """Task completion requires ECS and same-task log evidence independently."""
+import io
 import json
 import tempfile
 import unittest
+from contextlib import redirect_stdout
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from unittest.mock import patch
 
 from test_contract import fixture
 
 from operations.deployment_aws import collect, preflight
-from operations.deployment_cli import execute, identity, validate_verify_input
+from operations.deployment_cli import execute, identity, main, validate_verify_input
 from operations.deployment_contract import DeploymentError, Manifest, write_evidence
 
 TASK = 'arn:aws:ecs:ap-northeast-1:123456789012:task/fitlog-demo-test/' + 'd' * 32
@@ -116,6 +119,60 @@ class EnvironmentApi(Fake):
 
 
 class ExecutionTests(unittest.TestCase):
+    def test_evidence_matches_executed_mode_when_input_file_changes(self):
+        data = fixture()
+        manifest = Manifest.parse(data)
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            evidence = root / 'evidence'
+            write_evidence(evidence, manifest, 'check', 'pass',
+                           deployment_identity=identity(manifest))
+            source = root / 'input.json'
+            source.write_text(json.dumps({'mode': 'database', 'parameters': {}}))
+            manifest_path = root / 'manifest.json'
+            manifest_path.write_text(json.dumps(data))
+
+            class PublicApi(EnvironmentApi):
+                def call(self, service, operation, **kwargs):
+                    result = super().call(service, operation, **kwargs)
+                    if operation == 'describe_services':
+                        result['services'][0].update(desiredCount=1, runningCount=1)
+                    elif (operation == 'describe_task_definition'
+                          and kwargs['taskDefinition'] == data['resources']['backend_task']):
+                        for item in result['taskDefinition']['containerDefinitions'][0]['environment']:
+                            if item['name'] == 'FITLOG_TRUST_PROXY':
+                                item['value'] = '1'
+                            if item['name'] == 'FITLOG_AUTH_CLIENT_IP_SOURCE':
+                                item['value'] = 'cloudfront'
+                    elif operation == 'get_distribution':
+                        result['Distribution']['DistributionConfig']['Enabled'] = True
+                    elif operation == 'run_task':
+                        source.write_text(json.dumps({'mode': 'permissions', 'parameters': {
+                            'account': data['account'],
+                            'application_secret': data['resources']['application_secret'],
+                            'master_secret': data['resources']['master_secret'],
+                            'version': data['bootstrap_id'], 'fixture_verified': True}}))
+                    return result
+
+            api = PublicApi(event={'event': 'deployment_step_completed', 'step': 'verify',
+                                   'run_id': data['run_id']})
+            with patch('operations.deployment_cli.Gateway.connect', return_value=api), \
+                    redirect_stdout(io.StringIO()):
+                result = main(['--manifest', str(manifest_path), '--evidence', str(evidence),
+                               '--aws-approved', '--step', 'verify', '--phase', 'public',
+                               '--verify-input', str(source)])
+            self.assertEqual(result, 0)
+            # ECS receives database verification; changing the file must not certify permissions.
+            request = next(args for service, op, args in api.calls if op == 'run_task')
+            sent = json.loads(request['overrides']['containerOverrides'][0]['environment'][0]['value'])
+            self.assertEqual(sent, {'mode': 'database', 'parameters': {}})
+            self.assertFalse((evidence / (data['run_id'] + '-verify-public-permissions.json')).exists())
+            receipt = json.loads((evidence / (data['run_id'] + '-verify-public-database.json')).read_text())
+            self.assertEqual(receipt['status'], 'pass')
+            # SHA256 of the hand-specified empty JSON object, independent of CLI helpers.
+            self.assertEqual(receipt['parameters_sha256'],
+                             '44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a')
+
     def test_success_and_duplicate_intent_never_launches_second_task(self):
         manifest = Manifest.parse(fixture())
         api = EnvironmentApi()

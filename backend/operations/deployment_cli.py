@@ -248,8 +248,7 @@ def main(argv: list[str] | None = None) -> int:
             verify_input = json.loads(args.verify_input.read_text()) if args.verify_input else None
             task = execute(api, manifest, args.evidence, args.step, args.phase, verify_input,
                            args.collect_task)
-        label = step_label(args.step, args.phase,
-                           json.loads(args.verify_input.read_text()) if args.verify_input else None)
+        label = step_label(args.step, args.phase, verify_input)
         parameters_hash = (hashlib.sha256(canonical(verify_input['parameters'])).hexdigest()
                            if verify_input is not None else None)
         write_evidence(args.evidence, manifest, label, 'pass', task, 0 if task else None, started_at,
