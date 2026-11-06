@@ -10,31 +10,22 @@ check() {
     exit 1
   fi
 }
-# The oracle is a fixed table: only success/success may authorize merging.
-while read -r backend frontend expected; do
-  check "$expected" "$backend" "$frontend"
-done <<'CASES'
-success success 0
-success failure 1
-success cancelled 1
-success skipped 1
-failure success 1
-failure failure 1
-failure cancelled 1
-failure skipped 1
-cancelled success 1
-cancelled failure 1
-cancelled cancelled 1
-cancelled skipped 1
-skipped success 1
-skipped failure 1
-skipped cancelled 1
-skipped skipped 1
-CASES
+# Oracle: the single accepted row is fixed; enumerate all 4^3 result states.
+for backend in success failure cancelled skipped; do
+  for frontend in success failure cancelled skipped; do
+    for terraform in success failure cancelled skipped; do
+      expected=1
+      if [[ "$backend/$frontend/$terraform" == success/success/success ]]; then expected=0; fi
+      check "$expected" "$backend" "$frontend" "$terraform"
+    done
+  done
+done
 check 2
 check 2 success
-check 2 success success success
-check 2 '' success
-check 2 success unknown
-check 2 'success; exit 0' success
-printf 'required-status: 16 states and 6 invalid-input cases passed\n'
+check 2 success success
+check 2 success success success success
+check 2 '' success success
+check 2 success unknown success
+check 2 success success unknown
+check 2 'success; exit 0' success success
+printf 'required-status: 64 states and 8 invalid-input cases passed\n'

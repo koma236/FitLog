@@ -76,3 +76,7 @@ SDK設定の原典: [botocore Config](https://docs.aws.amazon.com/botocore/lates
 
 本番依存の照合で、既存DRF 3.16.1の公開High（GHSA-33wh-fxxf-88vvなど）を検出したため、DRFだけを3.18.3へ更新した。他の既存packageの一括更新は行わない。healthのAccept処理も到達するため、FL-09Bへ修正を先送りしない。12KBの過大Accept tokenは406、上限内のJSON指定は200になることと既存API全件を検査する。型stubは既存版のままstrict検査する。
 原典: [DRF 3.18.3 security release](https://github.com/encode/django-rest-framework/releases/tag/3.18.3)、[Accept処理のadvisory](https://github.com/encode/django-rest-framework/security/advisories/GHSA-33wh-fxxf-88vv)。
+
+## Terraform CI（FL-09B5 / Issue #46）
+
+PR/mainのTerraform jobは資格情報を渡さず、既存mock/plan・依存グラフ・入力負例・Function testを検証する。backend/frontend/terraformすべてのsuccessをci-requiredで必須化する。[共通入口と実行契約](../terraform/README.md#ciと共通入口fl-09b5)参照。mock/CI成功は実RDS/S3/IAM/公開経路や課金停止の実証を代替しない。実AWSの操作・秘密投入・DB初期化は後続の承認範囲。

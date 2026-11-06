@@ -2,7 +2,7 @@
 const assert = require('node:assert/strict')
 const same = (actual, expected, label) => assert.deepEqual(actual, expected, label)
 const keys = (value, expected, label) => same(Object.keys(value).sort(), [...expected].sort(), label)
-const command = 'bash .github/ci/required-status.sh "$BACKEND_RESULT" "$FRONTEND_RESULT"'
+const command = 'bash .github/ci/required-status.sh "$BACKEND_RESULT" "$FRONTEND_RESULT" "$TERRAFORM_RESULT"'
 module.exports = function validate(document, config) {
   keys(document, ['name', 'on', 'permissions', 'concurrency', 'jobs'], 'no workflow execution overrides')
   same(document.name, 'CI', 'stable workflow name')
@@ -12,37 +12,52 @@ module.exports = function validate(document, config) {
     group: '${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.run_id }}',
     'cancel-in-progress': "${{ github.event_name == 'pull_request' }}",
   }, 'only superseded PRs may cancel')
-  same(Object.keys(document.jobs).sort(), ['backend', 'ci-required', 'frontend'], 'required jobs')
+  same(Object.keys(document.jobs).sort(), ['backend', 'ci-required', 'frontend', 'terraform'], 'required jobs')
   const gate = document.jobs['ci-required']
   keys(gate, ['if', 'needs', 'runs-on', 'timeout-minutes', 'steps'], 'no aggregate job execution overrides')
   same(gate.if, 'always()', 'aggregate after failed, cancelled, or skipped dependencies')
-  same(gate.needs, ['backend', 'frontend'], 'both job results are necessary')
+  same(gate.needs, ['backend', 'frontend', 'terraform'], 'all three job results are necessary')
   same(gate.steps.length, 2, 'checkout followed by the aggregate script')
   keys(gate.steps[1], ['name', 'env', 'run'], 'aggregate must execute unconditionally with the default shell')
   same(gate.steps[1].run, command, 'run the tested predicate')
   same(gate.steps[1].env, {
     BACKEND_RESULT: '${{ needs.backend.result }}',
     FRONTEND_RESULT: '${{ needs.frontend.result }}',
+    TERRAFORM_RESULT: '${{ needs.terraform.result }}',
   }, 'pass actual job results, never fabricated success')
   for (const [name, job] of Object.entries(document.jobs)) {
     same(job['runs-on'], 'ubuntu-24.04', 'explicit hosted runner')
     same(job['timeout-minutes'], name === 'ci-required' ? 2 : 20, 'bounded execution')
     assert.equal(job['continue-on-error'], undefined)
     assert.equal(job.permissions, undefined, 'no elevated per-job token')
-    if (name !== 'ci-required') {
+    if (name === 'backend' || name === 'frontend') {
       keys(job, ['runs-on', 'timeout-minutes', 'env', 'steps'], 'no check job execution overrides')
       same(job.env, { COMPOSE_PROJECT_NAME: `fitlog-ci-\${{ github.run_id }}-\${{ github.run_attempt }}-${name}` }, 'ephemeral project')
       same(job.steps.at(-1), { name: 'Cleanup', if: 'always()', run: 'docker compose down --volumes --remove-orphans' }, 'always clean only the isolated project')
     }
-    for (const step of job.steps) {
+    if (name === 'terraform') {
+      keys(job, ['runs-on', 'timeout-minutes', 'steps'], 'no Terraform execution overrides')
+      same(job.steps.length, 4, 'checkout, setup, entrypoint tests and real checks')
+      same(job.steps[1], {
+        uses: 'hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd',
+        with: { terraform_version: '1.15.1', terraform_wrapper: false },
+      }, 'immutable official setup with exact CLI version and no wrapper')
+      same(job.steps.slice(2), [
+        { name: 'Terraform entrypoint contract tests', run: 'node --test .github/ci/test-terraform-checks.cjs' },
+        { name: 'Terraform and Function checks', run: 'bash -p .github/ci/terraform-checks.sh' },
+      ], 'run both Terraform contract tests and real verification unconditionally')
+    }
+    for (const [index, step] of job.steps.entries()) {
       assert.equal(step['continue-on-error'], undefined, 'never ignore failure')
-      if (step.uses) {
+      if (name === 'terraform' && index === 1) {
+        // Fully checked above; only this position accepts setup-terraform.
+      } else if (step.uses) {
         keys(step, ['uses', 'with'], 'checkout has no execution overrides')
         assert.match(step.uses, /^actions\/checkout@[a-f0-9]{40}$/, 'immutable official checkout')
         same(step.with, { 'persist-credentials': false }, 'discard checkout credentials')
       } else {
         const expected = name === 'ci-required' ? ['name', 'env', 'run']
-          : step === job.steps.at(-1) ? ['name', 'if', 'run'] : ['name', 'run']
+          : name !== 'terraform' && step === job.steps.at(-1) ? ['name', 'if', 'run'] : ['name', 'run']
         keys(step, expected, 'only the final cleanup may have a condition')
         assert.equal(typeof step.run, 'string')
         assert(!/\|\||continue-on-error|--service-ports|\bretry\b|exit\s+0\b/.test(step.run), 'no green-on-error or published dev ports')
