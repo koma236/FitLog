@@ -51,7 +51,8 @@ class Aws:
                                   endpoint_url="https://ecs.ap-northeast-1.amazonaws.com"),
                    session.client("secretsmanager", config=config,
                                   endpoint_url="https://secretsmanager.ap-northeast-1.amazonaws.com"),
-                   session.client("cloudfront", config=config,
+                   # A fixed global endpoint bypasses the SDK's signing-region inference.
+                   session.client("cloudfront", config=config.merge(Config(region_name="us-east-1")),
                                   endpoint_url="https://cloudfront.amazonaws.com"),
                    session.client("elbv2", config=config,
                                   endpoint_url="https://elasticloadbalancing.ap-northeast-1.amazonaws.com"))

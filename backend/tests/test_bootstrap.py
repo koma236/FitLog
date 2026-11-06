@@ -350,3 +350,58 @@ class LeaseGuardTests(unittest.TestCase):
             SecretStore(client, Request(ACCOUNT, ENV, ENV, ARN, 'E1', TOKEN)).load_or_create(guard)
         client.put_secret_value.assert_not_called()
         client.get_secret_value.assert_not_called()
+
+
+class SignatureScopeTests(unittest.TestCase):
+    def test_fixed_endpoints_sign_for_each_service_region_without_network(self) -> None:
+        import re
+        from unittest.mock import patch
+
+        from botocore.awsrequest import AWSPreparedRequest
+
+        from operations.aws import Aws
+
+        class SendCaptured(Exception):
+            pass
+
+        scopes: list[tuple[str, str]] = []
+
+        def capture(request: AWSPreparedRequest, **kwargs: object) -> None:
+            assert request.headers is not None
+            authorization = request.headers.get('Authorization')
+            assert isinstance(authorization, (str, bytes))
+            text = authorization.decode() if isinstance(authorization, bytes) else authorization
+            matched = re.search(r'Credential=[^/]+/[0-9]{8}/([^/]+)/([^/]+)/aws4_request', text)
+            assert matched is not None
+            scopes.append((matched.group(1), matched.group(2)))
+            raise SendCaptured()
+
+        with patch.dict('os.environ', {'AWS_ACCESS_KEY_ID': 'public-fixture',
+                                      'AWS_SECRET_ACCESS_KEY': 'public-fixture',
+                                      'AWS_EC2_METADATA_DISABLED': 'true',
+                                      'AWS_ENDPOINT_URL': 'http://127.0.0.1:1',
+                                      'AWS_ENDPOINT_URL_CLOUDFRONT': 'http://127.0.0.1:2'},
+                        clear=True):
+            aws = Aws.connect()
+            cases = (
+                (aws.sts, lambda: aws.sts.get_caller_identity(), 'ap-northeast-1', 'sts'),
+                (aws.rds, lambda: aws.rds.describe_db_instances(DBInstanceIdentifier=ENV),
+                 'ap-northeast-1', 'rds'),
+                (aws.ecs, lambda: aws.ecs.describe_services(cluster=ENV, services=[ENV + '-backend']),
+                 'ap-northeast-1', 'ecs'),
+                (aws.secrets, lambda: aws.secrets.describe_secret(SecretId=ARN),
+                 'ap-northeast-1', 'secretsmanager'),
+                (aws.cloudfront, lambda: aws.cloudfront.list_tags_for_resource(
+                    Resource=f'arn:aws:cloudfront::{ACCOUNT}:distribution/E1'),
+                 'us-east-1', 'cloudfront'),
+                (aws.elbv2, lambda: aws.elbv2.describe_load_balancers(Names=[ENV + '-api']),
+                 'ap-northeast-1', 'elasticloadbalancing'),
+            )
+            for client, invoke, region, service in cases:
+                with self.subTest(service=service):
+                    client.meta.events.register('before-send.*.*', capture)
+                    before = len(scopes)
+                    with self.assertRaises(SendCaptured):
+                        invoke()
+                    self.assertEqual(len(scopes), before + 1)
+                    self.assertEqual(scopes[-1], (region, service))

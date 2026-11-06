@@ -27,6 +27,8 @@ backendをcwdにして `python -m operations.bootstrap --help` で確認でき�
 
 regionは東京固定。cluster/service/container/ALB名は既存Terraform規則で導出し、別環境混在・稼働タスク・有効な公開distributionを拒否する。SDK endpointは公式commercial AWS endpointへ固定し、環境変数からの独自endpointへ転送しない。password/DSN/profile/任意SQLはCLI入力にしない。SDK標準credential chainの実行用roleを使う。秘密値をCLI、環境dump、build引数、Terraform、ファイル、チャットへ転記しない。
 
+CloudFrontのglobal APIだけは署名scopeをus-east-1/cloudfrontとする。他の5clientはap-northeast-1で署名する。これはglobal APIの署名設定であり、配置先を東京以外へ変える設定ではない。
+
 ## 処理と復旧
 
 1. 対象metadataと停止状態を照合。管理資格をメモリ内で読み、RDS正本の接続先へTLS接続する。

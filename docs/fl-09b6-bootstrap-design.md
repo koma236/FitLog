@@ -119,3 +119,9 @@ Highリスク。実装前test-designを記録しTDDで以下を確認する。
 H4はDB session lock喪失後の別UUID遅延書込み競合。ユーザーが[永続予約方式](fl-09b6-durable-claim-proposal.md)と追加設計レビュー1回を「はい、許可します」と承認。追加レビューはHigh0/Medium1（結果不明なら現在の実行で秘密を書かず終了し、新しい同UUID実行で再検証する単位へ具体化）。予約tableと状態遷移を実装し、実run経路の応答喪失・lease喪失・遅延Putの両到着順を専用DBで検証した。
 
 元設計との差異は、秘密保存より前にoperation claimをcommitする点と、管理schema内の予約table追加。CLI/秘密JSON/Web IAM/アプリAPI/本番依存/実AWS対象範囲は維持する。品質初回レビュー前の全11 checks結果を変更後の合格として流用せず、再実行と残り品質レビューを行う。
+
+## 手動相互レビューのHigh対応
+
+Claude Opus 5.5の対象head `191fd60be0e68ff8022ee2818cd8e861219b953c` へのコメント（6678727399）で、固定endpoint利用時のCloudFront署名scopeが東京になる指摘を確認した。CloudFront clientだけus-east-1のConfigを合成し、残る5clientと配置先は東京を維持する。全6clientの実SDK送信直前でAuthorizationのregion/serviceを捕捉し、修正前はCloudFrontのみ失敗することを確認した。通信は送信前に停止する。
+
+根拠は[AWS CloudFront endpoints](https://docs.aws.amazon.com/general/latest/gr/cf_region.html)と固定botocore 1.43.123のendpointルール。Medium/Lowは運用規定どおりPR本文へ記録し、今回の修正範囲を広げない。通常品質レビューは既に2/2巡を使用済みのため、追加の独立検証レビュー枠の承認前は品質フラグを再発行しない。
