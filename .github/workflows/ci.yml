@@ -76,17 +76,34 @@ jobs:
         if: always()
         run: docker compose down --volumes --remove-orphans
 
+  terraform:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.15.1
+          terraform_wrapper: false
+      - name: Terraform entrypoint contract tests
+        run: node --test .github/ci/test-terraform-checks.cjs
+      - name: Terraform and Function checks
+        run: bash -p .github/ci/terraform-checks.sh
+
   ci-required:
     if: always()
-    needs: [backend, frontend]
+    needs: [backend, frontend, terraform]
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - name: Require both jobs to succeed
+      - name: Require all three jobs to succeed
         env:
           BACKEND_RESULT: ${{ needs.backend.result }}
           FRONTEND_RESULT: ${{ needs.frontend.result }}
-        run: bash .github/ci/required-status.sh "$BACKEND_RESULT" "$FRONTEND_RESULT"
+          TERRAFORM_RESULT: ${{ needs.terraform.result }}
+        run: bash .github/ci/required-status.sh "$BACKEND_RESULT" "$FRONTEND_RESULT" "$TERRAFORM_RESULT"
