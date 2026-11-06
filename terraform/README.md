@@ -1,6 +1,6 @@
 # Terraform — FitLogデモ基盤
 
-FL-09B2（Issue #32）で基盤、FL-09B3（Issue #42、2026-11-06）でCloudFront/ALB/OACの公開入口とmock planテストを実装。AWS資源の作成・疎通・実権限評価は未実施。下段の構築・配置・撮影・破棄手順は、後続作業の設計草案として区別する。
+FL-09B2（Issue #32）で基盤、FL-09B3（Issue #42）でCloudFront/ALB/OAC、FL-09B4（Issue #44、2026-11-06）でECS/RDS・秘密参照・公開RDS CAを構成定義。AWS資源の作成・疎通・実権限評価は未実施。下段の構築・配置・撮影・破棄手順は後続の草案。
 
 ## 実装済みの範囲
 
@@ -10,11 +10,26 @@ Terraform **1.15.1**、公式AWS provider **6.71.0**をexact pinし、`.terrafor
 - ingress/app/databaseの専用SG。ingress受信はCloudFront origin-facing IPv4 managed prefix listのTCP80だけ、ingress→app TCP8000、app→DB TCP5432、appのIPv4 TCP443外向きだけを許可。exclusive rule setsで既定の広いegressを残さず、DBからの外向き通信はなし。inline SG ruleとstandalone ruleの所有を混在させない。
 - private static/media S3、owner enforced、public access全block、AES256。非TLSの非AWS-service要求を明示拒否する。AWS service principalの例外はアクセス許可を追加しない。staticだけに自distribution ARN限定のCloudFront GetObject grantを付与する。mediaへのgrantはない。
 - immutable/scanned/AES256のbackend ECR、7日保存のlog group。自動image削除はしない。
-- task roleはmediaのimages/* Get/Put/Deleteとprefix=images/でのListだけ。execution roleは対象ECR取得・registry token・対象log stream書込みだけ。信頼先は同account/東京のECS task。Secrets Manager/SSM/DB/image書込み等の権限はまだない。
+- task roleはmediaのimages/* Get/Put/Deleteとprefix=images/でのListだけ。execution roleは対象ECR取得・registry token・対象log stream書込みとapplication secret完全ARNのGetSecretValueだけ。信頼先は同account/東京のECS task。両roleにDB管理secretの読取り・DB管理・SSM・image書込みは許可しない。
 
 `expected_account_id`（12桁）、`environment_name`（fitlog-demo-から始まる最大24文字）、`availability_zones`（異なる東京AZ2つ）が入力。providerはexpected account以外を拒否する。mockはこの実account照合や実際のAZ提供状況を検証しない。将来実行時には本人の専用account・利用可能AZも確認する。
 
-ECS/RDS・秘密/CAの注入・配置は未定義。outputsは基盤識別子と将来用distribution URL/target group ARNを返す。distributionは既定で無効、target groupも空なので、URL出力は稼働・疎通成功を示さない。アプリのIP判定の信頼設定も有効化しない。**TerraformのCI組込みは実AWS構築へ進む前に必要な後続タスク**であり、現行CIの11 checks/ci-requiredは変更していない。
+ECS/RDS・秘密の参照とCA同梱はB4で定義。outputsは識別子・将来用URLとDB/secretのmetadataだけ。distribution無効・service0 taskが既定のためURLは稼働を示さない。実配置・秘密の値投入・DB初期化は後続。**TerraformのCI組込みは実AWS構築前に必要な別タスク**で、現行11 checks/ci-requiredは変更していない。
+
+## FL-09B4のruntime
+
+[承認設計](../docs/fl-09b4-runtime-design.md)が契約の正本。
+
+- FargateはLinux/x86_64・platform1.4.0・0.25vCPU/1GiB。既存public subnet＋public IPで外向き443を使いNATなし。受信8000はALB SGだけ。既定0 task、明示起動時1 task、ローリング時最大2 task。CPU/memoryや実経路の十分性は未実証。
+- 非公開RDS PostgreSQL 17系/db.t4g.micro/Single-AZ/gp3 20GiB、暗号化、TLS強制とverify-full、rds-ca-rsa2048-g1。削除保護、1日backup、final snapshot、削除後backup保持を指定。保護解除・snapshot/backup削除と課金停止の実証は別途承認する破棄工程で扱う。
+- RDS管理secretはWeb task/executionから読めない。application secretの本体だけを作り、3つのJSON keyを起動時注入する。Terraformへ値を渡さずsecret version/data sourceも作らない。別途、非管理者fitlog_appの作成と同じDB password、Django/HMACの異なる秘密を投入する。未投入でもIaC定義の検査はできるが、task起動は成功しない。
+- secret更新後は新taskへの置換が必要。secretはprocessの環境変数から読めるためenv dump/debug/logへ出さない。application secretは削除後7日待機となり、同名再作成衝突と残存費用をdestroy/rebuild工程で扱う。
+- 公開CAは[公開物と固定hash](../backend/certs/README.md)をimageへ同梱しbuildでhash検査。起動時download/fallbackなし。ローカルTLS正負例は自作テストCAで実PostgreSQLへ接続する検証であり、実RDSのCA/接続実証は後続。
+- serviceはrouting/SG exclusive rules/IAM/listenerの完成と存続を待つ。ALB healthはDB非依存live、readiness/未適用migration/S3確認は別。awslogsはnon-blocking/4mで、buffer枯渇時のログ欠落可能性がある。
+
+追加必須入力は `backend_image_digest`（sha256＋小文字hex64桁）、`backend_source_revision`（ビルド元Git commit40桁）、`postgres_engine_version`（17の完全minor）、`db_final_snapshot_identifier`（環境名-final-から始まる未使用名）。例示17.6はmock fixtureであり東京での提供保証ではない。実操作前にengine/class/CA対応とimageのcommit/digest対応を照合する。
+
+`enable_backend_service` と `enable_proxy_trust` は既定false。public=trueは両方true以外を拒否する。proxy=true時だけproductionの専用proto/IP header信頼を有効化する。必須入力のnull/欠落は拒否し、既定falseフラグの明示nullはTerraform仕様によりfalseへ戻る。これらのフラグを実境界検証の証拠にせず、実URL共有前に両API/偽装拒否/CSRF/Cookie/IPを検証する。
 
 ## FL-09B3の公開入口
 
@@ -38,7 +53,7 @@ AWS管理prefix listのweightは55で、TCP80の1ポートだけに適用する�
 ```sh
 terraform -chdir=terraform fmt -check -recursive
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform init -backend=false -input=false -lockfile=readonly
-python3 -B -m unittest discover -s terraform/tests -p test_dependency_graph.py
+python3 -B -m unittest discover -s terraform/tests -p 'test_*.py'
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform validate
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform test -no-color
 ```
@@ -47,7 +62,16 @@ env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTO
 
 mock成功はAPI可用性・AWSでのIAM評価・SG疎通・account照合・課金の実証ではない。real providerのplan/apply/destroyはこのタスクで実行しない。
 
-依存グラフの回帰テストは資格情報なしで `terraform graph` を実行し、public ALBがpublic route associationとIGW接続の完成を待つことを検査する。初回構築の順序をmockの計画値だけで保証せず、実グラフも確認する。初回は先に上記`init`でproviderを取得してから実行する。
+依存グラフの回帰は資格情報なしで `terraform graph` を実行し、ALBのpublic routing待ちとECSのrouting/SG/IAM/listener待ちを検査する。必須入力のnull/欠落テストは一時test directoryでmockの実診断を検査し、finallyで除去する。初回は先に上記initを実行する。
+
+共有runtime排他下のproduction検証（実AWSなし、host port非公開）：
+
+```sh
+python3 -B backend/tests/production_ca_smoke.py
+docker build --platform linux/amd64 --file backend/Dockerfile.production --tag fitlog-fl09b4-production-44 .
+python3 -B backend/tests/production_smoke.py
+PYTHONPATH=backend python3 -B -m tests.production_tls_smoke
+```
 
 ## stateとデータ削除
 
@@ -85,4 +109,4 @@ FL-09B3で自distributionの両API behaviorへの関連付けと、このheader�
 stateやlockを手で消して成功扱いにしない。エラー対象と依存関係を修正し、同じstateでdestroyを再実行する。課金停止はプロセス停止ではなく対象資源の消滅で確認する。
 
 ## 未確定
-実AWS用の実コマンド、ECS/RDS/CA/秘密注入、総費用、所要時間は未確定。公開入口の構成定義はFL-09B3で追加したが、実経路は未検証。[インフラ設計](../docs/09_infrastructure.md)に過去の主要料金試算を記載しているが、実構築前に現在の条件で再見積もりする。ブラウザ側のCloudFront既定HTTPSは方針確定。実AWS操作は今回含まない。
+実AWS用コマンド、秘密値/DB roleの初期化、配置/破棄/再構築、総費用/所要時間は後続。ECS/RDS/CA/秘密参照は定義済みだが実経路は未検証。[インフラ設計](../docs/09_infrastructure.md)の過去料金に加えてsecret/backup/snapshot等も実構築前に再見積もりする。実AWS操作は今回含まない。

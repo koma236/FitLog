@@ -4,10 +4,14 @@ mock_provider "aws" {
 }
 
 variables {
-  origin_verify_secret = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
-  expected_account_id  = "123456789012"
-  environment_name     = "fitlog-demo-test"
-  availability_zones   = ["ap-northeast-1a", "ap-northeast-1c"]
+  backend_image_digest         = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  backend_source_revision      = "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  postgres_engine_version      = "17.6"
+  db_final_snapshot_identifier = "fitlog-demo-test-final-fixture"
+  origin_verify_secret         = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+  expected_account_id          = "123456789012"
+  environment_name             = "fitlog-demo-test"
+  availability_zones           = ["ap-northeast-1a", "ap-northeast-1c"]
 }
 
 # Only provider-computed identifiers are fixtures. Policies and rules stay real.
@@ -49,7 +53,7 @@ override_resource {
 override_resource {
   override_during = plan
   target          = aws_ecr_repository.backend
-  values          = { arn = "arn:aws:ecr:ap-northeast-1:123456789012:repository/fitlog-demo-test/backend" }
+  values          = { arn = "arn:aws:ecr:ap-northeast-1:123456789012:repository/fitlog-demo-test/backend", repository_url = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/fitlog-demo-test/backend" }
 }
 override_resource {
   override_during = plan
@@ -60,12 +64,12 @@ override_resource {
 override_resource {
   override_during = plan
   target          = aws_iam_role.ecs["task"]
-  values          = { id = "fitlog-demo-test-task" }
+  values          = { id = "fitlog-demo-test-task", arn = "arn:aws:iam::123456789012:role/fitlog-demo-test-task" }
 }
 override_resource {
   override_during = plan
   target          = aws_iam_role.ecs["execution"]
-  values          = { id = "fitlog-demo-test-execution" }
+  values          = { id = "fitlog-demo-test-execution", arn = "arn:aws:iam::123456789012:role/fitlog-demo-test-execution" }
 }
 override_resource {
   override_during = plan

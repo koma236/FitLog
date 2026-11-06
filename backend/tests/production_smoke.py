@@ -1,6 +1,6 @@
 """Host-side smoke: isolated Docker containers, no published ports or AWS access.
 
-Run after building fitlog-fl09a-production, while holding the FitLog runtime lease:
+Run after building fitlog-fl09b4-production-44, while holding the FitLog runtime lease:
 python3 backend/tests/production_smoke.py
 """
 import json
@@ -8,7 +8,7 @@ import os
 import subprocess
 from pathlib import Path
 
-IMAGE = "fitlog-fl09a-production"
+IMAGE = "fitlog-fl09b4-production-44"
 ENV = {
     "DJANGO_SECRET_KEY": "S" * 64,
     "AUTH_RATE_LIMIT_HMAC_KEY": "H" * 64,
@@ -20,9 +20,10 @@ ENV = {
     "POSTGRES_DB": "fitlog",
     "POSTGRES_USER": "fitlog",
     "POSTGRES_PASSWORD": "smoke-only-password",
-    "POSTGRES_SSLROOTCERT": "/etc/ssl/certs/ca-certificates.crt",
+    "POSTGRES_SSLROOTCERT": "/app/certs/rds-ap-northeast-1-bundle.pem",
     "AWS_EC2_METADATA_DISABLED": "true",
     "FITLOG_LOG_FORMAT": "json",
+    "FITLOG_APP_VERSION": "0123456789abcdef0123456789abcdef01234567",
 }
 
 
@@ -91,6 +92,7 @@ assert request("GET","/api/auth/csrf","d111111abcdef8.cloudfront.net") == 200
             logs += full.stderr
             assert all(value not in logs for value in ("PRIVATE", "Traceback", "smoke-only-password", "S" * 64, "H" * 64))
             rows = [json.loads(line) for line in logs.splitlines()]
+            assert rows and all(row["app_version"] == ENV["FITLOG_APP_VERSION"] for row in rows)
             assert any(row["event"] == "server_info" for row in rows)
             if probe:
                 assert any(row["event"] == "server_error" and row["level"] == "ERROR" for row in rows)

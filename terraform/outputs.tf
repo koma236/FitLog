@@ -41,6 +41,30 @@ output "distribution" {
 }
 
 output "api_target_group_arn" {
-  description = "Empty target group for the follow-up ECS service."
+  description = "Backend IP target group; ECS owns target registration, with zero tasks by default."
   value       = aws_lb_target_group.api.arn
+}
+
+output "database" {
+  description = "Database and administrator secret metadata only; no credentials or readiness assertion."
+  value = {
+    identifier        = aws_db_instance.runtime.identifier
+    address           = aws_db_instance.runtime.address
+    port              = aws_db_instance.runtime.port
+    name              = aws_db_instance.runtime.db_name
+    master_secret_arn = one(aws_db_instance.runtime.master_user_secret).secret_arn
+  }
+}
+
+output "application_secret_arn" {
+  description = "Secret container only; its values and non-admin DB role must be provisioned separately."
+  value       = aws_secretsmanager_secret.application.arn
+}
+
+output "backend_service" {
+  value = {
+    cluster         = aws_ecs_cluster.runtime.name
+    name            = aws_ecs_service.backend.name
+    task_definition = aws_ecs_task_definition.backend.arn
+  }
 }

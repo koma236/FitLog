@@ -47,3 +47,62 @@ variable "enable_public_distribution" {
   nullable    = false
   default     = false
 }
+
+variable "backend_image_digest" {
+  description = "Immutable SHA256 digest of the production image in this environment's ECR."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = can(regex("^sha256:[0-9a-f]{64}$", var.backend_image_digest))
+    error_message = "Supply a lowercase sha256 digest, never a repository URL or tag."
+  }
+}
+
+variable "backend_source_revision" {
+  description = "Full Git commit used to build the backend image; verify artifact correspondence before deployment."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = can(regex("^[0-9a-f]{40}$", var.backend_source_revision))
+    error_message = "Supply the forty-character lowercase Git commit of the image source."
+  }
+}
+
+variable "postgres_engine_version" {
+  description = "Exact PostgreSQL 17 minor version; verify Tokyo availability before real AWS operations."
+  type        = string
+  nullable    = false
+  validation {
+    condition     = can(regex("^17\\.[0-9]+$", var.postgres_engine_version))
+    error_message = "Supply an exact PostgreSQL 17 minor version, such as 17.6."
+  }
+}
+
+variable "db_final_snapshot_identifier" {
+  description = "Unused environment-specific final snapshot name; deletion remains separately approved."
+  type        = string
+  nullable    = false
+  validation {
+    condition = (
+      startswith(var.db_final_snapshot_identifier, "${var.environment_name}-final-") &&
+      length(var.db_final_snapshot_identifier) <= 255 &&
+      can(regex("^[a-zA-Z][a-zA-Z0-9-]*[a-zA-Z0-9]$", var.db_final_snapshot_identifier)) &&
+      !strcontains(var.db_final_snapshot_identifier, "--")
+    )
+    error_message = "Use the environment's -final- prefix, at most 255 letters/digits/hyphens, with no trailing or consecutive hyphens."
+  }
+}
+
+variable "enable_backend_service" {
+  description = "Start one task only after image, application secret and database initialization are prepared."
+  type        = bool
+  nullable    = false
+  default     = false
+}
+
+variable "enable_proxy_trust" {
+  description = "Explicit proxy trust opt-in; flags do not prove the real CloudFront/ALB/task boundary."
+  type        = bool
+  nullable    = false
+  default     = false
+}

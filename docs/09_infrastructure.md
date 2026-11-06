@@ -4,6 +4,8 @@
 
 実装済み部分はFL-09B2（Issue #32）の[承認設計](fl-09b2-aws-foundation-design.md)と[Terraform README](../terraform/README.md)を正とする。VPC/subnet/閉じたSG・非公開S3/ECR・IAM・logsは定義済み、AWS実構築・疎通は未実施。FL-09B3（Issue #42）の[承認設計](fl-09b3-edge-design.md)でpublic ALB/HTTP origin・CloudFront/OAC・API転送を構成定義した。公開は既定無効でtarget groupも空。以下のECS/RDS・配置/破棄・費用は引き続き草案であり、実行前に具体化する。
 
+2026-11-06追記：FL-09B4（Issue #44）の[承認設計](fl-09b4-runtime-design.md)でpublic subnet＋public IPのFargate（0.25vCPU/1GiB、既定0 task）、非公開Single-AZ PostgreSQL17/db.t4g.micro/gp3 20GiB、管理者/アプリsecret分離、削除保護/final snapshot、公開東京CA同梱を定義した。mockとローカルTLS検証の範囲であり実AWS未接続。下記の配置/破棄/費用は引き続き草案。後続ではsecret、保持backup/final snapshot、削除待ち期間と再作成名衝突も見積り・残存確認へ含める。
+
 ### 11.1 構成方針
 開発・通常検証はローカル。AWSは公開デモ・撮影に必要な期間だけ起動する。無料枠・クレジットを費用成立の前提にしない。東京リージョンを候補とし、実apply前に価格・リージョン・稼働時間で見積もる。
 
