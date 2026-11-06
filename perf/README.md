@@ -28,6 +28,8 @@ frontendは使わない。製品認証/制限はそのまま。Django開発serve
 PNGサイズは147/590/1320px四方（約64KiB/1MiB/5MiB、正確なbytesは結果を参照）。
 
 正常終了は今回の所有資源を逆順で停止・除去する。所有不一致、停止不能やcleanup失敗時はfailとしlockを保持する。
+Docker作成前にintentを原子的に保存し、応答喪失時は実在とラベルを照合する。作成結果が未確認なら台帳とlockを残す。
+worker起動も終了管理の保護範囲に含め、cleanup中の割込みは後始末の確定まで保留する。
 中断した場合は所有台帳、lockのowner、実process/container/volumeを照合して担当者が回復する。古さだけでlockを消さず、共有DB resetやvolume一括削除をしない。
 明示的な復旧は `python3 -B -m perf.runtime cleanup --record <結果folderのUUID>`。
 元の調整process終了、同worktree/branch、台帳の固定資源名と実ラベルを確認する。既存runtime lockは自動で奪わず拒否する。

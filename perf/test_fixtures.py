@@ -6,6 +6,28 @@ from perf import fixtures as f
 
 
 class FixtureTests(unittest.TestCase):
+    def test_required_post_fields_cannot_be_omitted(self):
+        for field in ("created_at", "updated_at", "energy", "energy_input", "visibility", "image", "comment_count", "like_count", "is_liked"):
+            row = f.post_dto(0, 0, "normal")
+            row.pop(field, None)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                f.check_post(row, 0, 0, "normal")
+
+    def test_search_missing_shape_duplicate_and_reordered_results_fail(self):
+        from perf.runner import Actor
+        for order in ([4, 3, 2, 1, 0, 0], [0, 1, 2, 3, 4]):
+            actor = Actor(0, "normal")
+            actor.session = Mock()
+            actor.session.request.return_value = (200, json.dumps({"viewer_id": str(f.user_id(0)), "items": [{"id": str(f.user_id(a))} for a in order]}).encode(), 1)
+            self.assertEqual(actor.operation(7)["error"], "content")
+
+    def test_search_valid_shape_and_each_required_item_field(self):
+        f.check_search(f.search_dto(0), 0)
+        for field in f.search_dto(0)["items"][0]:
+            value = f.search_dto(0)
+            value["items"][0].pop(field)
+            with self.subTest(field=field), self.assertRaises(ValueError):
+                f.check_search(value, 0)
     def test_reported_latency_ends_at_body_receipt(self):
         from perf.runner import Actor
         actor = Actor(0, "normal")

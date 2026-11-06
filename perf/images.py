@@ -45,8 +45,9 @@ def pixels(raw):
     if not ended or not width or not height:
         raise ValueError("incomplete PNG")
     cap = height * (width * 3 + 1)
-    data = zlib.decompressobj().decompress(bytes(compressed), cap + 1)
-    if len(data) != cap:
+    decoder = zlib.decompressobj()
+    data = decoder.decompress(bytes(compressed), cap + 1)
+    if (len(data) != cap or not decoder.eof or decoder.unconsumed_tail or decoder.unused_data):
         raise ValueError("unexpected PNG decoded size")
     stride, previous, output = width * 3, bytearray(width * 3), bytearray()
     for y in range(height):

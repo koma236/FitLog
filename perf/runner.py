@@ -1,7 +1,10 @@
 """Five persistent actor processes with a parent-enforced whole-request deadline."""
+import contextlib
 import json
 import multiprocessing
 import queue
+import signal
+import threading
 import time
 import urllib.error
 from urllib.parse import urlencode
@@ -14,15 +17,31 @@ REQUIRED = {"all GET", "following GET", "detail GET", "user GET", "search GET",
             "update PUT", "like POST", "like DELETE"}
 
 
+@contextlib.contextmanager
+def cleanup_signals():
+    """Defer repeated host interrupts until ownership has a known final state."""
+    deferred, handlers = [], {}
+    if threading.current_thread() is threading.main_thread():
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            handlers[sig] = signal.signal(sig, lambda number, frame: deferred.append(number))
+    try:
+        yield deferred
+    finally:
+        for sig, handler in handlers.items():
+            signal.signal(sig, handler)
+
+
 def bounded_jobs(target, arguments, *, deadline=5, total=1800):
-    context = multiprocessing.get_context("spawn")
-    events = context.Queue()
-    workers = [context.Process(target=target, args=(events, *args)) for args in arguments]
-    for worker in workers:
-        worker.start()
+    events, workers = None, []
     active, done, errors, rows = {}, set(), [], []
     began = time.monotonic()
     try:
+        context = multiprocessing.get_context("spawn")
+        events = context.Queue()
+        for args in arguments:
+            worker = context.Process(target=target, args=(events, *args))
+            workers.append(worker)  # Track before start, including a partially started process.
+            worker.start()
         while len(done) < len(workers):
             try:
                 event = events.get(timeout=.02)
@@ -62,17 +81,33 @@ def bounded_jobs(target, arguments, *, deadline=5, total=1800):
             if all(not p.is_alive() for p in workers) and not event:
                 errors.append("missing_worker_completion")
                 break
+    except BaseException as error:
+        errors.append("worker_start_or_run_" + type(error).__name__)
     finally:
-        for worker in workers:
-            if worker.is_alive():
-                worker.terminate()
-            worker.join(timeout=2)
-            if worker.is_alive():
-                worker.kill()
-                worker.join(timeout=2)
-        stopped = all(not p.is_alive() for p in workers)
-        events.close()
-        events.join_thread()
+        stopped = True
+        with cleanup_signals() as deferred:
+            for worker in workers:
+                try:
+                    if worker.pid is not None:
+                        if worker.is_alive():
+                            worker.terminate()
+                        worker.join(timeout=2)
+                        if worker.is_alive():
+                            worker.kill()
+                            worker.join(timeout=2)
+                        stopped = stopped and not worker.is_alive()
+                except BaseException:
+                    stopped = False  # Continue attempting the other workers; never infer success.
+            if events is not None:
+                try:
+                    events.close()
+                    events.join_thread()
+                except BaseException:
+                    stopped = False
+        if deferred:
+            errors.append("interrupt_during_worker_cleanup")
+        if not stopped:
+            errors.append("worker_cleanup_unconfirmed")
     return {"rows": rows, "errors": errors, "workers_stopped": stopped}
 
 
@@ -130,17 +165,16 @@ class Actor:
                 error = "http"
             else:
                 value = json.loads(raw)
+                if not isinstance(value, dict):
+                    raise ValueError("response must be an object")
                 if route in {"all", "following", "user"}:
                     f.check_listing(value, actor, route, page, self.scenario)
                     if route != "user" and not page:
                         self.cursor[route] = value["next_cursor"]
                 elif route in {"detail", "update"}:
-                    f.check_post(value, index, actor, self.scenario)
+                    f.check_post(value, index, actor, self.scenario, self.liked)
                 elif route == "search":
-                    expected = {str(f.user_id(i)) for i in range(5)}
-                    if (value.get("viewer_id") != str(f.user_id(actor))
-                            or {x["id"] for x in value.get("items", [])} != expected):
-                        raise ValueError("search mismatch")
+                    f.check_search(value, actor)
                 else:
                     enabled = method == "POST"
                     if (value.get("viewer_id") != str(f.user_id(actor))

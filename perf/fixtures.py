@@ -51,19 +51,54 @@ def payload(scenario):
 
 
 def post_dto(index, actor, scenario):
-    """Minimal independently specified fields for validator tests."""
-    return {"id": str(post_id(index)), "viewer_id": str(user_id(actor)),
-            "author": {"id": str(user_id(index % 5))}, "is_owner": index % 5 == actor,
-            **{k: v for k, v in payload(scenario).items() if k in {"exercises", "note", "performed_on"}}}
+    """Complete fixed Post contract, independently specified from OpenAPI."""
+    owner = index % 5
+    value = {"id": str(post_id(index)), "viewer_id": str(user_id(actor)),
+             "author": {"id": str(user_id(owner)), "username": username(owner),
+                        "display_name": f"性能試験 {owner}", "avatar": None},
+             "is_owner": owner == actor, "image": None,
+             "created_at": timestamp(index).isoformat(timespec="microseconds").replace("+00:00", "Z"),
+             "updated_at": timestamp(index).isoformat(timespec="microseconds").replace("+00:00", "Z"),
+             "energy": None, "energy_input": {"minutes": None, "kind": None} if owner == actor else {},
+             "like_count": 2, "comment_count": 2,
+             "is_liked": actor in {(owner + 1) % 5, (owner + 2) % 5},
+             **{k: v for k, v in payload(scenario).items() if k in {"exercises", "note", "performed_on"}}}
+    if owner == actor:
+        value["visibility"] = {"minutes": "private", "kind": "private"}
+    return value
 
 
-def check_post(value, index, actor, scenario):
+def check_post(value, index, actor, scenario, liked=None):
     expected = post_dto(index, actor, scenario)
-    if not isinstance(value, dict) or any(value.get(k) != v for k, v in expected.items()
-                                          if k != "author"):
+    if (not isinstance(value, dict) or set(value) != set(expected)
+            or type(value["is_owner"]) is not bool or type(value["comment_count"]) is not int):
+        raise ValueError("post required shape mismatch")
+    if any(value[k] != v for k, v in expected.items() if k not in {"updated_at", "is_liked", "like_count"}):
         raise ValueError("post content mismatch")
-    if not isinstance(value.get("author"), dict) or value["author"].get("id") != expected["author"]["id"]:
-        raise ValueError("post owner mismatch")
+    if not isinstance(value["updated_at"], str):
+        raise ValueError("post timestamp missing")
+    updated = datetime.fromisoformat(value["updated_at"].replace("Z", "+00:00"))
+    if updated.utcoffset() != timedelta(0) or updated < timestamp(index):
+        raise ValueError("post timestamp mismatch")
+    enabled = liked if liked is not None else expected["is_liked"]
+    count = 2 + int(liked) if liked is not None else 2
+    if (type(value["is_liked"]) is not bool or value["is_liked"] is not enabled
+            or type(value["like_count"]) is not int or value["like_count"] != count):
+        raise ValueError("post social state mismatch")
+
+
+def search_dto(actor):
+    return {"viewer_id": str(user_id(actor)), "next_cursor": None, "items": [
+        {"id": str(user_id(a)), "username": username(a), "display_name": f"性能試験 {a}",
+         "avatar": None, "is_owner": a == actor, "follower_count": 2, "following_count": 2,
+         "is_following": a in {(actor + 1) % 5, (actor + 2) % 5}}
+        for a in reversed(range(5))]}
+
+
+def check_search(value, actor):
+    if (value != search_dto(actor) or any(type(item[k]) is not bool
+                                        for item in value["items"] for k in ("is_owner", "is_following"))):
+        raise ValueError("search shape, order, count or contents mismatch")
 
 
 def check_listing(value, actor, scope, page, scenario):

@@ -33,6 +33,22 @@ def owned_cleanup(call, run_id, resources):
         call(["docker", kind, "rm", name])
 
 
+def existing_resources(call, run_id, resources, states):
+    """Reconcile intents. An absent uncertain create is not proof it completed."""
+    present = []
+    for kind, name in resources:
+        if kind not in {"container", "volume", "network"} or not re.fullmatch(
+                "perf_" + re.escape(run_id) + r"_[a-z]+", name):
+            raise ValueError("foreign resource intent")
+        argv = ["docker", kind, "ls"] + (["--all"] if kind == "container" else [])
+        names = call([*argv, "--format", "{{.Names}}" if kind == "container" else "{{.Name}}"])
+        if name in names.splitlines():
+            present.append((kind, name))
+        elif states.get(name) != "created":
+            raise ValueError("creation outcome still unknown; retain lock and intent")
+    return present
+
+
 ROOT = Path(__file__).resolve().parents[1]
 COMMON = Path("/Users/saki/project/FitLog/.git")
 
@@ -115,6 +131,7 @@ class Runtime:
         self.run_id = uuid.uuid4().hex
         self.prefix = "perf_" + self.run_id
         self.resources = []
+        self.resource_states = {}
         self.owned = owned
         self.folder = folder
         self.folder.mkdir(parents=True, exist_ok=False)
@@ -124,11 +141,16 @@ class Runtime:
         self.ledger = {"run_id": self.run_id, "worktree": str(ROOT),
                        "owner_pid": os.getpid(),
                        "branch": command(["git", "branch", "--show-current"]).strip(),
-                       "resources": self.resources}
+                       "resources": self.resources, "resource_states": self.resource_states}
         self.save()
 
     def save(self):
-        (self.folder / "ownership.json").write_text(json.dumps(self.ledger, indent=2))
+        temporary = self.folder / "ownership.json.tmp"
+        with temporary.open("w") as stream:
+            json.dump(self.ledger, stream, indent=2)
+            stream.flush()
+            os.fsync(stream.fileno())
+        temporary.replace(self.folder / "ownership.json")
 
     def call(self, argv, *, timeout=300):
         if not self.owned():
@@ -141,14 +163,23 @@ class Runtime:
     def create(self, kind, suffix, argv):
         name = self.prefix + "_" + suffix
         # Creation never reuses resources, even if a previous run used the same label.
-        names = self.call(["docker", kind, "ls", "--format", "{{.Name}}" if kind != "container" else "{{.Names}}"])
+        listing = ["docker", kind, "ls"] + (["--all"] if kind == "container" else [])
+        names = self.call([*listing, "--format", "{{.Name}}" if kind != "container" else "{{.Names}}"])
         if name in names.splitlines():
             raise ValueError("resource already exists")
         labels = ["--label", "fitlog.perf.run=" + self.run_id,
                   "--label", "fitlog.perf.worktree=" + str(ROOT)]
-        self.call(["docker", kind, "create", *labels, *argv, name] if kind != "container" else
-                  ["docker", "container", "create", "--name", name, *labels, *argv])
         self.resources.append((kind, name))
+        self.resource_states[name] = "creating"
+        self.save()
+        try:
+            self.call(["docker", kind, "create", *labels, *argv, name] if kind != "container" else
+                      ["docker", "container", "create", "--name", name, *labels, *argv])
+        except BaseException:
+            self.resource_states[name] = "unknown"
+            self.save()
+            raise
+        self.resource_states[name] = "created"
         self.save()
         return name
 
@@ -239,7 +270,7 @@ def unit_tests():
 def main():
     import argparse
 
-    from perf.runner import run_load
+    from perf.runner import cleanup_signals, run_load
 
     parser = argparse.ArgumentParser(description="Bounded local-only performance system test")
     parser.add_argument("mode", choices=["unit-tests", "smoke", "load", "image", "auth-burst", "cleanup"])
@@ -259,17 +290,20 @@ def main():
                   "mode": args.mode, "started_at": datetime.now(UTC).isoformat(), "status": "fail",
                   "started_at_jst": datetime.now(ZoneInfo("Asia/Tokyo")).isoformat(),
                   "aws": "not_run", "cleanup": "not_run"}
+        workers_stopped = True  # No workers exist during preparation.
         try:
             result["environment"] = runtime.prepare(args.scenario)
             if time.monotonic() - runtime.started > 1740 - (370 if args.mode == "load" else 160):
                 raise TimeoutError("not enough work budget for a complete measurement")
+            workers_stopped = False  # Caller needs positive evidence after entering a job manager.
             if args.mode in {"smoke", "load"}:
                 measured = run_load(args.scenario, args.mode)
             else:
                 from perf.special import run_special
                 measured = run_special(args.mode)
             result.update(measured)
-            if not measured["workers_stopped"]:
+            workers_stopped = measured["workers_stopped"]
+            if not workers_stopped:
                 safe["release"] = False
                 raise RuntimeError("workers still alive")
             result["after_counts"] = runtime.audit(args.scenario, args.mode)
@@ -278,23 +312,23 @@ def main():
             if result["environment"]["snapshot"] != result["snapshot_after"]:
                 result["status"] = "fail"
                 result["snapshot_changed"] = True
-        except Exception as error:
+        except BaseException as error:
             result["error_type"] = type(error).__name__
             result["status"] = "fail"
             print(f"run failed: {type(error).__name__}", flush=True)
         finally:
-            runtime.sampling_stop.set()
-            if hasattr(runtime, "sampler"):
-                runtime.sampler.join(timeout=12)
-                if runtime.sampler.is_alive():
-                    safe["release"] = False
-                    result["status"] = "fail"
-            result["resource_samples"] = runtime.stats
-            if not safe["owned"]():
-                safe["release"] = False
-                result["status"] = "fail"
-            if safe["release"]:
-                try:
+            permit_cleanup = safe["release"] and workers_stopped
+            safe["release"] = False  # Only a fully confirmed teardown can enable release again.
+            deferred = []
+            try:
+                with cleanup_signals() as deferred:
+                    runtime.sampling_stop.set()
+                    if hasattr(runtime, "sampler"):
+                        runtime.sampler.join(timeout=12)
+                        if runtime.sampler.is_alive():
+                            permit_cleanup = False
+                    if not permit_cleanup or not safe["owned"]():
+                        raise RuntimeError("worker, sampler or lock ownership unconfirmed")
                     cleanup_deadline = min(runtime.started + 1800, time.monotonic() + 60)
                     def cleanup_call(argv):
                         if not safe["owned"]():
@@ -303,14 +337,20 @@ def main():
                         if remaining <= 0:
                             raise TimeoutError("cleanup deadline")
                         return command(argv, timeout=remaining)
-                    owned_cleanup(cleanup_call, runtime.run_id, runtime.resources)
+                    present = existing_resources(cleanup_call, runtime.run_id, runtime.resources, runtime.resource_states)
+                    owned_cleanup(cleanup_call, runtime.run_id, present)
                     if any(kind == "container" and name.endswith("_app") for kind, name in runtime.resources):
                         ensure_port_free()
                     result["cleanup"] = "pass"
-                except Exception as error:
-                    result["cleanup"] = type(error).__name__
-                    safe["release"] = False
-                    result["status"] = "fail"
+                    safe["release"] = True
+            except BaseException as error:
+                result["cleanup"] = type(error).__name__
+                safe["release"] = False
+                result["status"] = "fail"
+            if deferred:
+                result["deferred_signals"] = deferred
+                result["status"] = "fail"
+            result["resource_samples"] = runtime.stats
             result["finished_at"] = datetime.now(UTC).isoformat()
             result["duration_seconds"] = time.monotonic() - runtime.started
             (runtime.folder / "results.json").write_text(json.dumps(result, indent=2))
