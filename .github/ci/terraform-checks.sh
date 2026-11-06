@@ -4,7 +4,8 @@ root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd -- "$root"
 task_home="$(mktemp -d)"
 trap 'rm -rf -- "$task_home"' EXIT
-# Start a clean shell too: no BASH_ENV, exported functions, AWS or TF overrides.
+# Call with bash -p so startup files/functions are ignored before this script.
+# Start a clean child shell too: no BASH_ENV, exported functions, AWS or TF overrides.
 env -i PATH="$PATH" HOME="$task_home" CHECKPOINT_DISABLE=1 \
   TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 \
   AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null \

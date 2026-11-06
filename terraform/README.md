@@ -60,9 +60,9 @@ env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTO
 
 ### CIと共通入口（FL-09B5）
 
-`bash .github/ci/terraform-checks.sh` がCI/ローカル共通入口。Terraform 1.15.1、Node.js、Python 3、initの公式Registryへの接続が必要。fmt、lock readonly/backend無効のinit、validate、上記Python unittest全件、mock test、Function testを順に実行し、最初の失敗で非0を返す。
+`bash -p .github/ci/terraform-checks.sh` がCI/ローカル共通入口。Terraform 1.15.1、Node.js、Python 3、initの公式Registryへの接続が必要。fmt、lock readonly/backend無効のinit、validate、上記Python unittest全件、mock test、Function testを順に実行し、最初の失敗で非0を返す。
 
-親のAWS/TF/BASH_ENV等を継承しない最小環境と専用一時HOMEを使用する。一時HOMEは成功/失敗後に削除し、moduleの`.terraform/`は再利用する。資格情報を設定せず、実AWSのplan/apply/destroyは行わない。CIのsetup actionは公式commit SHA固定・wrapper無効。artifact/cacheやAWS認証/OIDCは追加しない。
+入口の`bash -p`は起動ファイル（BASH_ENV/ENV）とexport済み関数を読み込まず、早期終了やcdの置換を防ぐ。script内部も親のAWS/TF/BASH_ENV等を継承しない最小環境と専用一時HOMEを使用する。一時HOMEは成功/失敗後に削除し、moduleの`.terraform/`は再利用する。資格情報を設定せず、実AWSのplan/apply/destroyは行わない。CIのsetup actionは公式commit SHA固定・wrapper無効。artifact/cacheやAWS認証/OIDCは追加しない。
 
 PR/mainでbackend/frontend/terraformを実行し、ci-requiredは3つともsuccessのときだけ成功する。failure/cancelled/skippedも拒否する。CI配線は `.github/ci/test-workflow.cjs`、64状態の集約は `bash .github/ci/test-required-status.sh`、共通入口の実行順/環境遮断/各段失敗/後始末は `node --test .github/ci/test-terraform-checks.cjs` で検証する。
 

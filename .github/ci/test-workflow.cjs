@@ -61,4 +61,5 @@ negative('mutable setup action', value => { value.jobs.terraform.steps[1].uses =
 negative('Terraform credentials', value => { value.jobs.terraform.env = { AWS_ACCESS_KEY_ID: '${{ secrets.AWS_KEY }}' } })
 negative('Terraform OIDC', value => { value.jobs.terraform.permissions = { 'id-token': 'write' } })
 negative('missing script tests', value => { value.jobs.terraform.steps.splice(2, 1) })
-console.log('workflow: valid configuration and 45 negative fixtures passed')
+negative('unsafe Bash startup', value => { value.jobs.terraform.steps.at(-1).run = 'bash .github/ci/terraform-checks.sh' })
+console.log('workflow: valid configuration and 46 negative fixtures passed')

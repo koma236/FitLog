@@ -67,3 +67,19 @@ setup-terraformの公式v3参照をGitHub APIで照合し、commit `b9cd54a3c349
 - GUI確認用の `orca skills get computer-use --json` はcommand not found（127）。可視ダイアログの有無は未確認。
 - 依存lockの変更なし。既存lockのローカル復元時にnpmが脆弱性10件（moderate8/critical2）を表示。追加の `npm audit --omit=dev --json` は依存metadataの外部送信を理由に自動承認レビューで拒否されたため未実行。対象package/runtime到達性は未確認、監査成功とは扱わない。`audit:prod` は未配線。
 - quality-checkの独立レビュー/Step5完了/品質flagは未実施。Docker認証待機が解消した後、正規11 checksから再開する。設計の再承認は不要。
+
+## 再開後の機械検証（2026-11-06）
+
+ユーザーが追加監査の外部送信を「許可します。」と明示承認。`npm audit --prefix frontend --omit=dev --json` は終了0、本番依存について報告された脆弱性は0件。開発用依存は対象外で、初回復元時の全依存の件数表示を否定するものではない。依存ファイルの変更なし。
+
+Dockerの認証待機は通常設定のままの再試行で解消した。正規runnerのrun-id `20261106T041613Z-fcb0bdb048d248b696e97d4be66c0bc3` は終了0。HEAD `ab28af96182a0c812e3cd1f697a1519def1f7dd0`、開始・終了時とも未commit差分なし。全11 checksが終了0、backend 620件/frontend 190件が成功。migration状態は前・適用直前・適用後・終了時とも22件、unknownなし/consistent=true。今回起動したDBの停止・残存確認・lock返却も成功。
+
+前段の中断記録は履歴として保持し、以降はこの成功した機械検証を独立品質レビューの入力にする。既存CIのActions run `42157407214` でも同HEADに対するbackend/frontend/terraform/ci-requiredがすべて成功。独立品質レビューと手動相互レビューはCIと別の工程として扱う。
+
+## 品質レビューH1への対応
+
+初回品質レビューで統合/反証QAが同じHighを指摘：外側のBash起動時にBASH_ENVが処理されるため、内側のenv -iだけでは `exit 0` による全検証省略を防げなかった。現workflow自体にBASH_ENVを設定する経路はないが、承認したローカル環境遮断契約を満たさないため修正した。
+
+CI・README・workflow検査・契約テストの起動を `bash -p .github/ci/terraform-checks.sh` に統一した。配布Bashのmanにある、-pはBASH_ENV/ENVとexport済み関数を読まずSHELLOPTSも継承しない仕様を確認。内側の最小環境と一時HOMEは維持する。BASH_ENVで早期成功終了する場合とcdをexport関数で置換する場合を独立に反証し、各段失敗との組合せ14件を追加。修正前14件失敗→修正後14件成功を確認。workflow検査も-pなしを拒否する負例を加え、負例46件が成功した。承認済み環境遮断を満たすための範囲内修正で、製品の認証やAWS資格設定は変更しない。
+
+修正後の実Terraform共通入口も終了0（Python3件/mock42 run/Function3件）。正規11 checksのrun-id `20261106T042602Z-b343484def8948c6ba90b551ae1fe9cd` は全件終了0、backend620/frontend190成功、cleanupとlock返却も成功。HEAD `ab28af96182a0c812e3cd1f697a1519def1f7dd0` とstageした修正7ファイルのhashは実行前後一致。以降の変更はこの結果追記だけ。

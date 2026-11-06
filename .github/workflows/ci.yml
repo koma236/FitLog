@@ -90,7 +90,7 @@ jobs:
       - name: Terraform entrypoint contract tests
         run: node --test .github/ci/test-terraform-checks.cjs
       - name: Terraform and Function checks
-        run: bash .github/ci/terraform-checks.sh
+        run: bash -p .github/ci/terraform-checks.sh
 
   ci-required:
     if: always()

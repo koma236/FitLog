@@ -44,7 +44,7 @@ module.exports = function validate(document, config) {
       }, 'immutable official setup with exact CLI version and no wrapper')
       same(job.steps.slice(2), [
         { name: 'Terraform entrypoint contract tests', run: 'node --test .github/ci/test-terraform-checks.cjs' },
-        { name: 'Terraform and Function checks', run: 'bash .github/ci/terraform-checks.sh' },
+        { name: 'Terraform and Function checks', run: 'bash -p .github/ci/terraform-checks.sh' },
       ], 'run both Terraform contract tests and real verification unconditionally')
     }
     for (const [index, step] of job.steps.entries()) {
