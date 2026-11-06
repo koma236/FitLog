@@ -2,7 +2,7 @@
 
 ## 製品進捗（2026-11-06更新）
 
-FL-09B2までの基礎記録はGitHubの統合済みPRとmain `1b32d4d` の確認結果。FL-09B3はIssue #42の本branchで実装した状態で、mainへの統合は未実施。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
+FL-09B3までPR #43/main `a7f912c` に統合済み。FL-09B4はIssue #44の本branchで構成定義を実装。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
 
 | 範囲 | 確認した状態 |
 |---|---|
@@ -13,7 +13,8 @@ FL-09B2までの基礎記録はGitHubの統合済みPRとmain `1b32d4d` の確�
 | FL-09B1（#30） | 承認済みの認証IP選択とCloudFront Function部品を実装。本branchの品質結果は別途記録 |
 | FL-09B2（#32） | 専用VPC・非公開S3/ECR・IAM・logsのTerraform基盤とmock planテストを実装。実AWS未接続 |
 | FL-09B3（#42） | CloudFront/ALB/OACの公開入口・API転送・キャッシュ無効・空target groupとmock planテストを実装。公開既定無効、実AWS未接続 |
-| FL-09Bの残り | ECS/RDS・CA/秘密注入の定義、TerraformのCI組込み、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
+| FL-09B4（#44） | ECS/RDS・秘密参照と公開CA同梱を定義。既定service0/公開無効、mock plan・ローカルTLS正負例。実AWS未接続 |
+| FL-09Bの残り | TerraformのCI組込み、秘密値/DB role初期化、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
 | FL-10 | 最終E2E・性能・AWS撮影証跡の照合は未実施 |
 
 FL-09B1の[設計と検証範囲](fl-09b-client-ip-design.md)、[公開前条件](production-readiness.md)参照。実装済み部品からAWS動作完了を推定しない。

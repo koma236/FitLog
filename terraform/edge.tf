@@ -110,6 +110,12 @@ resource "aws_cloudfront_origin_request_policy" "api" {
 }
 
 resource "aws_cloudfront_distribution" "edge" {
+  lifecycle {
+    precondition {
+      condition     = !var.enable_public_distribution || (var.enable_backend_service && var.enable_proxy_trust)
+      error_message = "Public distribution requires explicit backend startup and proxy trust; verify the real route before sharing its URL."
+    }
+  }
   enabled             = var.enable_public_distribution
   is_ipv6_enabled     = true
   http_version        = "http2"

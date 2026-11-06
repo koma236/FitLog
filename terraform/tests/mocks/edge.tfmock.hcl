@@ -33,3 +33,30 @@ mock_resource "aws_cloudfront_cache_policy" {
 mock_resource "aws_cloudfront_origin_request_policy" {
   defaults = { id = "00000000-0000-0000-0000-000000000002" }
 }
+
+mock_resource "aws_db_instance" {
+  defaults = {
+    address = "fixture.ap-northeast-1.rds.amazonaws.com"
+    master_user_secret = [{
+      secret_arn    = "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:rds!db-fixture-AbCdEf"
+      kms_key_id    = "arn:aws:kms:ap-northeast-1:123456789012:key/00000000-0000-0000-0000-000000000003"
+      secret_status = "active"
+    }]
+  }
+}
+
+mock_resource "aws_secretsmanager_secret" {
+  defaults = { arn = "arn:aws:secretsmanager:ap-northeast-1:123456789012:secret:fitlog-demo-test/application-AbCdEf" }
+}
+
+mock_resource "aws_ecr_repository" {
+  defaults = { repository_url = "123456789012.dkr.ecr.ap-northeast-1.amazonaws.com/fitlog-demo-test/backend" }
+}
+
+mock_resource "aws_ecs_cluster" {
+  defaults = { id = "arn:aws:ecs:ap-northeast-1:123456789012:cluster/fitlog-demo-test" }
+}
+
+mock_resource "aws_ecs_task_definition" {
+  defaults = { arn = "arn:aws:ecs:ap-northeast-1:123456789012:task-definition/fitlog-demo-test-backend:1" }
+}

@@ -44,7 +44,7 @@ Gunicornのaccess logは無効。error logも既存SafeFormatterへ通し、固�
 共通runtime leaseを取得してから、登録11 checksを`.ai-dev/project.toml`のargvで実行する。backend/testsは実PostgreSQLとSDKの署名/parse/HTTP境界を使い、dummy資格情報と外部送信前の応答注入でAWSアクセスを防ぐ。
 
 ```sh
-docker build --file backend/Dockerfile.production --tag fitlog-fl09a-production .
+docker build --platform linux/amd64 --file backend/Dockerfile.production --tag fitlog-fl09b4-production-44 .
 python3 backend/tests/production_smoke.py
 ```
 
@@ -61,6 +61,8 @@ signup/loginのIP選択は既定の直接接続元を維持する。`FITLOG_AUTH
 ## FL-09B：公開前に必要な実証
 
 FL-09B2（Issue #32）で専用VPC・閉じたSG・非公開S3/ECR・task/execution IAM・logsのTerraform定義を追加した。[検証と制限](../terraform/README.md)参照。ローカルmock planの構成検証であり、実資源・IAM評価・疎通は未実施。FL-09B3（Issue #42）でCloudFront/ALB/OACの公開入口定義を追加した（公開既定false、target group空）。APIは両behaviorのFunction/全viewer転送/TTL0、staticはdistribution限定OAC読取り。CloudFront→ALB/taskはHTTPという短期デモ向けの境界であり全区間TLSではない。ECS/RDS、CA/秘密の注入、配置/seed、TerraformのCI組込みと費用・対象・期間の承認を済ませてから実AWS操作へ進む。[承認設計](fl-09b3-edge-design.md)参照。
+
+FL-09B4（Issue #44）で[ECS/RDS・秘密参照・公開CAの構成定義](fl-09b4-runtime-design.md)を追加した。Fargateは既定0 task、非公開RDSは削除保護/final snapshot、アプリ用secretは本体だけで値未投入。管理secretをWeb task/executionへ許可しない。専用CAをimageへ同梱し、ローカル実PostgreSQLでverify-fullのCA/SAN正負例を検証する。実RDSのCA/接続、非管理者DB roleの初期化、秘密投入、実配置/seed/公開境界、Terraform CI組込み、費用/期限は後続。publicフラグはservice/proxyの明示有効化を要求するが、フラグやmock合格だけを経路実証としない。RDS snapshot/保持backupと7日削除待ちsecretの残存費用・再構築時の名前衝突も破棄手順へ含める。
 
 - AWS/IaC/課金・対象・期限の具体化と承認、IAM role、ListBucketを含む最小権限、bucket policy/期待owner、実S3障害・RDS CAとverify-full接続。
 - CloudFrontのHost転送、HTTPS強制、専用headerの上書き、origin認証、proxyのみから到達するSG/経路。実ALBのhealthを確認。

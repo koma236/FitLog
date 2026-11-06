@@ -11,6 +11,7 @@ WORKDIR /app
 COPY backend/pyproject.toml backend/uv.lock ./
 RUN uv sync --locked --no-dev --no-install-project
 COPY backend/ ./
+RUN cd /app/certs && sha256sum --check SHA256SUMS
 COPY docs/api/openapi.json /app/contracts/openapi.json
 RUN groupadd --system fitlog && useradd --system --gid fitlog --home-dir /app fitlog \
     && chown -R fitlog:fitlog /app
