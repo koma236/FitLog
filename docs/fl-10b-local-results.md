@@ -133,3 +133,10 @@ CPU/memory: 5回のdocker stats（backend/専用DB）をresults.jsonに保存。
 ローカル結果をAWS実証へ読み替えない。撮影・2構築/破棄・後日請求確認は未完了。
 
 品質レビューのHigh修正後、必須Post/検索形状とPNG stream終端、作成intent/worker/cleanup割込みの保護を43baf4353acf74eec0170660cfd953d78d0c8a90へ固定し、通常・最大境界・画像・認証集中を再実行した。上の各節は最新runを採用している。
+
+追加承認後の修正はworker起動時の割込み保留と、PID未登録時の停止未確認判定に限定する。
+上記の負荷値は43baf43での実測として保持し、最終コード全体と同一とは記さない。
+要求・計測・固定データ・JSON/画像oracle・集計は変更していない。
+追加smoke `docs/superpowers/plans/perf-results/f652ec102d584deca58c0ddd92455e93/results.json` は55/55成功・cleanup成功。
+perf全37テストが成功し、OS子生成後の実SIGINT/SIGTERMで子停止、起動結果不明では停止未確認となる負例を確認した。
+異常時の開始/中断内訳・実throughputの詳細不足M1は、ユーザーが既知の設計差異として承認した。

@@ -48,7 +48,10 @@ class LifecycleTests(unittest.TestCase):
                 result = runner.bounded_jobs(None, [(), ()])
             self.assertGreater(first.stops, 0)
             self.assertGreater(first.joins, 0)
-            self.assertTrue(result["workers_stopped"])
+            # Even this fake's pre-child error must not let the caller assume that
+            # a real start() failure with no registered PID means no child exists.
+            self.assertFalse(result["workers_stopped"])
+            self.assertIn("worker_cleanup_unconfirmed", result["errors"])
             self.assertTrue(result["errors"])
             events.close.assert_called_once()
 

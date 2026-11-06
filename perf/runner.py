@@ -41,7 +41,12 @@ def bounded_jobs(target, arguments, *, deadline=5, total=1800):
         for args in arguments:
             worker = context.Process(target=target, args=(events, *args))
             workers.append(worker)  # Track before start, including a partially started process.
-            worker.start()
+            # spawn creates the OS child before Process._popen becomes visible. Do not
+            # interrupt that registration window and then infer absence from pid=None.
+            with cleanup_signals() as starting_signals:
+                worker.start()
+            if starting_signals:
+                raise KeyboardInterrupt("interrupt during worker registration")
         while len(done) < len(workers):
             try:
                 event = events.get(timeout=.02)
@@ -88,7 +93,11 @@ def bounded_jobs(target, arguments, *, deadline=5, total=1800):
         with cleanup_signals() as deferred:
             for worker in workers:
                 try:
-                    if worker.pid is not None:
+                    if worker.pid is None:
+                        # start() may have created a child before raising. Without a
+                        # registered handle there is no evidence that it has stopped.
+                        stopped = False
+                    else:
                         if worker.is_alive():
                             worker.terminate()
                         worker.join(timeout=2)
