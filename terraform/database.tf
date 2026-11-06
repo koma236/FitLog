@@ -35,7 +35,7 @@ resource "aws_db_instance" "runtime" {
   allow_major_version_upgrade = false
   backup_retention_period     = 1
   delete_automated_backups    = false
-  deletion_protection         = true
+  deletion_protection         = !var.allow_database_teardown
   skip_final_snapshot         = false
   final_snapshot_identifier   = var.db_final_snapshot_identifier
   apply_immediately           = false

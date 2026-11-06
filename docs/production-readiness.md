@@ -80,3 +80,7 @@ SDK設定の原典: [botocore Config](https://docs.aws.amazon.com/botocore/lates
 ## Terraform CI（FL-09B5 / Issue #46）
 
 PR/mainのTerraform jobは資格情報を渡さず、既存mock/plan・依存グラフ・入力負例・Function testを検証する。backend/frontend/terraformすべてのsuccessをci-requiredで必須化する。[共通入口と実行契約](../terraform/README.md#ciと共通入口fl-09b5)参照。mock/CI成功は実RDS/S3/IAM/公開経路や課金停止の実証を代替しない。実AWSの操作・秘密投入・DB初期化は後続の承認範囲。
+
+## FL-09B7 配置準備（Issue #52）
+
+[承認設計](fl-09b7-deployment-design.md)と[runbook](fl-09b7-deployment-runbook.md)で、専用bootstrap task/role、Web非管理者roleのmigration・seed・verify、manifest/完了証跡、公開試験・撮影・破棄・新環境での再構築を定義する。先行CI更新PR #51は統合済み・ci-required成功を確認。実AWS API/配置/秘密値投入/公開/実権限/撮影/破棄/再構築は未実施。[申請様式](fl-09b7-aws-approval-template.md)にaccount・費用上限・期間・対象削除を具体化し別承認後に実行する。RDS保護解除は既定falseで、final snapshot/保持backup/7日削除待ちsecretの残存確認を省略しない。
