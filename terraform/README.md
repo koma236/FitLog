@@ -14,7 +14,7 @@ Terraform **1.15.1**、公式AWS provider **6.71.0**をexact pinし、`.terrafor
 
 `expected_account_id`（12桁）、`environment_name`（fitlog-demo-から始まる最大24文字）、`availability_zones`（異なる東京AZ2つ）が入力。providerはexpected account以外を拒否する。mockはこの実account照合や実際のAZ提供状況を検証しない。将来実行時には本人の専用account・利用可能AZも確認する。
 
-ECS/RDS・秘密の参照とCA同梱はB4で定義。outputsは識別子・将来用URLとDB/secretのmetadataだけ。distribution無効・service0 taskが既定のためURLは稼働を示さない。実配置・秘密の値投入・DB初期化は後続。**TerraformのCI組込みは実AWS構築前に必要な別タスク**で、現行11 checks/ci-requiredは変更していない。
+ECS/RDS・秘密の参照とCA同梱はB4で定義。outputsは識別子・将来用URLとDB/secretのmetadataだけ。distribution無効・service0 taskが既定のためURLは稼働を示さない。実配置・秘密の値投入・DB初期化は後続。**TerraformのCI組込みはFL-09B5（Issue #46）で実装**。既存11 checksに加えてTerraform jobの成功をci-requiredで必須化する。実AWSの構築前にCI実runの証跡を確認する。
 
 ## FL-09B4のruntime
 
@@ -57,6 +57,14 @@ python3 -B -m unittest discover -s terraform/tests -p 'test_*.py'
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform validate
 env -i PATH="$PATH" CHECKPOINT_DISABLE=1 TF_CLI_CONFIG_FILE=/dev/null TF_IN_AUTOMATION=1 AWS_EC2_METADATA_DISABLED=true AWS_SHARED_CREDENTIALS_FILE=/dev/null AWS_CONFIG_FILE=/dev/null terraform -chdir=terraform test -no-color
 ```
+
+### CIと共通入口（FL-09B5）
+
+`bash .github/ci/terraform-checks.sh` がCI/ローカル共通入口。Terraform 1.15.1、Node.js、Python 3、initの公式Registryへの接続が必要。fmt、lock readonly/backend無効のinit、validate、上記Python unittest全件、mock test、Function testを順に実行し、最初の失敗で非0を返す。
+
+親のAWS/TF/BASH_ENV等を継承しない最小環境と専用一時HOMEを使用する。一時HOMEは成功/失敗後に削除し、moduleの`.terraform/`は再利用する。資格情報を設定せず、実AWSのplan/apply/destroyは行わない。CIのsetup actionは公式commit SHA固定・wrapper無効。artifact/cacheやAWS認証/OIDCは追加しない。
+
+PR/mainでbackend/frontend/terraformを実行し、ci-requiredは3つともsuccessのときだけ成功する。failure/cancelled/skippedも拒否する。CI配線は `.github/ci/test-workflow.cjs`、64状態の集約は `bash .github/ci/test-required-status.sh`、共通入口の実行順/環境遮断/各段失敗/後始末は `node --test .github/ci/test-terraform-checks.cjs` で検証する。
 
 全test runは`command=plan`、`mock_provider aws`を使う。共有mockは`tests/mocks/*.tfmock.hcl`にcomputed ID/ARN/DNSだけを置く。mockと個別のID/ARN overrideには`override_during=plan`を設定する。実policy JSONは`jsonencode`で生成し、全Statementを独立した期待値と比較する。policy自体をmockへ置換しない。テストfixtureのaccount `123456789012` は架空値。mockを誤って外しても、上の最小環境はprofile/role/OIDC/container資格情報を引き継がず、共有credential/configとmetadataを探索しない。
 

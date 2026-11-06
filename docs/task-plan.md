@@ -2,7 +2,7 @@
 
 ## 製品進捗（2026-11-06更新）
 
-FL-09B3までPR #43/main `a7f912c` に統合済み。FL-09B4はIssue #44の本branchで構成定義を実装。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
+FL-09B3までPR #43/main `a7f912c` に統合済み。FL-09B4はPR #45で統合済み。FL-09B5はIssue #46でTerraform検証のCI組込みを実装（実run結果はPRの証跡で確認）。後段の初期計画・v9運用記述は履歴として保持する。現在の運用は `documents/development/personal-workflow.md` を正とする。
 
 | 範囲 | 確認した状態 |
 |---|---|
@@ -14,7 +14,8 @@ FL-09B3までPR #43/main `a7f912c` に統合済み。FL-09B4はIssue #44の本br
 | FL-09B2（#32） | 専用VPC・非公開S3/ECR・IAM・logsのTerraform基盤とmock planテストを実装。実AWS未接続 |
 | FL-09B3（#42） | CloudFront/ALB/OACの公開入口・API転送・キャッシュ無効・空target groupとmock planテストを実装。公開既定無効、実AWS未接続 |
 | FL-09B4（#44） | ECS/RDS・秘密参照と公開CA同梱を定義。既定service0/公開無効、mock plan・ローカルTLS正負例。実AWS未接続 |
-| FL-09Bの残り | TerraformのCI組込み、秘密値/DB role初期化、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
+| FL-09B5（#46） | 資格情報なしのTerraform検証をCI化、3結果をci-requiredへ集約。実AWS操作なし |
+| FL-09Bの残り | 秘密値/DB role初期化、AWS構築/配置・実経路/権限検証・撮影/破棄/再構築は未実施 |
 | FL-10 | 最終E2E・性能・AWS撮影証跡の照合は未実施 |
 
 FL-09B1の[設計と検証範囲](fl-09b-client-ip-design.md)、[公開前条件](production-readiness.md)参照。実装済み部品からAWS動作完了を推定しない。
