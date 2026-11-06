@@ -97,7 +97,11 @@ FL-09B3で自distributionの両API behaviorへの関連付けと、このheader�
 個人AWSアカウント・専用環境であることを操作前に確認する。具体的なリージョン、ドメイン、利用リソース、概算料金、稼働時間を示す。認証情報はコピー・表示しない。
 公開ドメインはCloudFrontが発行する `*.cloudfront.net` とし、既定証明書でHTTPSを使う。独自ドメインの購入・DNS設定は不要。新たなapply後はoutputに出るURLを使い、以前のURLを固定しない。
 
-## 構築・デプロイ・撮影・破棄（後続の草案）
+## 構築・デプロイ・撮影・破棄（FL-09B7）
+
+Issue #52の[配置設計](../docs/fl-09b7-deployment-design.md)・[実行runbook](../docs/fl-09b7-deployment-runbook.md)・[実AWS申請書](../docs/fl-09b7-aws-approval-template.md)を正とする。以下の一覧は工程概要であり、実AWS操作承認や成功証跡ではない。
+
+`operations.tf` はWebから分離したbootstrap task/role/execution role/log groupを追加する。application secretの起動時注入はなく、B6 CLIがSDKで初期化する。Terraformはtaskを起動しない。`bootstrap_runner` outputは識別子のみ。`allow_database_teardown` は既定false、trueにはservice/public両方falseが必要。実停止・保護解除・通常destroy・snapshot/backup削除はrunbookの別工程として確認する。
 1. IaCと依存lockを検証し、インフラのplanを確認する。
 2. applyでリソースを作成する。
 3. フロント・バックの固定した成果物を配置する。
@@ -117,4 +121,4 @@ FL-09B3で自distributionの両API behaviorへの関連付けと、このheader�
 stateやlockを手で消して成功扱いにしない。エラー対象と依存関係を修正し、同じstateでdestroyを再実行する。課金停止はプロセス停止ではなく対象資源の消滅で確認する。
 
 ## 未確定
-実AWS用コマンド、秘密値/DB roleの初期化、配置/破棄/再構築、総費用/所要時間は後続。ECS/RDS/CA/秘密参照は定義済みだが実経路は未検証。[インフラ設計](../docs/09_infrastructure.md)の過去料金に加えてsecret/backup/snapshot等も実構築前に再見積もりする。実AWS操作は今回含まない。
+秘密値/DB roleの初期化CLIはFL-09B6、配置/破棄/再構築の実行準備はFL-09B7のrunbookに具体化した。実AWSでの操作・成立確認、総費用/所要時間は未実施。ECS/RDS/CA/秘密参照の定義やローカル成功は実経路の実証ではない。[インフラ設計](../docs/09_infrastructure.md)の過去料金に加えてsecret/backup/snapshot等も実構築前に再見積もりする。実AWS操作は今回含まない。

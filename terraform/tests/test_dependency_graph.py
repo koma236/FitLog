@@ -68,7 +68,9 @@ class EdgeDependencyTests(unittest.TestCase):
         self.assertNotRegex(graph, r'(?:resource|data)?\.?aws_secretsmanager_secret_version\.')
         policies = set(re.findall(r'"(aws_iam_role_policy\.[a-z_]+)"', graph))
         self.assertEqual(policies, {"aws_iam_role_policy.media", "aws_iam_role_policy.execution",
-                                    "aws_iam_role_policy.application_secret"})
+                                    "aws_iam_role_policy.application_secret",
+                                    "aws_iam_role_policy.bootstrap",
+                                    "aws_iam_role_policy.bootstrap_execution"})
 
 
 if __name__ == "__main__":

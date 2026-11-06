@@ -106,3 +106,14 @@ variable "enable_proxy_trust" {
   nullable    = false
   default     = false
 }
+
+variable "allow_database_teardown" {
+  description = "Explicit, separately approved deletion-protection removal after stopping all tasks and disabling public access."
+  type        = bool
+  nullable    = false
+  default     = false
+  validation {
+    condition     = !var.allow_database_teardown || (!var.enable_backend_service && !var.enable_public_distribution)
+    error_message = "Disable the backend service and public distribution before removing database deletion protection."
+  }
+}
