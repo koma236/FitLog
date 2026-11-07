@@ -22,6 +22,15 @@ test('observation persistence failure cannot be reported as a completed stage', 
   assert.equal(acted, false)
 })
 
+test('capture locator failures retain a fixed classification without the locator or DOM error', async () => {
+  let output
+  const log = new RecoveryLog(rows => { output = JSON.stringify(rows) })
+  await assert.rejects(log.stage('capture-ready', {}, 'B', () => { throw new Error('strict mode violation: SECRET URL DOM') }))
+  assert.equal(log.rows.at(-1).phase, 'fail')
+  assert.equal(log.rows.at(-1).failure, 'LOCATOR_NOT_UNIQUE')
+  assert.doesNotMatch(output, /SECRET|URL|DOM|strict mode violation/)
+})
+
 test('a response from an older same-path request cannot satisfy the current action', async () => {
   const page = new EventEmitter(); const frame = {}; page.mainFrame = () => frame
   const request = () => ({ method: () => 'GET', url: () => 'http://127.0.0.1:15173/api/timeline/following?SECRET', frame: () => frame })

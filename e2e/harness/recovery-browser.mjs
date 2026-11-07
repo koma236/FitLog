@@ -4,7 +4,7 @@ import path from 'node:path'
 import { build } from '../.artifacts/frontend-deps/node_modules/esbuild/lib/main.js'
 import { chromium, expect } from '@playwright/test'
 import { installLocalRequestGuard, newLocalPage, ORIGIN } from '../support/safety.mjs'
-import { networkRecovery, followingReady, deletionSettled, responseAfter, RecoveryLog, failureCategory } from '../support/recovery.mjs'
+import { captureLikeFromFollowing, networkRecovery, followingReady, deletionSettled, responseAfter, RecoveryLog, failureCategory } from '../support/recovery.mjs'
 
 const run = process.env.FITLOG_RECOVERY_FIXTURE_RUN
 const owner = JSON.parse(readFileSync('/Users/saki/project/FitLog/.git/fitlog-runtime.lock/owner.json', 'utf8'))
@@ -17,6 +17,8 @@ const post = { id: '22222222-2222-4222-8222-222222222222', viewer_id: account.id
 const profile = { id: account.id, username: account.username, display_name: account.display_name, viewer_id: account.id, avatar: null, bio: '', is_owner: true, is_following: false, follower_count: 0, following_count: 0, health: { height: null, weight: null, age: null, formula: null, activity: null }, energy: { bmr: null, tdee: null, intake: null }, visibility: { height: 'private', weight: 'private', age: 'private', formula: 'private', activity: 'private', bmr: 'private', tdee: 'private', intake: 'private' } }
 const bundle = await build({ entryPoints: [new URL('recovery-app.tsx', import.meta.url).pathname], bundle: true, write: false, format: 'iife', jsx: 'automatic', alias: { react: path.resolve('e2e/.artifacts/frontend-deps/node_modules/react'), 'react-dom': path.resolve('e2e/.artifacts/frontend-deps/node_modules/react-dom') }, define: { 'process.env.NODE_ENV': '"test"' } })
 let mode = 'normal'; let releases = []; let waiters = new Map(); let imageFailed = false
+const otherPost = { ...post, id: '33333333-3333-4333-8333-333333333333', note: 'different note' }
+let likes = { target: 0, other: 0 }
 let browser; let passed = false; let stage = 'start'
 const rows = []; const observations = {}; const diagnostics = []
 const notify = name => { waiters.get(name)?.(); waiters.delete(name) }
@@ -25,7 +27,7 @@ const signal = name => new Promise((resolve, reject) => {
   waiters.set(name, () => { clearTimeout(timer); resolve() })
 })
 const json = (response, value, status = 200) => { response.writeHead(status, { 'Content-Type': 'application/json' }); response.end(JSON.stringify(value)) }
-const pageValue = () => ({ viewer_id: account.id, items: [post], next_cursor: null })
+const pageValue = () => ({ viewer_id: account.id, items: mode.startsWith('capture-') ? [otherPost, post] : [post], next_cursor: null })
 const server = createServer((request, response) => {
   if (request.url === '/fixture.css') { response.writeHead(200, { 'Content-Type': 'text/css' }); response.end(readFileSync(new URL('../../frontend/src/style.css', import.meta.url))); return }
   if (request.url === '/fixture.js') { response.writeHead(200, { 'Content-Type': 'text/javascript' }); response.end(bundle.outputFiles[0].text); return }
@@ -34,8 +36,21 @@ const server = createServer((request, response) => {
   if (request.url === '/api/users/me') return json(response, profile)
   if (request.url === '/api/users/fixture/posts') return json(response, pageValue())
   if (request.url === '/api/posts/' + post.id + '/comments') return json(response, { viewer_id: account.id, post_id: post.id, comment_count: 0, items: [], next_cursor: null })
+  for (const [key, item] of [['target', post], ['other', otherPost]]) {
+    if (request.url === '/api/posts/' + item.id + '/like' && request.method === 'POST') {
+      likes[key]++
+      return json(response, { viewer_id: account.id, post_id: item.id, is_liked: true, like_count: 1 })
+    }
+  }
   if (request.url === '/api/posts/' + post.id) {
     if (request.method === 'DELETE') { response.writeHead(204); response.end(); return }
+    if (mode === 'capture-held') {
+      response.writeHead(200, { 'Content-Type': 'application/json' }); response.flushHeaders()
+      let ended = false
+      releases.push(() => { if (ended || response.destroyed) return; ended = true; response.end(JSON.stringify(post)) })
+      notify('capture-detail')
+      return
+    }
     return json(response, post)
   }
   if (request.url === '/api/timeline/following') {
@@ -88,6 +103,50 @@ async function scenario(id, action) {
 }
 try {
   await listen(); browser = await chromium.launch()
+  await scenario('capture-detail-handoff', async ({ page, log }) => {
+    mode = 'capture-held'; likes = { target: 0, other: 0 }
+    // Only the fixture gates delivery to the real App's hashchange handler.
+    await page.addInitScript(() => {
+      const add = window.addEventListener.bind(window); const remove = window.removeEventListener.bind(window)
+      const wrappers = new Map(); const pending = []
+      let hold = true
+      window.addEventListener = (type, listener, options) => {
+        if (type !== 'hashchange') return add(type, listener, options)
+        const wrapped = event => {
+          const call = () => typeof listener === 'function' ? listener.call(window, event) : listener.handleEvent(event)
+          if (hold && location.hash.startsWith('#record/')) pending.push(call); else call()
+        }
+        wrappers.set(listener, wrapped); add(type, wrapped, options)
+      }
+      window.removeEventListener = (type, listener, options) => remove(type, wrappers.get(listener) ?? listener, options)
+      window.releaseCaptureRoute = () => { hold = false; for (const call of pending.splice(0)) call() }
+    })
+    await page.goto(ORIGIN + '/#')
+    await expect(page.getByRole('button', { name: 'いいね', exact: true })).toHaveCount(2)
+    observations.capture_list_buttons = await page.getByRole('button', { name: 'いいね', exact: true }).count()
+    let completed = false; let failure
+    const task = captureLikeFromFollowing(page, post.id, post.note, log).then(() => { completed = true }, error => { completed = true; failure = error })
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe('#record/' + post.id)
+    await settleFrames(page)
+    observations.capture_held_like_buttons = await page.getByRole('button', { name: 'いいね', exact: true }).count()
+    observations.capture_held_target_posts = likes.target
+    observations.capture_held_other_posts = likes.other
+    if (failure) throw failure
+    expect(completed).toBe(false); expect(likes).toEqual({ target: 0, other: 0 })
+    const seen = signal('capture-detail')
+    await page.evaluate(() => window.releaseCaptureRoute())
+    await Promise.race([seen, task.then(() => { throw failure ?? new Error('PRECONDITION_FAILED') })])
+    await expect.poll(() => log.rows.some(row => row.stage === 'capture-ready' && row.phase === 'start')).toBe(true)
+    await expect(page.locator('.workout-content').getByRole('status')).toBeVisible()
+    observations.capture_body_held_target_posts = likes.target
+    observations.capture_body_held_other_posts = likes.other
+    expect(completed).toBe(false); expect(likes).toEqual({ target: 0, other: 0 })
+    mode = 'capture-ready'; for (const release of releases) release()
+    await task; if (failure) throw failure
+    expect(likes).toEqual({ target: 1, other: 0 })
+    observations.capture_target_posts = likes.target; observations.capture_other_posts = likes.other
+    expect(log.rows.some(row => row.stage === 'capture-liked' && row.phase === 'pass')).toBe(true)
+  })
   for (const heldMode of ['held', 'body-held']) await scenario(heldMode, async ({ actor, page, log, offlineCalls }) => {
     mode = heldMode
     const seen = signal('timeline')

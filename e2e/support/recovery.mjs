@@ -1,13 +1,14 @@
 import { expect } from '@playwright/test'
 import { ORIGIN } from './safety.mjs'
 
-const stages = new Set(['response', 'network-open', 'network-ready', 'network-offline', 'network-error', 'network-online', 'network-retry', 'network-restored', 'delete-settled', 'session-check', 'case-network', 'case-csrf', 'case-old-session', 'case-cookie-loss', 'postcondition'])
+const stages = new Set(['response', 'network-open', 'network-ready', 'network-offline', 'network-error', 'network-online', 'network-retry', 'network-restored', 'delete-settled', 'session-check', 'case-network', 'case-csrf', 'case-old-session', 'case-cookie-loss', 'postcondition', 'capture-open', 'capture-ready', 'capture-like', 'capture-liked'])
 const phases = new Set(['start', 'pass', 'fail', 'observation'])
 const kinds = new Set(['auth', 'timeline', 'resource'])
-const categories = new Set(['REQUEST_TIMEOUT', 'REQUEST_FAILED', 'PAGE_CLOSED', 'HTTP_STATUS', 'PRECONDITION_FAILED', 'CASE_FAILED'])
+const categories = new Set(['REQUEST_TIMEOUT', 'REQUEST_FAILED', 'PAGE_CLOSED', 'HTTP_STATUS', 'PRECONDITION_FAILED', 'CASE_FAILED', 'LOCATOR_NOT_UNIQUE'])
 
 export function failureCategory(error) {
   if (categories.has(error?.message)) return error.message
+  if (typeof error?.message === 'string' && error.message.includes('strict mode violation')) return 'LOCATOR_NOT_UNIQUE'
   if (error?.name === 'TimeoutError') return 'OPERATION_TIMEOUT'
   return 'ASSERTION_OR_OPERATION_FAILED'
 }
@@ -64,6 +65,45 @@ export async function responseAfter(page, pathname, method, action, status, obse
   observed(response.status())
   if (response.status() !== status) throw Object.assign(new Error('HTTP_STATUS'), { status: response.status() })
   return response
+}
+
+/** Capture handoff, shared verbatim with the controlled real-App fixture. */
+export async function captureLikeFromFollowing(page, postId, note, log = new RecoveryLog()) {
+  const route = '#record/' + postId
+  await log.stage('capture-open', page, 'B', async () => {
+    const entry = page.getByRole('region', { name: '記録一覧', exact: true }).locator('article.workout-card').filter({ has: page.getByText(note, { exact: true }) })
+    const link = entry.getByRole('link', { name: '記録の詳細', exact: true })
+    await expect(entry).toHaveCount(1); await expect(link).toHaveAttribute('href', route)
+    await responseAfter(page, '/api/posts/' + postId, 'GET', () => link.click(), 200,
+      status => log.event('capture-open', page, 'B', 'observation', { request_kind: 'resource', status }))
+  })
+  const detail = page.locator('.workout-content')
+  const card = detail.locator('article.workout-card')
+  const like = card.getByRole('button', { name: 'いいね', exact: true })
+  await log.stage('capture-ready', page, 'B', async () => {
+    await expect.poll(() => page.evaluate(() => location.hash)).toBe(route)
+    await expect(page.getByRole('region', { name: '記録一覧', exact: true })).toHaveCount(0)
+    await expect(detail).toHaveCount(1); await expect(card).toHaveCount(1)
+    await expect(card.getByText(note, { exact: true })).toBeVisible()
+    await expect(card.getByRole('link', { name: '記録の詳細', exact: true })).toHaveAttribute('href', route)
+    await expect(detail.getByRole('region', { name: 'コメント一覧', exact: true })).toBeVisible()
+    await expect(detail.getByRole('textbox', { name: 'コメント本文', exact: true })).toBeEnabled()
+    await expect(page.getByRole('status')).toHaveCount(0)
+    await expect(page.getByRole('alert')).toHaveCount(0)
+    await expect(page.locator('dialog[open]')).toHaveCount(0)
+    await expect(like).toHaveCount(1); await expect(like).toBeVisible(); await expect(like).toBeEnabled()
+    await expect(like).toHaveAttribute('aria-pressed', 'false')
+    await expect(like).toHaveAccessibleDescription('0件')
+    log.event('capture-ready', page, 'B', 'observation', { count: await like.count(), visible: true, enabled: true, matches: true })
+  })
+  await log.stage('capture-like', page, 'B', () => responseAfter(page, '/api/posts/' + postId + '/like', 'POST', () => like.click(), 200,
+    status => log.event('capture-like', page, 'B', 'observation', { request_kind: 'resource', status })))
+  await log.stage('capture-liked', page, 'B', async () => {
+    await expect(like).toHaveCount(1); await expect(like).toBeEnabled()
+    await expect(like).toHaveAttribute('aria-pressed', 'true')
+    await expect(like).toHaveAccessibleDescription('1件')
+    log.event('capture-liked', page, 'B', 'observation', { count: 1, enabled: true, matches: true })
+  })
 }
 
 export async function sessionMatches(actor, log = new RecoveryLog(), label = 'A') {

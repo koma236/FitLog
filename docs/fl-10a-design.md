@@ -67,7 +67,9 @@ Bを先に統合し、Aにmainを通常取込みして最終snapshotで再検証
 
 Bの表示済み一覧で実offline→そのrefresh GETのrequestfailed→取得失敗とretry案内を確認。finallyでonlineへ戻し、利用者のretry→新規GET200→同じ投稿の表示・案内解消・本人sessionを確認する。前提未達でofflineへ進まない。画像失敗に固有の先頭再読込案内は別fixtureで識別し、一覧通信失敗と混同しない。期限・origin/CDP guardは維持する。
 
-`npm run test:recovery`は実App/WorkoutFeedとStrictMode・実CSSを読取り使用し、専用HTTP listenerだけで応答を制御する。製品のbackend/DBへ接続せず、利用者を作らず、製品attemptsを消費しない。既存の共有lock/busy拒否/固定15173・18080確認/子process停止を再利用する。製品サービスの起動・停止・migrationはしない。fixtureの15ケース成功を製品E2E成功とは呼ばない。
+`npm run test:recovery`は実App/WorkoutFeedとStrictMode・実CSSを読取り使用し、専用HTTP listenerだけで応答を制御する。製品のbackend/DBへ接続せず、利用者を作らず、製品attemptsを消費しない。既存の共有lock/busy拒否/固定15173・18080確認/子process停止を再利用する。製品サービスの起動・停止・migrationはしない。fixtureの16ケース成功を製品E2E成功とは呼ばない。
+
+撮影の詳細遷移/likeも共用関数で検証する。2投稿followingのhashchange handlerを明示保留し、hash一致後も旧一覧DOMの間はPOSTしないこと、詳細GET200のbody保留中もPOSTしないことを確認する。対象詳細card/コメントUIと一意enabled・非pressedのlikeを確認してから対象POSTを1回だけ行い、pressed/1件への描画まで待つ。別投稿POSTは0。固定capture stageとLOCATOR_NOT_UNIQUE分類を追加し、撮影scopeのcontext所有・終了と動画隔離の条件を維持する。
 
 fixtureには既存frontend lockの依存をignored領域へ用意する。repo rootで次を実行する（製品manifest/lockは変更しない）。
 

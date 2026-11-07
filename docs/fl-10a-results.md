@@ -170,3 +170,13 @@ fixture開発中の失敗も保持する。`cbe7fb421b8b`は初期red（数値�
 - 直前の型check/Node34件/Python13件はpass。既存guard fixture `network-fixture-fe0afcc44202`もpass、製品要求・利用者追加0、停止/lock返却pass。ゲート回帰54件pass。登録11checksの最終結果は同PRの品質報告へ対応付ける。
 
 AstraによるE08修正は今回の実アプリで合格した。ただし他runの撮影成功を合成して今回の全体合格とはしない。撮影失敗の調査結果と未確認事項をPRへ記録し、追加回数を自動で増やさず停止する。認証/認可試験を含む手動相互レビュー等の既存条件も未解除。
+
+## 撮影詳細遷移の修正と制御fixture
+
+撮影Bは詳細link直後に全画面のlike buttonを選んでおり、hashchange後のReact描画と詳細GET完了を待っていなかった。11回目の保存動画末尾には2投稿のlikeと一覧再読込buttonが残る。複数一致が最有力だが、当時の例外分類がないため11回目の直接原因とは断定しない。8回目の成功動画は詳細の読込画面から単一card/コメントへ進んでおり、以前の成功は遷移待ちの保証にならない。
+
+撮影と実App fixtureで共用する詳細遷移/like関数を追加した。対象linkを押した後に開始したGET200、対象hash、詳細内の既知card/コメントUI、loading解消、一意enabled/非pressed/0件を確認してからPOSTし、pressed/1件への描画完了を要求する。固定capture stageとLOCATOR_NOT_UNIQUE分類を記録し、生例外・DOM・URLは保存しない。CancellationScopeと動画隔離は維持した。
+
+TDD: 初回fixture `75ebfe015fb3`は別投稿メモにも対象文字列が含まれ詳細linkが複数一致するfixture側の誤りでfail。メモを区別した旧順序の`6d4f4b813a3f`はhashchange保留中like button2・対象/別投稿POST0・LOCATOR_NOT_UNIQUEでred。修正後`0fb5691994a1`は新規1＋従来15＝16ケースpass、runner exit0。hash一致でも旧一覧DOMの間はPOST0、詳細GET200のbody保留中もPOST0、解放後対象POST1/別投稿POST0・pressed/1件を確認した。全fixtureで停止/lock返却、製品要求/利用者追加0。
+
+最終fixtureのHEADは`aeffd2d64b3dc777f79f8e6cc05486513489e0ba`、source SHA-256 `9158aa596becfd8480cd4b596399b74de9b453dde07b222add43ef2804ee33c1`前後一致。以後は文書と固定診断の秘密除去テストだけを追加し、実行コードは同じ。製品runは11/11のまま、12回目は実行していない。11回目のraw結果は全体failを維持し、修正後の製品撮影は未再検証。正式design1/plan1/quality3巡を変更せず、失敗修正の影響範囲だけを検証した。

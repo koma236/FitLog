@@ -11,6 +11,7 @@
 3. A: 自分のprofile/avatar→自己所有記録/画像→本人編集→reload。
 4. B: 自分のprofile→完全なAの合成username検索→Aのprofile/follow→following→A記録→like/comment→reload。公開all一覧や広い検索は撮影しない。
    空検索は利用者一覧を返すため、条件入力中の結果行は録画用CSSでマスクする。実APIとDOMが合成Aだけの1件で一致してから解除する。マスクの使用も記録し、通常試験の表示やAPI応答は変更しない。
+   followingから詳細へ進む際は、link操作後に開始した対象GET200と対象hash、詳細領域の既知投稿/コメントUI、loading解消、一意かつenabledのlike（非pressed・0件）を確認する。詳細領域内からPOSTし、pressed・1件への描画完了まで待つ。hash変更やHTTP200だけでは画面完了としない。固定stage/件数/一致boolean/HTTP status/例外分類を記録し、DOMや生例外は保存しない。
 5. comment/like/followを解除。動画contextをcloseして録画停止、その後非録画contextでlogoutする。
 6. ffmpegによる全frame decodeを確認する。これは人間による再生/視認確認とは区別し、視認未実施ならnot_runとする。OS file chooserのkeyboard確認も別欄に記録する。
 7. ローカル動画は`.artifacts/<run>/videos-quarantine/`に保持。想定外遷移/認証画面が一度でも現れたら成功証跡にしない。安全確認前の共有/外部uploadは禁止。

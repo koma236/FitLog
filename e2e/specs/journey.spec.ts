@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { STEP_IDS, ResultLedger, ORIGIN, sanitizeFailure, captureSearchAllowed, withinDeadline, withinCancellableDeadline, modalFocusContained, type CancellationScope } from '../support/safety.mjs'
 import { api, artifact, audit, authSlot, budget, fillRecord, go, guardedContext, guardedPage, imageFixture, keyboardTarget, login, logout, makeActor, responseFor, recoveryLog, runId, scan, signup, type Actor } from '../support/app.js'
-import { deletionSettled, networkRecovery, recoveryCases, recoveryRows, sessionMatches } from '../support/recovery.mjs'
+import { captureLikeFromFollowing, deletionSettled, networkRecovery, recoveryCases, recoveryRows, sessionMatches } from '../support/recovery.mjs'
 
 // Narrow characterization: Playwright's implicit-label text includes textarea's
 // DOM text, while the textbox accessible name correctly excludes its own value.
@@ -533,8 +533,7 @@ async function capture(browser: Browser, a: Actor, b: Actor, postId: string, mar
         await scope.step(() => page.getByRole('link', { name: a.name, exact: true }).click())
         await scope.step(() => responseFor(page, '/api/users/' + a.id + '/follow', 'POST', () => page.getByRole('button', { name: 'フォローする', exact: true }).click(), 200))
         await scope.step(() => go(page, '#'))
-        await scope.step(() => page.locator('article.workout-card').filter({ hasText: `Edited ${runId}` }).getByRole('link', { name: '記録の詳細', exact: true }).click())
-        await scope.step(() => responseFor(page, '/api/posts/' + postId + '/like', 'POST', () => page.getByRole('button', { name: 'いいね', exact: true }).click(), 200))
+        await scope.step(() => captureLikeFromFollowing(page, postId, `Edited ${runId}`, recoveryLog))
         budget.take('comments')
         await scope.step(() => page.getByRole('textbox', { name: 'コメント本文', exact: true }).fill(`capture ${runId}`))
         const sent = await scope.step(() => responseFor(page, '/api/posts/' + postId + '/comments', 'POST', () => page.getByRole('button', { name: 'コメントする', exact: true }).click(), 201))
