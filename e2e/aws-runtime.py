@@ -11,7 +11,7 @@ import time
 from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from aws_contract import Invalid, claim, exclusive_json, final_ready, init_campaign, load, protected, sha256, validate, validate_handoff
+from aws_contract import Invalid, boundary_status, claim, exclusive_json, final_ready, init_campaign, load, protected, sha256, validate, validate_handoff
 
 spec = importlib.util.spec_from_file_location('fitlog_local_runtime', Path(__file__).with_name('runtime.py'))
 local = importlib.util.module_from_spec(spec)
@@ -27,11 +27,23 @@ class AwsDriver(local.LocalDriver):
         self.data = data
         self.deadline = time.monotonic() + (datetime.fromisoformat(data['expires_at'].replace('Z', '+00:00')) - datetime.now(timezone.utc)).total_seconds() - 30
         self.browser_attempted = False
+        self.initial_boundary = boundary_status(data)
         self.report.update(environment='aws', lease_returned=False, final_evidence_ready=final_ready(data),
                            manual_playback='not_run', after_destroy_playback='not_run')
 
     def preflight(self):
         validate(self.data)
+
+    def verify_boundary(self):
+        """Re-read originals after clients stop; consumed evidence cannot disappear."""
+        self.report.update(c04='fail', final_evidence_ready=False, boundary_reason='BOUNDARY_EVIDENCE_INVALID')
+        current = boundary_status(self.data)
+        self.report['boundary'] = current
+        if current['fingerprint'] != self.initial_boundary['fingerprint'] or current['status'] == 'fail':
+            raise RuntimeError('BOUNDARY_EVIDENCE_CHANGED')
+        ready = final_ready(self.data)
+        self.report.update(c04=current['status'], final_evidence_ready=ready,
+                           boundary_reason='BOUNDARY_OBSERVED' if current['status'] == 'pass' else 'BOUNDARY_EVIDENCE_INCOMPLETE')
 
     def command(self, name, argv, timeout=90, env=None):
         """Reuse group-stop primitives with spawn registration protected from signals."""
@@ -174,8 +186,13 @@ def execute(data, campaign):
                 driver.report.update(source_after=after, status='fail',
                                      client_stop_confirmed=bool(stopped), lease_returned=False,
                                      lock_released=False,
-                                     c04='not_run', boundary_reason='A_BOUNDARY_RECEIPT_SCHEMA_PENDING',
                                      acceptance='not_run', ended_at=local.shared.now())
+                try:
+                    driver.verify_boundary()
+                except Exception:
+                    passed = False
+                    driver.report.update(c04='fail', final_evidence_ready=False,
+                                         boundary_reason='BOUNDARY_EVIDENCE_INVALID', error='BOUNDARY_EVIDENCE_INVALID')
                 driver.save()
             if stopped and owned:
                 lock.release()
@@ -214,7 +231,8 @@ def main(argv=None):
         else:
             result = 0
         print(json.dumps({'contract': 'pass', 'aws': 'executed' if args.execute_aws else 'not_run',
-                          'status': 'pass' if result == 0 else 'fail'}))
+                          'status': 'pass' if result == 0 else 'fail',
+                          'boundary': boundary_status(data), 'final_evidence_ready': final_ready(data)}))
         return result
     except (Exception, KeyboardInterrupt):
         print('{"status":"fail","code":"AWS_RUN_REFUSED"}')

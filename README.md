@@ -6,7 +6,7 @@
 
 A（基盤・費用/操作管理）、B（成果物照合・配置/初期化・稼働証跡）、C（E2E・撮影・限定性能の検証harness）の実装とローカル検証を行っています。A/Bはmainへ統合済み、Cは[PR #63](https://github.com/koma236/FitLog/pull/63)で相互レビューコメント対応済みです。実AWSの構築・配置・公開・試験・破棄は未実施です。
 
-現在の到達点と後続条件は[受入れ状況](docs/acceptance.md#aws準備の到達点2026-11-07)・[公開前の残作業](docs/production-readiness.md#abc統合後のaws準備2026-11-07)を参照してください。[Cの検証結果](docs/aws-c-verification-results.md)には対象commit・ローカル試験・既知の制限を記録しています。次の作業ではC04の公開境界証跡の形式と照合処理を整え、account/role・予算・期間・対象操作の具体承認後に実AWSで検証します。
+現在の到達点と後続条件は[受入れ状況](docs/acceptance.md#aws準備の到達点2026-11-07)・[公開前の残作業](docs/production-readiness.md#abc統合後のaws準備2026-11-07)を参照してください。[Cの検証結果](docs/aws-c-verification-results.md)には対象commit・ローカル試験・既知の制限を記録しています。Issue #66で[C04の観測契約・照合処理とC02 Origin対照](docs/aws-c-boundary-contract.md)を補強しました。実AWSの検証はaccount/role・予算・期間・対象操作を具体化して別承認した後に実施します。
 
 ## CIとマージ条件
 

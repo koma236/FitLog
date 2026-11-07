@@ -48,8 +48,8 @@ repo外の実行者所有0700 folderに0600（読取り用0400可）のJSONを�
 B handoffの`ready_for_c`、account/region/environment/run/bootstrap/source_revision/image_digest/frontend_sha256/origin/windowを照合する。Bの`evidence`各pathは元のschema v2工程証跡を読み、Bのcanonical JSON hash・run/source/digest/static・同じdeployment_identity・status/stepを照合する。必須10工程はBの引継ぎ設計と同じ。Bのstate/manifest本文や秘密は読まない。
 まだB未統合なら、Cのfixture契約を検証済みとだけ報告し、B統合済み/実配置成功とは扱わない。Bのschemaが変わったらadapterと固定fixtureを照合し、同snapshotで再検証する。
 
-公開境界のC参照`evidence`は`{probe_id,path,sha256}`。probe_idは`alb-normal/alb-host/task/s3-static/s3-media/other-distribution/viewer-headers`だけ。各fileはC契約のaccount/region/environment/run_id/bootstrap_id/source/image_digest/frontend_sha256/originとprobe_id/status=passのみを持つAの非秘密結果。対象・期待拒否・既知fixture・元の実行記録の意味はAの実操作台帳と照合し、CのファイルだけでAWS拒否を証明したとは呼ばない。未提供ならnot_run。
-B permissions/IPがnot_runでもCは開始できる。公開境界の薄い成功要約は実拒否の証明にならないため、現在C04/final_evidence_readyはnot_run/falseを維持する。Aの実応答・SG観測・既知objectと原本対応を含むreceipt仕様の成立と検証器の実装が必要で、Bの両probe成功や参照数だけでpassにしない。
+公開境界のC参照`evidence`は`{probe_id,path,sha256}`。新しいschema v2 receiptは、同一identityの対象台帳・実在確認原本・HTTP/SG観測原本を参照する。[C04観測契約](aws-c-boundary-contract.md)をA/#67との受渡し仕様の正本とする。旧成功要約は互換読取りできるがnot_run。不正原本はfailとして開始前に拒否する。
+B permissions/IPがnot_runでもCは開始できる。全7probeの実観測がpassの場合だけC04がpassとなり、Bの両probeもpassの場合だけfinal_evidence_ready=true。未収集の実AWS証跡をsynthetic fixtureで代用しない。終了時にも原本を再照合し、途中の消失・改変をfailにする。総合acceptanceは自動合格にしない。
 
 オフライン検査（AWS未接続）:
 

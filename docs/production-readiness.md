@@ -12,7 +12,7 @@ Issue #28。アプリ側の本番用部品を用意する段階。AWS資源、�
 | B | source/image/staticの成果物照合、工程順・稼働証跡、C用handoff | [配置手順](aws-b-deployment-runbook.md) |
 | C | exact origin/送信予算/期限/停止確認、共用E2E・撮影・限定性能、B証跡の読取り | [利用手順](aws-c-verification-runbook.md)・[検証結果](aws-c-verification-results.md) |
 
-次の作業では、まずC04の公開境界probeについて、Aが収集する対象資源・要求条件・期待拒否/SG観測・日時・原本hashの証跡形式と、Cの照合処理を整える。現在は成功要約だけで実拒否を判定できず、C04と総合受入れを自動合格にしない。C02の異Origin負例も正例と送信経路/header/bodyが異なり、Origin未転送を識別できない制限がある。実AWS検証計画では同一要求のOriginだけを変えた対照を整える必要がある。
+Issue #66で[C04観測契約](aws-c-boundary-contract.md)とオフライン照合処理、C02のOrigin単独差分・状態不変対照を実装した。C04は全対象・原本・SG/HTTP・既知objectと正常対照の整合を要求する。成功要約や通信guardの遮断でpassにしない。これらのローカル試験は実AWSの成功証跡ではなく、実観測を取得するまでC04/総合受入れは未完了。
 
 実AWS操作の開始前に、account/role・USD予算上限・実日時/期限・対象資源・初回/再構築・許可操作/試験量・停止/破棄/残置範囲を具体化して別承認する。AがAWS構成/配置操作を担い、Bが配置契約、Cが引渡し後の試験を担当する。C04証跡の整備は実AWS操作の許可を兼ねない。
 
