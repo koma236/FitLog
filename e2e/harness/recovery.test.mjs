@@ -1,7 +1,7 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { EventEmitter } from 'node:events'
-import { RecoveryLog, failureCategory, responseAfter, recoveryCases, recoveryRows } from '../support/recovery.mjs'
+import { RecoveryLog, failureCategory, responseAfter, recoveryCases, recoveryRows, networkRecovery } from '../support/recovery.mjs'
 
 test('observation exports only approved scalars even when URL, DOM, body and errors contain secrets', () => {
   let output
@@ -81,4 +81,13 @@ test('a failed subcase stays failed while independently ready cases proceed and 
   assert.deepEqual(rows.map(row => row.status), ['fail', 'pass', 'not_run', 'not_run'])
   assert.ok(saves > 0)
   assert.doesNotMatch(JSON.stringify(rows), /SECRET/)
+})
+
+test('recovery navigation uses the validated origin passed by its caller', async () => {
+  const page = new EventEmitter(); page.mainFrame = () => ({})
+  let destination
+  page.goto = async value => { destination = value; throw Error('STOP_BEFORE_ANY_NETWORK') }
+  const actor = { page, context: { setOffline: async () => {} } }
+  await assert.rejects(networkRecovery(actor, 'known', new RecoveryLog(), 'https://dexample.cloudfront.net'))
+  assert.equal(destination, 'https://dexample.cloudfront.net/#')
 })

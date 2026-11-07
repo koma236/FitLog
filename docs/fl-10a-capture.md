@@ -22,6 +22,8 @@ OSファイル選択の隔離手動probeはOrcaのAccessibility権限不足で�
 
 ## 後日のAWS実証欄（今回not_run）
 
+2026-11-07、C #60で[専用harness](aws-c-verification-runbook.md)を準備する。既存ローカル入口/11run履歴は変更せず、AWSは新しい2環境campaign/各1試行・別の具体承認を必要とする。AWS用動画も認証後のみ、最大2本/合計5分、decode・視認・破棄後再生は別判定。
+
 承認されたAWS対象とexact HTTPS originを設計/guardへ反映した後に使用する。今回のコマンドはAWSへ接続できない。
 
 | 項目 | 記入する事実 |

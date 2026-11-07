@@ -138,12 +138,12 @@ export async function followingReady(page, note, log = new RecoveryLog()) {
 }
 
 /** Shared by the real journey and the HTTP fixture; never mocks a product response. */
-export async function networkRecovery(actor, note, log = new RecoveryLog()) {
+export async function networkRecovery(actor, note, log = new RecoveryLog(), origin = ORIGIN) {
   const { page, context } = actor
   try {
     await context.setOffline(false)
     await log.stage('network-open', page, 'B', async () => {
-      const response = await responseAfter(page, '/api/timeline/following', 'GET', () => page.goto(ORIGIN + '/#'), 200)
+      const response = await responseAfter(page, '/api/timeline/following', 'GET', () => page.goto(origin + '/#'), 200)
       log.event('network-open', page, 'B', 'observation', { request_kind: 'timeline', status: response.status(), online: true })
     })
     const button = await log.stage('network-ready', page, 'B', async () => {
