@@ -151,16 +151,37 @@ def execute(data, campaign):
             driver.report['error'] = 'AWS_RUN_FAILED'
     finally:
         handlers = {sig: signal.signal(sig, signal.SIG_IGN) for sig in (signal.SIGINT, signal.SIGTERM)}
+        released = False
         try:
-            stopped = driver is None or driver.stop_owned()
+            try:
+                stopped = driver is None or driver.stop_owned()
+            except (Exception, KeyboardInterrupt):
+                stopped = False
             if driver:
                 after = local.snapshot()
-                passed = passed and after == snapshot
-                driver.report.update(source_after=after, status='pass' if passed else 'fail',
+                passed = passed and stopped and after == snapshot and lock.owned()
+                if not stopped:
+                    driver.report['error'] = 'STOP_UNCONFIRMED'
+                elif not lock.owned():
+                    driver.report['error'] = 'OWNER_CHANGED'
+                elif after != snapshot:
+                    driver.report['error'] = 'SOURCE_CHANGED'
+                # Persist a conservative outcome before attempting lock return.
+                # A failed save/release must never leave a success record behind.
+                driver.report.update(source_after=after, status='fail',
+                                     client_stop_confirmed=bool(stopped), lease_returned=False,
+                                     lock_released=False,
                                      c04='not_run', boundary_reason='A_BOUNDARY_RECEIPT_SCHEMA_PENDING',
                                      acceptance='not_run', ended_at=local.shared.now())
                 driver.save()
-            if stopped and lock.owned(): lock.release()
+            if stopped and lock.owned():
+                lock.release()
+                released = True
+            passed = passed and released
+            if driver:
+                driver.report.update(status='pass' if passed else 'fail',
+                                     lease_returned=bool(stopped and released), lock_released=released)
+                driver.save()
         finally:
             for sig, handler in handlers.items(): signal.signal(sig, handler)
     return 0 if passed else 1
