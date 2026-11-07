@@ -63,7 +63,7 @@ def tagged(tags: list[dict[str, str]], manifest: Manifest, lower: bool = False) 
             and actual.get('Environment') == manifest.environment)
 
 
-def preflight(api: Api, manifest: Manifest, phase: str) -> dict[str, Any]:
+def preflight(api: Api, manifest: Manifest, phase: str, *, wait_live: bool = False) -> dict[str, Any]:
     """Operator-only AWS inspection, with phase-specific stop/live guards."""
     manifest.authorize(datetime.now(UTC))
     require(phase in ('private', 'backend', 'public'))
@@ -78,7 +78,8 @@ def preflight(api: Api, manifest: Manifest, phase: str) -> dict[str, Any]:
             and service['taskDefinition'] == res['backend_task'])
     tagged(service['tags'], manifest, lower=True)
     counts = tuple(service[name] for name in ('desiredCount', 'runningCount', 'pendingCount'))
-    require(counts == ((0, 0, 0) if phase == 'private' else (1, 1, 0)))
+    require((wait_live and phase != 'private')
+            or counts == ((0, 0, 0) if phase == 'private' else (1, 1, 0)))
     network = service['networkConfiguration']['awsvpcConfiguration']
     require(set(network['subnets']) == set(res['subnets'])
             and network['securityGroups'] == [res['security_group']]
