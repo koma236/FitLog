@@ -1,5 +1,7 @@
 # Terraform — FitLogデモ基盤
 
+2026-11-07、Issue #58: local backend宣言を追加。実操作では環境ごとの保護絶対state pathを`init -backend-config=path=...`で指定し、別々の保護TF_DATA_DIRを使用する。[A操作手順](../docs/aws-a-operations.md)を正とし、下段およびB手順のTerraform呼出しにも同設定を適用する。既定state pathで実操作しない。CI/mockの`init -backend=false`は維持。`tests/test_local_backend.py`はAWS providerなしの隔離fixtureで2環境のstate/保存plan適用先を確認する。実AWS検証は未実施。
+
 FL-09B2（Issue #32）で基盤、FL-09B3（Issue #42）でCloudFront/ALB/OAC、FL-09B4（Issue #44、2026-11-06）でECS/RDS・秘密参照・公開RDS CAを構成定義。AWS資源の作成・疎通・実権限評価は未実施。下段の構築・配置・撮影・破棄手順は後続の草案。
 
 ## 実装済みの範囲
