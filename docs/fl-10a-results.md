@@ -1,6 +1,6 @@
 # FL-10A 結果と非秘密の記録様式
 
-現時点: 実アプリ10/10runを使用。ユーザーの「はい1回承認します」により追加1回のみ、累計10run/合成利用者最大20件を承認。10回目`e01acf6895da`はE01〜07/E10がpass、E08の再読み込みボタンclickでfail。E09と撮影はnot_run。両者UI cleanupと自己起動サービス停止/lock返却はpass。品質全体は未完了で、フラグ未発行。追加実行を提案して繰り返さず、検証方法の再整理で停止する。品質レビュー第3巡までの高コード0/中4は、この実アプリ失敗を解消した判定ではない。以下の9run上限/追加2run提案/8run/2巡停止等は各時点の履歴。
+現時点: 承認された実アプリ11/11runを使用。11回目`3f3ee7f365f6`はE01〜10とE08の4項目が全pass、撮影Bのいいね操作でfail。撮影を含む全体は不合格。A/B cleanup・logout、自起動3サービス停止、lock返却はpass。登録確認20件、保守的な合成利用者枠22/22を使用。品質フラグなし・マージ不可。design1/plan1/quality3巡を維持。以下は各時点の履歴。
 
 最新追加承認: 「はい、承認します」により、CDP切断時の停止修正・quality追加1巡（計3巡）・E2E追加1run/2利用者（計9run/最大18利用者）を承認。正規extend済み。切断後/初期化中/重複通知/停止失敗の回帰4件はred→green、型とNode26/Python10がpass。制御Chromium最終fixture `network-fixture-4784116f9b61` は切断page終了・初期化拒否・正常close後の同context継続・禁止先到達0を確認、listener/browser停止/lock返却成功。以下の2巡上限による停止は追加承認前の履歴。
 
@@ -8,7 +8,7 @@
 
 関連: Issue #54、[設計](fl-10a-design.md)、[撮影台本](fl-10a-capture.md)。結果は対象snapshotに限って記録する。
 
-## 現在の状態
+## 初期検証から第2巡停止までの履歴
 
 専用lockからのnpm ci・型チェック、guard/reporterのNodeテスト12件、runner後始末/結果検証のPythonテスト9件、ゲート回帰54件を実行して成功した。新規依存のnpm install/ci監査は脆弱性0件だった。
 
@@ -144,3 +144,29 @@ E01〜07/E10はpass。E08は`journey.spec.ts:366`の「画像と一覧を再読�
 AWS URLへの接続、S3の実保存障害、自然session期限、再起動永続、3利用者集合/cursor境界、DB停止、競合/二重送信、全WCAG、他browser、環境2往復・課金停止/後日請求確認は今回ブラウザnot_run。既存backendテストの対応と実行結果は別に示す。
 
 登録11 checksとゲート回帰は独立に実施・記録する。新規ブラウザtestの追加だけで製品の受け入れ条件全体をpassにしない。B統合後にREADMEとacceptanceを最終更新する。
+
+## 承認後のE08前提修正（製品追加実行前）
+
+Astraが実App/WorkoutFeedをread-only importした制御fixtureを追加し、実journeyとnetworkRecoveryを共用した。E10削除後の遷移完了、E08四項目の独立台帳、操作開始後requestとの相関、前提確認後だけのoffline、必ずonlineへ戻す処理、後工程の本人/所有資源再確認、非秘密の固定stage観測を実装。製品応答のmockはfixtureだけであり、主要E2Eでは使わない。
+
+TDD根拠:
+- Python: 11件履歴でprepare前拒否と既存原本再利用拒否を追加し、修正前2件fail→修正後pass。E08詳細の欠落/fail/未完了を全体passから拒否する3反証もred→green。10履歴を保持した11件目の予約と12件目拒否を別に検証。
+- 旧E08の実コードを抽出した`recovery-fixture-8c33be0d3005`は初回GET保留中offline=1・button=0でfail。新共用関数の`bcabe7a0d8bf`はoffline=0・button=0を保ち、release後に通信失敗と回復までpass。これは10回目の厳密な実行順序の復元ではない。
+- request相関の反証: mount read取消→同じ操作で開始した後続GET200を、新helperがREQUEST_FAILEDで早期拒否するredを確認し訂正。古い同path応答は引き続き採用せず、時間延長/自動retryなし。
+
+fixture開発中の失敗も保持する。`cbe7fb421b8b`は初期red（数値なし）、`261561e64488`は旧offlineがHTTP到達前になり同期点を待ったため所有runnerへTERMして停止/lock返却。`cd793e2a64c3`/`4ab72602d1b3`はfixtureの保留応答二重送信、`4f17c813cf68`は既に代替表示へ変わったimgの待機、`108af8475625`はfixtureがFetch Response.statusを関数として呼んだ誤り、`21e2bef21e0b`はStrictModeで初回GETが複数回になることを画像fixtureが考慮していなかった失敗。各原因を制御側で修正し、製品run枠は使っていない。`a2865949d728`は13ケースpass、StrictMode/実CSS/401/本人不一致まで含む`377b1112c860`は15ケースpass、全停止/lock返却・source前後一致。
+
+現時点の制御fixture対象は初回GET保留、200後body/DOM遅延、503/不正body/401、本人不一致、別画面の同名button、古い同path応答、画像固有のエラー、DELETE204後の遷移、4段階の観測保存失敗後online復帰、context終了。秘密markerが観測へ出ないことも確認する。製品/DB接続・利用者作成は0。製品11回目・登録11checks・手動相互レビュー等は未実施で、fixture成功を全体合格へ読み替えない。
+
+## 11回目の実アプリ結果
+
+承認「どちらにしても実装と追加しないとダメだと思うので、承認します。」に基づく追加1runだけを実行。`3f3ee7f365f6`、2026-11-07 05:16:53〜05:17:44 UTC。HEAD `9446b99f2af482df5f65b89261a9600fcd97f5dd`と未commit差分、source SHA-256 `a3a12bdf7f001ecc197a93734867bca4e79a2a23b8e6c9b754a33e70d7921575`前後一致。12回目は承認・実行していない。
+
+- E01〜E10すべてpass。E08のnetwork/CSRF/old-session/cookie-lossも全pass。E08の準備・遮断・回復と後工程の前提確認は固定分類の観測原本に残した。
+- 撮影はA工程後、Bのfollow→一覧→記録詳細後のいいね操作（`journey.spec.ts:537:153`）でfail。HTTP status不一致0。例外本文・DOMを保存しないため、厳密な失敗分類は記録だけでは未確定。`capture-safe.json`なし。quarantineの2本は撮影成功・共有可とは扱わない。E09は撮影失敗と独立してpassしたが、全体不合格は維持する。
+- axe38画面、違反0/incomplete node30/最大overflow0px。A/B UI cleanup・logout pass、post/commentの自己所有台帳残存0。合成利用者2件は承認どおり残置。画像物理回収の保証ではない。
+- 自起動postgres/backend/frontend停止、port解放、lock返却を確認。runtime原本の工程/時刻/終了code/source対応は保持。
+- 一次記録は`e2e/.artifacts/3f3ee7f365f6/`。`.quality-check-runs/e2e-3f3ee7f365f6-original/`へ10ファイルを複製し、全内容hash一致を確認。既存原本の上書きはしていない。
+- 直前の型check/Node34件/Python13件はpass。既存guard fixture `network-fixture-fe0afcc44202`もpass、製品要求・利用者追加0、停止/lock返却pass。ゲート回帰54件pass。登録11checksの最終結果は同PRの品質報告へ対応付ける。
+
+AstraによるE08修正は今回の実アプリで合格した。ただし他runの撮影成功を合成して今回の全体合格とはしない。撮影失敗の調査結果と未確認事項をPRへ記録し、追加回数を自動で増やさず停止する。認証/認可試験を含む手動相互レビュー等の既存条件も未解除。

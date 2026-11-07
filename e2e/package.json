@@ -8,6 +8,7 @@
     "test:harness": "node --test harness/*.test.mjs",
     "test:runtime": "python3 -B -m unittest discover -s harness -p 'test_*.py'",
     "test:network-guard": "python3 -B harness/network_browser.py",
+    "test:recovery": "python3 -B harness/recovery-browser.py",
     "test:e2e": "python3 -B runtime.py",
     "capture:rehearsal": "python3 -B runtime.py --capture"
   },

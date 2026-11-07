@@ -3,7 +3,8 @@ import { writeFileSync, mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { STEP_IDS, ResultLedger, ORIGIN, sanitizeFailure, captureSearchAllowed, withinDeadline, withinCancellableDeadline, modalFocusContained, type CancellationScope } from '../support/safety.mjs'
-import { api, artifact, audit, authSlot, budget, fillRecord, go, guardedContext, guardedPage, imageFixture, keyboardTarget, login, logout, makeActor, responseFor, runId, scan, signup, type Actor } from '../support/app.js'
+import { api, artifact, audit, authSlot, budget, fillRecord, go, guardedContext, guardedPage, imageFixture, keyboardTarget, login, logout, makeActor, responseFor, recoveryLog, runId, scan, signup, type Actor } from '../support/app.js'
+import { deletionSettled, networkRecovery, recoveryCases, recoveryRows, sessionMatches } from '../support/recovery.mjs'
 
 // Narrow characterization: Playwright's implicit-label text includes textarea's
 // DOM text, while the textbox accessible name correctly excludes its own value.
@@ -68,9 +69,10 @@ test('two members use the real local application', async ({ browser }) => {
   const noteEdited = `Edited ${runId}`
   const cleanup: { action: string; status: string }[] = []
   const failures: { source: string; line: number | null; column: number | null }[] = []
+  const recovery = recoveryRows()
 
   const save = () => writeFileSync(path.join(artifact, 'journey.json'), JSON.stringify({
-    run_id: runId, checkpoint, failures, capture_status: captureStatus, unconfirmed_writes_on_timeout: unconfirmedWritesOnTimeout, steps: ledger.rows(), resources: {
+    run_id: runId, checkpoint, failures, recovery, capture_status: captureStatus, unconfirmed_writes_on_timeout: unconfirmedWritesOnTimeout, steps: ledger.rows(), resources: {
       users: resources.users, posts: resources.posts.map(row => row.id), comments: resources.comments,
     }, cleanup, browsers: { chromium: browser.version(), firefox: 'not_run', webkit: 'not_run' },
     aws: 'not_run', natural_session_expiry: 'not_run', server_restart: 'not_run', native_file_picker_manual: 'not_run',
@@ -355,40 +357,57 @@ test('two members use the real local application', async ({ browser }) => {
       await keyboardTarget(A.page, A.page.getByRole('alertdialog').getByRole('button', { name: '削除する', exact: true }))
       await responseFor(A.page, '/api/posts/' + id, 'DELETE', () => A.page.keyboard.press('Enter'), 204)
       resources.posts = resources.posts.filter(row => row.id !== id); resources.comments = []
+      await deletionSettled(A.page, recoveryLog)
       const serious = audit.flatMap(row => row.violations as { impact: string }[]).filter(row => row.impact === 'serious' || row.impact === 'critical')
       expect(serious.length).toBe(0)
       expect(audit.every(row => row.overflow_px <= 1)).toBe(true)
     })
 
     await step('E08', async () => {
-      await go(A.page, '#')
-      await A.context.setOffline(true)
-      await A.page.getByRole('button', { name: '画像と一覧を再読み込み', exact: true }).click()
-      await expect(A.page.getByRole('button', { name: 'もう一度読み込む', exact: true })).toBeVisible()
-      await A.context.setOffline(false)
-      await responseFor(A.page, '/api/timeline/following', 'GET', () => A.page.getByRole('button', { name: 'もう一度読み込む', exact: true }).click(), 200)
-      await expect(A.page.getByRole('button', { name: 'もう一度読み込む', exact: true })).toHaveCount(0)
-      await expect(A.page.getByText(noteEdited, { exact: true })).toBeVisible()
-      const rejected = await api(A, '/api/posts/' + aPost, 'PUT', recordPayload, false)
-      expect(rejected.status).toBe(403); expect(rejected.body.code).toBe('CSRF_FAILED')
-      expect((await api(A, '/api/posts/' + aPost)).body.note).toBe(noteEdited)
-      const old = await guardedContext(browser, { storageState: await A.context.storageState() })
-      try {
-        const tab = await guardedPage(A.context); await tab.goto(ORIGIN)
-        await logout({ ...A, page: tab }); await tab.close()
-        const response = await old.request.get(ORIGIN + '/api/auth/me', { maxRedirects: 0 })
-        expect(response.status()).toBe(401); expect((await response.json()).code).toBe('AUTH_REQUIRED')
-      } finally { await old.close() }
-      await A.page.reload(); await login(A)
-      const oldForLogout = await guardedContext(browser, { storageState: await A.context.storageState() })
-      try {
-        await A.context.clearCookies({ name: 'sessionid' })
-        await A.page.reload(); await expect(A.page.getByRole('button', { name: 'ログイン', exact: true })).toBeVisible()
-        const csrf = (await (await oldForLogout.request.get(ORIGIN + '/api/auth/csrf', { maxRedirects: 0 })).json()).csrf_token
-        expect((await oldForLogout.request.post(ORIGIN + '/api/auth/logout', { headers: { 'X-CSRFToken': csrf }, maxRedirects: 0 })).status()).toBe(204)
-      } finally { await oldForLogout.close() }
-      await login(A)
-    })
+      const passed = await recoveryCases({
+        network: { ready: () => sessionMatches(B, recoveryLog, 'B'), action: () => networkRecovery(B, noteB, recoveryLog) },
+        csrf: { ready: () => sessionMatches(A, recoveryLog, 'A'), action: () => recoveryLog.stage('case-csrf', A.page, 'A', async () => {
+          const rejected = await api(A, '/api/posts/' + aPost, 'PUT', recordPayload, false)
+          expect(rejected.status).toBe(403); expect(rejected.body.code).toBe('CSRF_FAILED')
+          expect((await api(A, '/api/posts/' + aPost)).body.note).toBe(noteEdited)
+        }) },
+        'old-session': { ready: () => sessionMatches(A, recoveryLog, 'A'), action: () => recoveryLog.stage('case-old-session', A.page, 'A', async () => {
+          const old = await guardedContext(browser, { storageState: await A.context.storageState() })
+          try {
+            const tab = await guardedPage(A.context)
+            try { await tab.goto(ORIGIN); await logout({ ...A, page: tab }) }
+            finally { await tab.close() }
+            const response = await old.request.get(ORIGIN + '/api/auth/me', { maxRedirects: 0 })
+            expect(response.status()).toBe(401); expect((await response.json()).code).toBe('AUTH_REQUIRED')
+          } finally { await old.close() }
+          await A.page.reload(); await login(A)
+        }) },
+        'cookie-loss': { ready: () => sessionMatches(A, recoveryLog, 'A'), action: () => recoveryLog.stage('case-cookie-loss', A.page, 'A', async () => {
+          const oldForLogout = await guardedContext(browser, { storageState: await A.context.storageState() })
+          try {
+            await A.context.clearCookies({ name: 'sessionid' })
+            await A.page.reload(); await expect(A.page.getByRole('button', { name: 'ログイン', exact: true })).toBeVisible()
+            const csrf = (await (await oldForLogout.request.get(ORIGIN + '/api/auth/csrf', { maxRedirects: 0 })).json()).csrf_token
+            expect((await oldForLogout.request.post(ORIGIN + '/api/auth/logout', { headers: { 'X-CSRFToken': csrf }, maxRedirects: 0 })).status()).toBe(204)
+          } finally { await oldForLogout.close() }
+          await login(A)
+        }) },
+      }, recovery, save)
+      if (!passed) throw new Error('CASE_FAILED')
+    }).catch(() => { failed = true })
+
+    // No continuation based only on a caught error: re-establish live identities
+    // and the exact owned resource. A timeout/closed context cannot pass this gate.
+    let continuationReady = false
+    try {
+      await A.context.setOffline(false); await B.context.setOffline(false)
+      if (await sessionMatches(A, recoveryLog, 'A') && await sessionMatches(B, recoveryLog, 'B')) {
+        const owned = await api(A, '/api/posts/' + aPost)
+        continuationReady = owned.status === 200 && owned.body.id === aPost && owned.body.viewer_id === A.id && owned.body.is_owner === true && owned.body.note === noteEdited
+      }
+      recoveryLog.event('postcondition', A.page, 'A', 'observation', { matches: continuationReady })
+    } catch { continuationReady = false }
+    if (!continuationReady) throw new Error('PRECONDITION_FAILED')
 
     // Capture has its own outcome: a recording failure must not hide otherwise
     // independent recovery/deletion observations. The whole run still fails.

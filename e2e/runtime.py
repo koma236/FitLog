@@ -29,6 +29,7 @@ class RuntimeSession:
         passed = False
         try:
             self.lock.acquire()
+            self.driver.preflight()
             self.driver.prepare()
             self.driver.exercise()
             passed = True
@@ -99,6 +100,10 @@ def validate_browser_result(output, run_id):
                 or {row["id"] for row in rows} != expected
                 or any(row["status"] != "pass" or not row.get("started") or not row.get("finished") for row in rows)):
             raise ValueError()
+        recovery = story['recovery']
+        if (len(recovery) != 4 or {row['id'] for row in recovery} != {'network', 'csrf', 'old-session', 'cookie-loss'}
+                or any(row['status'] != 'pass' or not row.get('started') or not row.get('finished') for row in recovery)):
+            raise ValueError()
         cleanup = story["cleanup"]
         if (len(cleanup) != 2 or {row["action"] for row in cleanup} != {"A-owned-ui-cleanup", "B-owned-ui-cleanup"}
                 or any(row["status"] != "pass" for row in cleanup)):
@@ -123,6 +128,8 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 class LocalDriver:
     def __init__(self, lock, output, capture=False):
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.mkdir(mode=0o700)  # Exclusive: an existing run is immutable input.
         self.lock, self.output, self.capture = lock, output, capture
         self.started = []
         self.initial_ids = set()
@@ -133,7 +140,6 @@ class LocalDriver:
         self.report = {"operations": [], "migrations": {}, "environment": "local", "started_at": shared.now()}
 
     def save(self):
-        self.output.mkdir(parents=True, exist_ok=True)
         temp = self.output / "runtime.json.tmp"
         temp.write_text(json.dumps(self.report, ensure_ascii=False, indent=2) + "\n")
         temp.replace(self.output / "runtime.json")
@@ -229,12 +235,16 @@ class LocalDriver:
                 time.sleep(.3)
         self.report["images"] = self.command("image-identities", shared.COMPOSE + ["images", "--format", "json"])
 
-    def exercise(self):
+    def preflight(self):
         journal = ROOT / "e2e/.artifacts/attempts.json"
         attempts = json.loads(journal.read_text()) if journal.exists() else []
-        # Original three + three + four individual approvals; retain every attempt.
-        if len(attempts) >= 10:
+        # Explicit additional single run: preserve the ten previous attempts.
+        if not isinstance(attempts, list) or len(attempts) >= 11:
             raise RuntimeError("SESSION_RUN_LIMIT")
+        return journal, attempts
+
+    def exercise(self):
+        journal, attempts = self.preflight()
         attempts.append(self.lock.owner["run_id"])
         journal.write_text(json.dumps(attempts) + "\n")
         self.command("browser", ["node", "e2e/node_modules/@playwright/test/cli.js", "test", "--config=e2e/playwright.config.ts"],

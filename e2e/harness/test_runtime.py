@@ -19,6 +19,9 @@ class Driver:
         self.failure = failure
         self.safe = safe
 
+    def preflight(self):
+        pass
+
     def prepare(self):
         self.events.append("prepare")
 
@@ -118,24 +121,73 @@ class LifecycleTests(unittest.TestCase):
             finally:
                 lock.release()
 
-    def test_approved_run_limit_keeps_history_and_does_not_start_an_eleventh_run(self):
+    def test_approved_run_limit_keeps_history_and_does_not_start_a_twelfth_run(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifacts = root / 'e2e/.artifacts'
             artifacts.mkdir(parents=True)
             journal = artifacts / 'attempts.json'
-            history = '["one","two","three","four","five","six","seven","eight","nine","ten"]'
+            history = '["one","two","three","four","five","six","seven","eight","nine","ten","eleven"]'
             journal.write_text(history)
-            lock = runtime.shared.RuntimeLock(root, root, "test/fl-10a-e2e-54", "eleventh")
-            driver = runtime.LocalDriver(lock, artifacts / 'eleventh')
+            lock = runtime.shared.RuntimeLock(root, root, "test/fl-10a-e2e-54", "twelfth")
+            driver = runtime.LocalDriver(lock, artifacts / 'twelfth')
             with patch.object(runtime, 'ROOT', root), patch.object(driver, 'command', side_effect=AssertionError('Browser must not start')):
                 with self.assertRaisesRegex(RuntimeError, 'SESSION_RUN_LIMIT'):
                     driver.exercise()
             self.assertEqual(journal.read_text(), history)
 
+    def test_exhausted_budget_refuses_before_prepare_and_keeps_history(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifacts = root / 'e2e/.artifacts'
+            artifacts.mkdir(parents=True)
+            journal = artifacts / 'attempts.json'
+            journal.write_text(json.dumps([str(n) for n in range(11)]))
+            before = journal.read_bytes()
+            lock = runtime.shared.RuntimeLock(root, root, 'test/fl-10a-e2e-54', 'twelfth')
+            driver = runtime.LocalDriver(lock, artifacts / 'twelfth')
+            events = []
+            driver.prepare = lambda: events.append('prepare')
+            driver.exercise = lambda: events.append('browser')
+            driver.stop_owned = lambda: True
+            with patch.object(runtime, 'ROOT', root):
+                self.assertFalse(runtime.RuntimeSession(lock, driver).run())
+            self.assertEqual(events, [])
+            self.assertEqual(journal.read_bytes(), before)
+            self.assertFalse(lock.path.exists())
+
+    def test_single_approved_eleventh_attempt_preserves_the_ten_previous_entries(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            artifacts = root / 'e2e/.artifacts'
+            artifacts.mkdir(parents=True)
+            history = [str(n) for n in range(10)]
+            journal = artifacts / 'attempts.json'
+            journal.write_text(json.dumps(history))
+            lock = runtime.shared.RuntimeLock(root, root, 'test/fl-10a-e2e-54', 'eleventh')
+            driver = runtime.LocalDriver(lock, artifacts / 'eleventh')
+            with patch.object(runtime, 'ROOT', root), patch.object(driver, 'command', side_effect=RuntimeError('SYNTHETIC_STOP')) as command:
+                with self.assertRaisesRegex(RuntimeError, 'SYNTHETIC_STOP'):
+                    driver.exercise()
+            self.assertEqual(json.loads(journal.read_text()), history + ['eleventh'])
+            self.assertEqual(command.call_count, 1)
+
+    def test_existing_artifact_directory_cannot_be_reopened_or_overwritten(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            output = root / 'original'
+            output.mkdir()
+            marker = output / 'runtime.json'
+            marker.write_text('original evidence')
+            lock = runtime.shared.RuntimeLock(root, root, 'test/fl-10a-e2e-54', 'original')
+            with self.assertRaises(FileExistsError):
+                runtime.LocalDriver(lock, output)
+            self.assertEqual(marker.read_text(), 'original evidence')
+
     def test_browser_exit_zero_still_requires_all_cases_and_owned_cleanup_evidence(self):
         base = {
             'run_id': 'fixture',
+            'recovery': [{'id': name, 'status': 'pass', 'started': 'start', 'finished': 'end'} for name in ['network', 'csrf', 'old-session', 'cookie-loss']],
             'steps': [{'id': f'E{i:02}', 'status': 'pass', 'started': 'start', 'finished': 'end'} for i in range(1, 11)],
             'cleanup': [{'action': 'A-owned-ui-cleanup', 'status': 'pass'}, {'action': 'B-owned-ui-cleanup', 'status': 'pass'}],
             'resources': {'users': ['a7bc207c-c555-4f52-bd0e-f4118e463776', 'd8b63ea9-a940-4220-937f-86bd1f7431b9'], 'posts': [], 'comments': []},
@@ -145,7 +197,7 @@ class LifecycleTests(unittest.TestCase):
             output = Path(directory)
             with self.assertRaisesRegex(RuntimeError, 'BROWSER_RESULT_INVALID'):
                 runtime.validate_browser_result(output, 'fixture')
-            for scenario in ['partial', 'not-run', 'cleanup', 'stale', 'leftovers', 'duplicate-user', 'no-test', 'failed-test']:
+            for scenario in ['partial', 'not-run', 'cleanup', 'stale', 'leftovers', 'duplicate-user', 'no-test', 'failed-test', 'missing-recovery', 'failed-recovery', 'unfinished-recovery']:
                 with self.subTest(scenario=scenario):
                     story, result = copy.deepcopy(base), copy.deepcopy(runner)
                     if scenario == 'partial': story['steps'].pop()
@@ -156,6 +208,9 @@ class LifecycleTests(unittest.TestCase):
                     elif scenario == 'duplicate-user': story['resources']['users'][1] = story['resources']['users'][0]
                     elif scenario == 'no-test': result['tests'] = []
                     elif scenario == 'failed-test': result['tests'][0]['status'] = 'failed'
+                    elif scenario == 'missing-recovery': story.pop('recovery')
+                    elif scenario == 'failed-recovery': story['recovery'][0]['status'] = 'fail'
+                    elif scenario == 'unfinished-recovery': story['recovery'][0].pop('finished')
                     (output / 'journey.json').write_text(json.dumps(story))
                     (output / 'runner.json').write_text(json.dumps(result))
                     with self.assertRaisesRegex(RuntimeError, 'BROWSER_RESULT_INVALID'):

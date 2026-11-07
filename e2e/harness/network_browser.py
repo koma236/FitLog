@@ -13,6 +13,10 @@ spec.loader.exec_module(runtime)
 class FixtureDriver(runtime.LocalDriver):
     fixture_started = False
 
+    def preflight(self):
+        # Controlled fixture never consumes a product attempt.
+        pass
+
     def prepare(self):
         records = self.containers()
         if any(row["Service"] != "postgres" and row["State"] not in {"exited", "dead", "created"} for row in records):

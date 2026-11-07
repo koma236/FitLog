@@ -4,10 +4,12 @@ import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { assertLocalUrl, ORIGIN, sanitizeAxe, Budget, installLocalRequestGuard, newLocalPage } from './safety.mjs'
+import { responseAfter, RecoveryLog } from './recovery.mjs'
 
 export type Actor = { context: BrowserContext; page: Page; username: string; email: string; password: string; name: string; id: string }
 export const runId = process.env.FITLOG_E2E_RUN_ID!
 export const artifact = path.resolve(import.meta.dirname, '../.artifacts', runId)
+export const recoveryLog = new RecoveryLog(rows => writeFileSync(path.join(artifact, 'recovery-observations.json'), JSON.stringify(rows, null, 2)))
 export const budget = new Budget({ users: 2, posts: 6, comments: 4, images: 4 })
 const authAttempts: number[] = []
 const httpObservations: { method: string; operation: string; expected: number; received: number }[] = []
@@ -48,10 +50,10 @@ export async function guardedPage(context: BrowserContext): Promise<Page> {
 }
 
 export async function responseFor(page: Page, pathname: string, method: string, action: () => Promise<unknown>, status: number): Promise<Response> {
-  const pending = page.waitForResponse(response => new URL(response.url()).pathname === pathname && response.request().method() === method)
-  const [response] = await Promise.all([pending, action()])
-  httpObservations.push({ method, operation: pathname.startsWith('/api/auth/') ? pathname : '/api/resource', expected: status, received: response.status() })
-  writeFileSync(path.join(artifact, 'http-status.json'), JSON.stringify(httpObservations, null, 2))
+  const response = await responseAfter(page, pathname, method, action, status, received => {
+    httpObservations.push({ method, operation: pathname.startsWith('/api/auth/') ? pathname : '/api/resource', expected: status, received })
+    writeFileSync(path.join(artifact, 'http-status.json'), JSON.stringify(httpObservations, null, 2))
+  })
   expect(response.status()).toBe(status)
   return response
 }
