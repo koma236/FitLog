@@ -13,6 +13,29 @@ spec.loader.exec_module(runtime)
 
 
 class AwsRuntimeTests(unittest.TestCase):
+    def test_boundary_finalization_never_preserves_pass_after_original_disappears(self):
+        driver = object.__new__(runtime.AwsDriver)
+        driver.data = {}; driver.report = {'c04': 'pass', 'final_evidence_ready': True}
+        driver.initial_boundary = {'status': 'pass', 'fingerprint': 'before'}
+        with patch.object(runtime, 'boundary_status', create=True, return_value={'status': 'not_run', 'probes': {}, 'fingerprint': 'after'}), \
+             patch.object(runtime, 'final_ready', return_value=False):
+            self.assertTrue(hasattr(driver, 'verify_boundary'))
+            with self.assertRaises(RuntimeError): driver.verify_boundary()
+        self.assertEqual(driver.report['c04'], 'fail')
+        self.assertFalse(driver.report['final_evidence_ready'])
+
+    def test_boundary_finalization_records_partial_results_and_keeps_acceptance_separate(self):
+        driver = object.__new__(runtime.AwsDriver)
+        driver.data = {}; driver.report = {'acceptance': 'not_run'}
+        driver.initial_boundary = {'status': 'pass', 'fingerprint': 'same'}
+        with patch.object(runtime, 'boundary_status', create=True, return_value={'status': 'pass', 'probes': {'task': {'status': 'pass'}}, 'fingerprint': 'same'}), \
+             patch.object(runtime, 'final_ready', return_value=True):
+            self.assertTrue(hasattr(driver, 'verify_boundary'))
+            driver.verify_boundary()
+        self.assertEqual(driver.report['c04'], 'pass')
+        self.assertTrue(driver.report['final_evidence_ready'])
+        self.assertEqual(driver.report['acceptance'], 'not_run')
+
     def run_fake_lifecycle(self, *, stopped, exercise_failed=False, owner=True, changed_source=False, stop_raises=False,
                            owner_states=None, release_rechecks=False):
         """Run the real coordinator with client/lock boundaries replaced only."""
@@ -89,7 +112,9 @@ class AwsRuntimeTests(unittest.TestCase):
         lock.release.assert_not_called()
 
     def test_default_entry_only_validates_and_never_creates_a_client(self):
-        with patch.object(runtime, 'load', return_value={}), patch.object(runtime, 'validate', return_value={}), patch.object(runtime, 'execute') as execute:
+        with patch.object(runtime, 'load', return_value={}), patch.object(runtime, 'validate', return_value={}), \
+             patch.object(runtime, 'boundary_status', return_value={'status': 'not_run'}), \
+             patch.object(runtime, 'final_ready', return_value=False), patch.object(runtime, 'execute') as execute:
             self.assertEqual(runtime.main(['--contract', '/fixture/input']), 0)
         execute.assert_not_called()
 

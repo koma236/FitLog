@@ -57,4 +57,4 @@ A/Bのmain統合とCへの取込み後、Cの対象commit `cf21655ddedc0ea4f98ac
 | AC-11 障害・復旧・ログ | ローカル検証と運用手順あり、AWS障害/復旧は未実施 | DB断/復旧時readiness、request_id追跡と秘密非漏洩、S3失敗・destroy失敗への対応記録 |
 | AC-12 AWS操作・性能・動画 | harness/限定性能集計/制御fixture確認済み、実AWS結果なし | 実AWSでの主要操作・固定条件の性能結果・動画視認/全frame decode・破棄後の再生確認 |
 
-C04はALB/task直接・S3匿名・別distribution・偽装header等の公開境界を確認する項目である。Aの対象資源と実要求条件/応答を原本hash付きで対応づける証跡形式とCの照合処理が未成立のため、`not_run`・総合受入れ未完了を維持する。Cの通信guardによる遮断や、対象不明の403/接続失敗をAWS側の拒否成功に数えない。C02の現対照はOrigin単独拒否の証明に使わない。[後続条件](production-readiness.md#abc統合後のaws準備2026-11-07)に従い、未実施項目は実結果が揃ってから更新する。
+C04はALB/task直接・S3匿名・別distribution・偽装header等の公開境界を確認する項目である。Issue #66で[実観測の証跡形式とオフライン照合処理](aws-c-boundary-contract.md)、C02のOrigin単独差分・正例/復元/負例の状態確認を実装した。対象不明の403、SG根拠のないtimeout、未存在object、旧成功要約をpassにしない。実AWS原本は未収集のため、C04と総合受入れは未完了を維持する。[後続条件](production-readiness.md#abc統合後のaws準備2026-11-07)に従い、実結果が揃ってから受入れを更新する。

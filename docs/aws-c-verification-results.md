@@ -2,7 +2,15 @@
 
 最終更新2026-11-07。[設計](aws-c-verification-design.md)・[利用手順](aws-c-verification-runbook.md)。
 
-## 現在の到達点
+## #66 公開境界・Origin対照の補強
+
+Issue #66で[C04観測契約](aws-c-boundary-contract.md)・オフライン判定・終了時原本再照合を実装し、C02をOriginだけが異なる共通送信関数へ変更した。旧要約/欠落はnot_run、不正原本はfail、全7probeとBの必要証跡が整合した場合だけreadinessを認める。これにより下記PR #63時点のC04保留とC02対照条件差を解消する実装を用意した。
+
+ローカルHTTPS試験 `aws-fixture-364070666dce` で共通関数を実Playwright APIRequestContextから実行し、正負要求のOrigin以外の一致、正例/復元/負例、状態不変、外部接続0、秘密の非保存を確認した。fixtureはproduct_requests=0/aws=not_run、orphan browser停止とlistener解放も成功。正式なchecksと品質レビュー結果は対象snapshot付きでPR検証欄へ記録する。
+
+実AWS原本、E2E/性能/動画、構築/破棄/再構築・後日請求は未実施のまま。過去の性能テストに関するMediumは今回の対象外として保持する。認証/公開境界の検証変更のため、PR作成・通常quality-check後に手動相互レビュー待ちで停止する。
+
+## PR #63統合時点の到達点（履歴）
 
 A/Bと先行PR #65をCへ取込み済み。対象commit `cf21655ddedc0ea4f98ac03b69819c5f92341c8e`で、コメント対応後run `20261107T105550Z-b83a3ce89cfa42ab84229ca64cf607c7`の登録11 checks全終了0（backend643/frontend190）、型・Python35・Node53・配置52・perf39・ゲート64件成功。clean source hash `55e34ee24954bdbbdb7e46eb243ecca8d647ff7390d9d0e63d6c6dddcb25815a`前後一致、自己所有DB停止・lock返却を確認した。B実handoff生成→C検証器の接続もオフライン確認済み。以下の古いrun/待機理由は経過記録であり、現在の依存状態は本節を正とする。
 

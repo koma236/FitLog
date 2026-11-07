@@ -1,9 +1,9 @@
 import { expect } from '@playwright/test'
 import { spawnSync } from 'node:child_process'
 import { api, type Actor } from './app.js'
-import { aws, ORIGIN, requestApi, savePrivate, sendBudget } from './environment.js'
+import { aws, ORIGIN, requestApi, savePrivate, sendBudget, runId } from './environment.js'
 import { measure, assertPerformanceState } from '../../perf/aws-load.mjs'
-import { unchangedRecord } from './aws-oracles.mjs'
+import { originContrast } from './aws-oracles.mjs'
 
 const results: Record<string, { status: string; started?: string; finished?: string }> = Object.fromEntries(['C01', 'C02', 'C03', 'C04', 'C05', 'C06', 'C07'].map(id => [id, { status: 'not_run' }]))
 export function awsResult(id: string, status: string) {
@@ -27,16 +27,10 @@ export async function securityAndHealth(a: Actor, b: Actor, post: string, payloa
         expect(Boolean(value && value.secure && value.httpOnly && value.sameSite === 'Lax' && value.path === '/' && value.domain === new URL(ORIGIN).hostname)).toBe(true)
       }
     }
-    const before = await api(a, '/api/posts/' + post)
-    const csrf = await (await requestApi(a.context.request, '/api/auth/csrf')).json()
-    const response = await requestApi(a.context.request, '/api/posts/' + post, { method: 'PUT',
-      headers: { Origin: 'https://origin-probe.invalid', 'X-CSRFToken': csrf.csrf_token, 'X-Record-Owner': a.id, 'Content-Type': 'application/json' }, data: payload })
-    expect(response.status()).toBe(403)
-    expect((await response.json()).code).toBe('CSRF_FAILED')
-    const after = await api(a, '/api/posts/' + post)
-    expect(unchangedRecord(after.body)).toEqual(unchangedRecord(before.body))
-    // Positive contrast uses the same body and the correct Origin/CSRF/session.
-    expect((await api(a, '/api/posts/' + post, 'PUT', { ...payload, note: before.body.note })).status).toBe(200)
+    const contrast = await originContrast(
+      (pathname: string, options?: Parameters<typeof requestApi>[2]) => requestApi(a.context.request, pathname, options),
+      { origin: ORIGIN, owner: a.id, post, payload, marker: 'aws-origin-' + runId })
+    savePrivate('origin-contrast', contrast)
   })
   await awsCase('C03', async () => {
     for (const path of ['/api/health/live', '/api/health/ready']) {

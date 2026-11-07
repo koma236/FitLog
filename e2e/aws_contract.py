@@ -148,31 +148,22 @@ def validate(data, now=None):
         require(300 < (end - start).total_seconds() <= 2700)
         validate_handoff(data)
         require(isinstance(data['evidence'], list))
-        seen = set()
-        for item in data['evidence']:
-            require(set(item) == {'probe_id', 'path', 'sha256'})
-            probe = item['probe_id']
-            require(probe in FINAL_PROBES and probe not in seen)
-            seen.add(probe)
-            p = protected(item['path'])
-            require(sha256(p) == item['sha256'])
-            record = load(p)
-            require(set(record) == {*IDENTITY, 'probe_id', 'status'})
-            require(identity(record) == identity(data) and record['probe_id'] == probe)
-            require(record['status'] == 'pass')
+        require(boundary_status(data)['status'] != 'fail')
         return data
     except (OSError, ValueError, TypeError, KeyError, AttributeError):
         raise Invalid() from None
 
 
-def final_ready(data):
-    """A's boundary observation schema is pending: hashes are not denial proof.
+def boundary_status(data):
+    # Lazy import keeps the common private-file helpers independent of C04.
+    from aws_boundary import boundary_status as evaluate
+    return evaluate(data)
 
-    Keep acceptance unavailable until an agreed, independently evaluated receipt
-    carries actual response/SG observation and the known existing fixture.
-    """
-    validate_handoff(data)
-    return False
+
+def final_ready(data):
+    """Readiness of boundary/storage evidence, never overall AWS acceptance."""
+    handoff = validate_handoff(data)
+    return boundary_status(data)['status'] == 'pass' and all(v == 'pass' for v in handoff['probes'].values())
 
 
 def init_campaign(folder, first, second, campaign_id=None):
