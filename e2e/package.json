@@ -1,0 +1,21 @@
+{
+  "name": "fitlog-e2e",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24 <25" },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test:harness": "node --test harness/*.test.mjs",
+    "test:runtime": "python3 -B -m unittest discover -s harness -p 'test_*.py'",
+    "test:network-guard": "python3 -B harness/network_browser.py",
+    "test:recovery": "python3 -B harness/recovery-browser.py",
+    "test:e2e": "python3 -B runtime.py",
+    "capture:rehearsal": "python3 -B runtime.py --capture"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@playwright/test": "1.65.0",
+    "@types/node": "24.19.2",
+    "typescript": "5.9.2"
+  }
+}
