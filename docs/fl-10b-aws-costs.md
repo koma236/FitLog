@@ -1,6 +1,6 @@
 # 2構築分のAWS費用試算
 
-最終更新/公式単価取得日2026-11-07 JST、Issue #55。東京Linux/x86オンデマンド、無料枠/credit控除なし。
+最終更新2026-11-07 JST、Issue #55/#58。下記単価の取得記録は従来#55の2026-11-07時点のもの。#58では再取得していない。東京Linux/x86オンデマンド、無料枠/credit控除なし。
 実account/role/予算/期限は未決、実AWS未承認。仮定数量の感度分析であり請求額/hard cap保証ではない。
 再計算: `python3 -B scripts/prebilling/readiness.py`。
 
@@ -56,3 +56,21 @@ automated backupを別途40GB・1日残すなら約0.1249 USD追加。停止RDS�
 実LCU/転送先/GB/要求/ALB address数、taskのimage取得/起動時間、対照distribution/metadata fixture追加量、RDS CPU credit/AZ間転送/backup実量、ECR基本/拡張scanのaccount設定、RDS minor/CA/quotaは未確認。
 JPY/税/余裕率/予算/実期限も未決。仮定超過で試算超過になる。実行日の数量/単価を再確認し残存期限込みUSD予算を別承認する。
 停止/削除/後日請求確認は[readiness](fl-09b8-prebilling-readiness.md)。試算を資源作成許可にしない。
+
+## ローカルscenario検査（Issue #58）
+
+```sh
+python3 -B scripts/prebilling/readiness.py --scenario scripts/prebilling/scenario.example.json
+python3 -B -m unittest discover -s scripts/prebilling -p 'test_*.py'
+```
+
+接続optionはない。既存draft検査とcost_sensitivityを維持し、scenario指定時だけ`scenario`結果を追加する。draft失敗、不正scenario、予算超過はexit1。成功時も`aws=not_run/approval=未承認/readiness=未決`。エラー時に入力本文を出さない。
+
+schema v1の全項目は[架空サンプル](../scripts/prebilling/scenario.example.json)。deployment manifestとは別形式で、未知key/重複keyを拒否する。`builds`は異なるFitLog環境名2件。各`hours`はstart〜destroyまでの見積り時間以上、`start_at < close_start_at < public_end_at < destroy_by`、初回destroy_by≤再構築startを満たす。時刻は`Z`または`±HH:MM`（時00〜23・分00〜59）のoffset必須でUTC換算して比較。`+00:99`等をdatetimeが正規化する前に拒否する。過去の架空日時も計算例として受け入れるため、実承認期限の有効性検査には使わない。
+
+USD/時間は整数9桁・小数6桁以内の非負固定小数字符列。hours/budgetは正値。数値型/bool/null/指数/NaN/Infinity/符号/空白は拒否。精度50で中間丸めを拒否し、予算は表示丸め前に比較する。`estimate_exact_usd`は計算値、`estimate_usd`はUSD小数2桁切上げ。1.900001は予算1.900000を超える。
+
+式は`Σ(hours_i×hourly_usd+one_off_usd_i+variable_usd_i)+residual_usd+contingency_usd`。サンプルは手計算`2×(4×0.10+0.02+0.03)+0.90+0.10=1.90 USD`の検算専用。実料金の見積りではない。
+
+根拠台帳は各金額に`service/region/unit_price/source_url/checked_at/quantity/duration/subtotal/included_in`を付け、上の既存数量表から追跡する。`hourly_usd`はALB/RDS/storage/通常Web/public IPv4等、`one_off_usd`は更新追加task・bootstrap/migrate/seed/check/verify等の全taskの実見積り時間、`variable_usd`は各回の要求/転送/取込、`residual_usd`は中間・終了後のsnapshot/backup/S3/ECR/log/未削除secret等の総額、`contingency_usd`は明示した余裕とする。欠落/二重計上を照合し、残存7日や各構築4時間は仮定として扱う。
+Cの別distribution/対照fixture/試験要求/負荷上限とBのtask時間は受領後に加算する。未受領なら見積り未完。再build/送信も2回計上する。JPY/税/為替は参考額でUSDと混ぜない。実行日の単価・数量・閉鎖猶予を再確認し、残存上限/消滅確認日を含む予算を別承認する。Budget通知とこのローカル検査はhard capではない。

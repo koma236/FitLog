@@ -1,6 +1,6 @@
 # FL-09B8 課金前の実行準備
 
-最終更新2026-11-07、Issue #55。実AWSの申請・承認記録ではない。
+最終更新2026-11-07、Issue #55/#58。実AWSの申請・承認記録ではない。
 [既存runbook](fl-09b7-deployment-runbook.md)と[申請様式](fl-09b7-aws-approval-template.md)を正とし処理・権限は変更しない。
 
 ## オフライン予行
@@ -9,6 +9,8 @@ scripts/prebilling/draft.jsonはregion以外のaccount/環境/資源/state/appro
 `python3 -B scripts/prebilling/readiness.py`は既存CLIの`--draft`だけを実行しAWS資格を読まない。接続optionなし。
 成功でもdraft_validation=pass / aws=not_run / approval=未承認 / readiness=未決。未知key・不正regionはfail。
 正負テストと既存deploymentテストの成功を実IAM/疎通/配置の証明と呼ばない。
+
+`--scenario scripts/prebilling/scenario.example.json`で2構築分の仮定予算・期限もローカル検査できる。サンプルの金額/日時は検算用で、実AWS見積り・承認ではない。書式・計算・終了codeは[費用文書](fl-10b-aws-costs.md#ローカルscenario検査issue-58)を参照。実調査・保護backend・担当引渡し・退避/残存管理は[A操作手順](aws-a-operations.md)へ集約した。
 
 ## 実AWS前の未決値
 

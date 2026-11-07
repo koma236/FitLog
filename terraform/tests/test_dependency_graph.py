@@ -1,18 +1,27 @@
 """Check real Terraform scheduling dependencies without credentials or AWS calls."""
 import os
-from pathlib import Path
 import re
+import shutil
 import subprocess
+import tempfile
 import unittest
+from pathlib import Path
 
 
-class EdgeDependencyTests(unittest.TestCase):
-    def test_public_alb_waits_for_internet_routing(self):
-        # AWS requires an attached IGW for internet-facing ALB creation:
-        # https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-application-load-balancer.html
-        # Public route association also ensures the chosen subnets are ready.
-        module = Path(__file__).resolve().parents[1]
-        graph = subprocess.run(
+def graph_without_backend(source):
+    # graph requires initialization for an explicit backend, even after CI's
+    # init -backend=false. Inspect the unchanged resource graph in an isolated
+    # module; never initialize or read a real environment's state here.
+    with tempfile.TemporaryDirectory() as folder:
+        module = Path(folder)
+        for path in source.glob("*.tf"):
+            if path.name != "backend.tf":
+                shutil.copy2(path, module / path.name)
+        (module / ".terraform").mkdir()
+        (module / ".terraform" / "providers").symlink_to(source / ".terraform" / "providers",
+                                                       target_is_directory=True)
+        shutil.copy2(source / ".terraform.lock.hcl", module / ".terraform.lock.hcl")
+        return subprocess.run(
             ["terraform", f"-chdir={module}", "graph"],
             env={"PATH": os.environ["PATH"], "CHECKPOINT_DISABLE": "1",
                  "TF_CLI_CONFIG_FILE": "/dev/null", "TF_IN_AUTOMATION": "1",
@@ -21,6 +30,15 @@ class EdgeDependencyTests(unittest.TestCase):
                  "AWS_CONFIG_FILE": "/dev/null"},
             check=True, capture_output=True, text=True, timeout=30,
         ).stdout
+
+
+class EdgeDependencyTests(unittest.TestCase):
+    def test_public_alb_waits_for_internet_routing(self):
+        # AWS requires an attached IGW for internet-facing ALB creation:
+        # https://docs.aws.amazon.com/elasticloadbalancing/latest/application/create-application-load-balancer.html
+        # Public route association also ensures the chosen subnets are ready.
+        module = Path(__file__).resolve().parents[1]
+        graph = graph_without_backend(module)
         edges = {}
         for source, dependency in re.findall(r'^\s*"([^"]+)" -> "([^"]+)";', graph, re.MULTILINE):
             edges.setdefault(source, set()).add(dependency)
@@ -39,15 +57,7 @@ class EdgeDependencyTests(unittest.TestCase):
 
     def test_service_waits_for_ingress_permissions_and_routing(self):
         module = Path(__file__).resolve().parents[1]
-        graph = subprocess.run(
-            ["terraform", f"-chdir={module}", "graph"],
-            env={"PATH": os.environ["PATH"], "CHECKPOINT_DISABLE": "1",
-                 "TF_CLI_CONFIG_FILE": "/dev/null", "TF_IN_AUTOMATION": "1",
-                 "AWS_EC2_METADATA_DISABLED": "true",
-                 "AWS_SHARED_CREDENTIALS_FILE": "/dev/null",
-                 "AWS_CONFIG_FILE": "/dev/null"},
-            check=True, capture_output=True, text=True, timeout=30,
-        ).stdout
+        graph = graph_without_backend(module)
         edges = {}
         for source, dependency in re.findall(r'^\s*"([^"]+)" -> "([^"]+)";', graph, re.MULTILINE):
             edges.setdefault(source, set()).add(dependency)
