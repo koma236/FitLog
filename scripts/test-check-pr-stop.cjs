@@ -40,7 +40,8 @@ function expectPaths(f, paths) {
 }
 for (const file of ['.github/workflows/ci.yml','.github/ci/check.sh','.ai-dev-helm.json',
   'AGENTS.md','backend/AGENTS.md','CLAUDE.md','backend/CLAUDE.md','.cursorrules',
-  '.claude/hooks/a.cjs','.codex/hooks.json','.cursor/rules/a.mdc','skills/project/a.md',
+  '.claude/hooks/a.cjs','.claude/hooks/quality-gate.cjs','.codex/hooks/quality-gate.cjs',
+  '.codex/hooks.json','.cursor/rules/a.mdc','skills/project/a.md',
   '.github/review-docs.md','documents/development/coding-rules/a.md','scripts/check-pr-stop.cjs',
   'scripts/run-checks.py','.ai-dev/project.toml']) {
   test(`stop on ${file}`, () => {

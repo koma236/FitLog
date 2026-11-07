@@ -11,6 +11,14 @@
 npx @crearize/ai-dev-helm quality-context --merge-only
 ```
 
+FitLogのhookでは次の固定版・単独コマンドを使う（Issue #64）。packageの引用はshell不明時とPowerShellでも使える形にそろえるため。
+
+```bash
+npx --no '@crearize/ai-dev-helm@3.7.1' quality-context --merge-only --base origin/main
+```
+
+受理文法・拒否する引数・信頼境界は [hook-contract.md の FitLog限定helper](hook-contract.md#fitlog限定helperissue-64) を参照。`--out /private/tmp/fitlog-quality-context` のような絶対ローカルパスの指定も互換用に受理するが、この版のmerge-only分岐は出力packを書かない。hookの受理はCLIの成功や品質合格を意味しない。`--since`等の追加引数はこの限定例外の対象外。
+
 - 最後の行が `merge-only: YES`（終了コード 0）のときだけ、この道に入る。前回のフラグとレポートは消さない（Step 0 の削除をしない）。
 - `merge-only: NO`（1）または判定でない（2。git が 2.38 より古い・基準 ref が無い・commit が無い・前回のフラグが無い・`--since` が前回のフラグの commit と違う）ときは、通常の quality-check を Step 0 から行う。
 
