@@ -46,9 +46,9 @@ function fixture() {
   const head=git('rev-parse','HEAD');
   return {cwd,git,base,head,close:()=>fs.rmSync(cwd,{recursive:true,force:true})};
 }
-function judge(hook,f,command,options={}) {
+function judge(hook,f,command,options={},processEnv=env) {
   const payload = {tool_name:'Bash',cwd:f.cwd,tool_input:{command}};
-  const r=cp.spawnSync(process.execPath,[path.join(root,hook)],{cwd:f.cwd,env,input:JSON.stringify({...payload,...options}),encoding:'utf8',timeout:25000});
+  const r=cp.spawnSync(process.execPath,[path.join(root,hook)],{cwd:f.cwd,env:processEnv,input:JSON.stringify({...payload,...options}),encoding:'utf8',timeout:25000});
   assert.equal(r.error,undefined); assert.equal(r.status,0,r.stderr);
   return r.stdout.trim() ? JSON.parse(r.stdout).decision : 'allow';
 }
@@ -196,5 +196,142 @@ for(const hook of hooks) {
       assert.equal(judge(hook,f,'',{tool_input:{}}),'block');
       for(const command of ['AI_DEV_HARNESS_HOME=/retired /retired/bin/ai-dev v9 prepare-git --action push --project /target --task OLD --remote origin --branch feature/fixture','AI_DEV_HARNESS_HOME=/retired /retired/bin/ai-dev v9 git-action /retired/push-0123456789.json --project /target']) assert.equal(judge(hook,f,command),'block',command);
     }finally{f.close();}
+  });
+}
+
+// Issue #64 oracle: approved design §4 (closed grammar), §5 (standalone),
+// §6 (declarations first), §7 (no evidence issuance). These are input data;
+// no delivery command or npx is executed by these tests.
+const contextHelper = "npx --no '@crearize/ai-dev-helm@3.7.1' quality-context --merge-only";
+for (const hook of hooks) {
+  test(`${hook}: quality-context accepts only the fixed standalone grammar across shells`, () => {
+    const { classify } = require(path.join(root, hook));
+    const accepted = [
+      contextHelper,
+      contextHelper.replace(/'/g, '"'),
+      `${contextHelper} --base origin/main`,
+      `${contextHelper} --base origin/master`,
+      `${contextHelper} --base main`,
+      `${contextHelper} --base master`,
+      `${contextHelper} --base '0123456789abcdef0123456789abcdef01234567'`,
+      `${contextHelper} --out /private/tmp/fitlog-quality-64`,
+      `${contextHelper} --base 'origin/main' --out '/private/tmp/fitlog-quality-64'`,
+      `${contextHelper} --out "/private/tmp/fitlog-quality-64" --base "origin/main"`,
+      ` \t${contextHelper.replaceAll(' ', '\t')} \r\n`,
+    ];
+    for (const shell of ['posix', 'powershell', null]) {
+      for (const command of accepted) assert.equal(classify(command, null, shell).decision, 'allow', `${shell}: ${command}`);
+      assert.equal(classify(contextHelper.replaceAll("'", ''), null, shell).decision,
+        shell === 'posix' ? 'allow' : 'block', `${shell}: bare package`);
+    }
+  });
+  test(`${hook}: quality-context rejects near matches and never inherits a runner exemption`, () => {
+    const { classify } = require(path.join(root, hook));
+    const rejected = [
+      contextHelper.replace('3.7.1', '3.7.0'),
+      contextHelper.replace('3.7.1', 'latest'),
+      contextHelper.replace('@3.7.1', ''),
+      contextHelper.replace('@3.7.1', '@^3.7.1'),
+      contextHelper.replace('@crearize', '@other'),
+      contextHelper.replace('ai-dev-helm', 'ai-dev-helm-extra'),
+      contextHelper.replace('@crearize/ai-dev-helm@3.7.1', 'npm:ai-dev-helm@3.7.1'),
+      contextHelper.replace('@crearize/ai-dev-helm@3.7.1', 'https://example.invalid/helm'),
+      contextHelper.replace('npx', 'NPX'),
+      contextHelper.replace('npx', '/usr/bin/npx'),
+      contextHelper.replace('npx', 'npx.cmd'),
+      contextHelper.replace('npx', 'npx.exe'),
+      contextHelper.replace('npx', "'npx'"),
+      contextHelper.replace('npx', 'npm exec'),
+      contextHelper.replace('npx', 'pnpm dlx'),
+      contextHelper.replace('npx', 'yarn dlx'),
+      contextHelper.replace('--no ', ''),
+      ...['-y', '--yes', '--no-install', "'--no'", '--no --yes', '--no --package x', '--no -c x', '--no --call x', '--no --'].map(value => contextHelper.replace('--no', value)),
+      contextHelper.replace('quality-context', "'quality-context'"),
+      contextHelper.replace('--merge-only', "'--merge-only'"),
+      contextHelper.replace('--merge-only', '--base main --merge-only'),
+      contextHelper.replace('--merge-only', '--merge-only=true'),
+      contextHelper.replace('--merge-only', '--merge-only=false'),
+      'node arbitrary.cjs --merge-only',
+      ...['--cycle 1', '--since main', '--help', '--verbose', '--check-untracked', '--unknown',
+        '--merge-only', '--base', '--out', '--base --out', '--base main --base master',
+        '--out /tmp/a --out /tmp/b', '--base=main', '--out=/tmp/a', 'extra',
+        '--base feature/x', '--base HEAD', '--base main~1', '--base main..master',
+        '--base ABCDEF0123456789abcdef0123456789abcdef0123', '--base 0123',
+        "--base ''", "'--base' main", "'--out' /tmp/a",
+        '--out relative', '--out ../a', '--out /tmp/../a', '--out /tmp/./a',
+        '--out /tmp//a', '--out /tmp/a/', '--out //host/a', '--out C:relative',
+        '--out C:/work/a', '--out ~user/a', '--out /tmp/%USER%',
+        "--out '/tmp/a b'", '--out /tmp/a\\b', '--out /', '--out /tmp/$(id)',
+        '--out /tmp/a;git status', '--out /tmp/--%'].map(value => `${contextHelper} ${value}`),
+    ];
+    for (const shell of ['posix', 'powershell', null]) {
+      for (const command of rejected) assert.equal(classify(command, null, shell).decision, 'block', `${shell}: ${command}`);
+    }
+  });
+  test(`${hook}: quality-context stays single before plumbing removal and PowerShell rewriting`, () => {
+    const { classify } = require(path.join(root, hook));
+    const compounds = [
+      ...[';', ' && ', ' || ', '\n', '\r\n'].flatMap(sep => [
+        `git status${sep}${contextHelper}`, `${contextHelper}${sep}git status`,
+        `${contextHelper}${sep}git push origin HEAD:main`, `${contextHelper}${sep}${contextHelper}`,
+      ]),
+      `${contextHelper};`, `${contextHelper} &&`, `${contextHelper}\n--base main`,
+      ...[' 2>&1', ' >/dev/null', ' 1> /dev/null', ' 2>/dev/null', ' | tail -5',
+        ' | head -n 5', ' | Select-Object -Last 5', ' 2>&1 | tail -n 5'].map(suffix => contextHelper + suffix),
+      `cd /tmp && ${contextHelper}`, `X=1 ${contextHelper}`, `& ${contextHelper}`,
+      `bash -c "${contextHelper}"`, `pwsh -Command "${contextHelper}"`, `cmd /c "${contextHelper}"`,
+      `git status; if ($?) { ${contextHelper} }`, `${contextHelper}; if ($?) { git status }`,
+      `pwsh -EncodedCommand abc; ${contextHelper}`,
+    ];
+    for (const shell of ['posix', 'powershell', null]) {
+      for (const command of compounds) assert.equal(classify(command, null, shell).decision, 'block', `${shell}: ${command}`);
+      assert.equal(classify("npx --no '@crearize/ai-dev-helm@3.7.1' quality-context --cycle 1", null, shell).decision, 'allow', 'existing no-gate-word path');
+    }
+  });
+  test(`${hook}: quality-context process obeys committed denial and cwd fallback without issuing evidence`, () => {
+    const f = fixture();
+    try {
+      const bin = path.join(f.cwd, 'sentinel-bin');
+      fs.mkdirSync(bin);
+      fs.writeFileSync(path.join(bin, 'npx'), '#!/bin/sh\nprintf invoked > npx-was-run\nexit 99\n', {mode:0o755});
+      const sentinelEnv = {...env, PATH:bin + path.delimiter + env.PATH};
+      const snapshot = () => ({
+        refs: f.git('show-ref'), status: f.git('status', '--porcelain', '--untracked-files=all'),
+        app: fs.readFileSync(path.join(f.cwd, 'app.txt'), 'utf8'),
+        flag: fs.existsSync(path.join(f.cwd, '.quality-check-passed')) ? fs.readFileSync(path.join(f.cwd, '.quality-check-passed'), 'utf8') : null,
+        report: fs.existsSync(path.join(f.cwd, '.quality-check-report.json')),
+      });
+      for (const flag of [null, f.base, f.head]) {
+        if (flag) fs.writeFileSync(path.join(f.cwd, '.quality-check-passed'), JSON.stringify({commit: flag}));
+        const before = snapshot();
+        for (const tool_name of ['Bash', 'PowerShell', 'exec_command']) assert.equal(judge(hook, f, contextHelper, {tool_name}, sentinelEnv), 'allow');
+        assert.deepEqual(snapshot(), before);
+        assert.equal(fs.existsSync(path.join(f.cwd, 'npx-was-run')), false, 'hook must not execute helper');
+        for (const command of [`${contextHelper}; git status`, `${contextHelper} 2>&1`, 'git push --force origin HEAD:main']) {
+          assert.equal(judge(hook, f, command), 'block', command);
+        }
+      }
+      const manifest = { gate: { denyCommands: [{all: ['quality-context'], reason: 'fixture denies helper'}] } };
+      fs.writeFileSync(path.join(f.cwd, '.ai-dev-helm.json'), JSON.stringify(manifest));
+      f.git('add', '.ai-dev-helm.json'); f.git('commit', '-qm', 'deny helper');
+      // Uncommitted removal must not remove the committed rule.
+      fs.writeFileSync(path.join(f.cwd, '.ai-dev-helm.json'), JSON.stringify({gate:{denyCommands:[]}}));
+      for (const cwd of [f.cwd, undefined, path.join(f.cwd, 'missing')]) {
+        assert.equal(judge(hook, f, contextHelper, {cwd}), 'block', String(cwd));
+      }
+      // Broken HEAD and trunk declarations also retain precedence.
+      fs.writeFileSync(path.join(f.cwd, '.ai-dev-helm.json'), '{"gate":{"denyCommands":true}}');
+      f.git('add', '.ai-dev-helm.json'); f.git('commit', '-qm', 'broken declaration');
+      assert.equal(judge(hook, f, contextHelper), 'block');
+      f.git('update-ref', 'refs/remotes/origin/main', f.git('rev-parse', 'HEAD'));
+      fs.writeFileSync(path.join(f.cwd, '.ai-dev-helm.json'), JSON.stringify({gate:{denyCommands:[]}}));
+      f.git('add', '.ai-dev-helm.json'); f.git('commit', '-qm', 'repair HEAD only');
+      // Existing declaration contract: an explicit HEAD repair can stand in
+      // for a broken trunk. Dropping the key cannot use that repair route.
+      assert.equal(judge(hook, f, contextHelper), 'allow');
+      fs.writeFileSync(path.join(f.cwd, '.ai-dev-helm.json'), '{}');
+      f.git('add', '.ai-dev-helm.json'); f.git('commit', '-qm', 'drop declaration');
+      assert.equal(judge(hook, f, contextHelper), 'block');
+    } finally { f.close(); }
   });
 }

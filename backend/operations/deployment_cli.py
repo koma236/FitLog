@@ -12,9 +12,15 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from operations.deployment_artifacts import (
+    publish_private,
+    read_private,
+    validate_artifacts,
+)
 from operations.deployment_assets import upload
 from operations.deployment_aws import Api, Gateway, collect, preflight, task_definition
 from operations.deployment_contract import (
+    LIVE_EVIDENCE_STEPS,
     OPERATIONS,
     STEPS,
     DeploymentError,
@@ -23,6 +29,7 @@ from operations.deployment_contract import (
     require,
     write_evidence,
 )
+from operations.deployment_health import health
 from operations.deployment_step import Parser
 
 PREVIOUS = {'bootstrap': 'bootstrap-inspect', 'migrate': 'bootstrap', 'seed': 'migrate',
@@ -61,17 +68,28 @@ def bind_run(folder: Path, manifest: Manifest) -> None:
         save_private(path, binding)
 
 
-def predecessor(folder: Path, manifest: Manifest, step: str) -> None:
-    if step not in PREVIOUS:
+def predecessor(folder: Path, manifest: Manifest, step: str, phase: str = 'private') -> None:
+    if step == 'bootstrap-inspect':
+        predecessor(folder, manifest, 'static')
+    previous = dict(PREVIOUS)
+    previous.update({'static': 'inspect', 'bootstrap-inspect': 'static',
+                     'backend': 'check', 'public-health': 'verify-backend-database'})
+    if step == 'verify':
+        previous['verify'] = 'backend' if phase == 'backend' else 'public-health'
+    if step not in previous:
         return
-    name = PREVIOUS[step]
+    name = previous[step]
     path = folder / f"{manifest.data['run_id']}-{name}.json"
-    require(not path.is_symlink())
-    result = json.loads(path.read_text())
+    result = read_private(path)
+    require(isinstance(result, dict))
+    assert isinstance(result, dict)
     require(result.get('schema_version') == 2 and result.get('deployment_identity') == identity(manifest))
     require(result['run_id'] == manifest.data['run_id'] and result['step'] == name
             and result['status'] == 'pass' and result['source_revision'] == manifest.data['source_revision']
-            and result['image_digest'] == manifest.data['image_digest'])
+            and result['image_digest'] == manifest.data['image_digest']
+            and result['frontend_sha256'] == manifest.data['frontend_sha256'])
+    if name in LIVE_EVIDENCE_STEPS:
+        require(result.get('backend_task') == manifest.resources['backend_task'])
 
 
 def task_command(manifest: Manifest, step: str) -> list[str]:
@@ -102,11 +120,11 @@ def execute(
         require(verify_input is not None)
         assert verify_input is not None
         validate_verify_input(manifest, phase, verify_input)
-    predecessor(folder, manifest, step)
+    predecessor(folder, manifest, step, phase)
     if verify_input is not None and verify_input['mode'] == 'ip':
         baseline = folder / f"{manifest.data['run_id']}-verify-public-ip-baseline.json"
         require(not baseline.is_symlink())
-        record = json.loads(baseline.read_text())
+        record = read_private(baseline)
         require(record['status'] == 'pass' and record.get('deployment_identity') == identity(manifest))
         require(record.get('parameters_sha256') ==
                 hashlib.sha256(canonical(verify_input['parameters'])).hexdigest())
@@ -141,7 +159,7 @@ def execute(
         save_private(folder / f"{manifest.data['run_id']}-{label}.task", {'task': task})
     else:
         require(not intent_path.is_symlink())
-        stored = json.loads(intent_path.read_text())
+        stored = read_private(intent_path)
         require(set(stored) == set(intent))
         require(all(stored[key] == intent[key] for key in (
             'deployment_identity', 'definition', 'step', 'phase', 'overrides_sha256')))
@@ -228,6 +246,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument('--collect-task', help='Reconcile an existing intent; never launches a task')
     parser.add_argument('--static-root', type=Path)
     parser.add_argument('--assets', type=Path)
+    parser.add_argument('--artifacts', type=Path)
     lock: Path | None = None
     manifest: Manifest | None = None
     args = None
@@ -236,46 +255,82 @@ def main(argv: list[str] | None = None) -> int:
     try:
         args = parser.parse_args(argv)
         require(not (args.draft and args.aws_approved))
-        manifest = Manifest.parse(json.loads(args.manifest.read_text()), draft=args.draft)
+        manifest = Manifest.parse(read_private(args.manifest) if args.aws_approved
+                                  else json.loads(args.manifest.read_text()), draft=args.draft)
         if not args.aws_approved:
             require(args.step == 'inspect' and args.evidence is None and args.verify_input is None
                     and args.collect_task is None and args.static_root is None and args.assets is None)
+            require(args.artifacts is None)
             event = 'deployment_manifest_draft_validated' if args.draft else 'deployment_manifest_validated'
             print(json.dumps({'event': event,
                               'manifest_sha256': manifest.fingerprint}))
             return 0
         manifest.authorize(datetime.now(UTC), args.step)
         manifest.validate_state()
+        require(args.artifacts is not None)
+        artifacts = validate_artifacts(read_private(args.artifacts), manifest)
         require(args.evidence is not None)
+        require(args.evidence == args.evidence.resolve())
         args.evidence.mkdir(mode=0o700, parents=True, exist_ok=True)
         require(not args.evidence.is_symlink() and args.evidence.stat().st_mode & 0o777 == 0o700)
         candidate = args.evidence / 'deployment.lock'
         candidate.mkdir()  # Do not steal another operator's lock.
         lock = candidate
         bind_run(args.evidence, manifest)
+        label = ('backend' if args.phase == 'backend' else 'public-health') \
+            if args.step == 'inspect' and args.phase != 'private' else args.step
+        predecessor(args.evidence, manifest, label, args.phase)
+        verify_input = None
+        if args.step == 'verify':
+            require(args.verify_input is not None)
+            verify_input = read_private(args.verify_input)
+            validate_verify_input(manifest, args.phase, verify_input)
+        else:
+            require(args.verify_input is None)
+        if args.step == 'static':
+            require(args.static_root is not None and args.assets is not None and args.phase == 'private'
+                    and args.collect_task is None)
+        else:
+            require(args.static_root is None and args.assets is None)
+        if args.step == 'inspect':
+            require(args.collect_task is None)
+        elif args.step != 'verify':
+            require(args.phase == 'private')
         api = Gateway.connect()
         task = None
-        verify_input = None
+        origin = None
         if args.step == 'inspect':
-            preflight(api, manifest, args.phase)
+            preflight(api, manifest, args.phase, wait_live=args.phase != 'private')
+            image = api.call('ecr', 'describe_images', registryId=manifest.data['account'],
+                             repositoryName=manifest.environment + '/backend',
+                             imageIds=[{'imageTag': artifacts['backend']['tag']}])['imageDetails']
+            require(len(image) == 1 and image[0]['registryId'] == manifest.data['account']
+                    and image[0]['repositoryName'] == manifest.environment + '/backend'
+                    and image[0]['imageDigest'] == manifest.data['image_digest']
+                    and artifacts['backend']['tag'] in image[0]['imageTags'])
+            if args.phase != 'private':
+                origin = health(api, manifest, args.phase)
         elif args.step == 'static':
             require(args.static_root is not None and args.assets is not None and args.phase == 'private')
             preflight(api, manifest, 'private')
-            upload(api, manifest, args.static_root, json.loads(args.assets.read_text()))
+            upload(api, manifest, args.static_root, read_private(args.assets))
             # Static inventory is artifact evidence, not a task state transition.
-            save_private(args.evidence / f"{manifest.data['run_id']}-static.json",
-                         {'manifest_sha256': manifest.fingerprint, 'status': 'pass'})
-            return 0
         else:
-            verify_input = json.loads(args.verify_input.read_text()) if args.verify_input else None
             task = execute(api, manifest, args.evidence, args.step, args.phase, verify_input,
                            args.collect_task)
-        label = step_label(args.step, args.phase, verify_input)
+        if args.step != 'inspect':
+            label = step_label(args.step, args.phase, verify_input)
         parameters_hash = (hashlib.sha256(canonical(verify_input['parameters'])).hexdigest()
                            if verify_input is not None else None)
+        if args.step == 'inspect':
+            publish_private(args.evidence / (manifest.data['run_id'] + '-inspect-attempt-'
+                            + str(uuid.uuid4()) + '.json'),
+                            {'status': 'pass', 'phase': args.phase, 'manifest_sha256': manifest.fingerprint,
+                             'started_at': started_at, 'finished_at': datetime.now(UTC).isoformat()})
         write_evidence(args.evidence, manifest, label, 'pass', task, 0 if task else None, started_at,
                        deployment_identity=identity(manifest), parameters_sha256=parameters_hash,
-                       allow_existing=args.collect_task is not None)
+                       allow_existing=args.collect_task is not None or args.step in ('inspect', 'static'),
+                       origin=origin)
     except (Exception, SystemExit):
         if lock is not None and manifest is not None and args is not None:
             try:
