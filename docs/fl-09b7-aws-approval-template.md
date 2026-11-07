@@ -3,6 +3,8 @@
 関連: Issue #52、[設計](fl-09b7-deployment-design.md)、[手順](fl-09b7-deployment-runbook.md)。
 本書は申請様式。**未記入のまま実行不可**。実装の承認をAWS操作の承認へ読み替えない。
 
+Issue #67（2026-11-07）: 本書の様式を具体化する正本は[調査・実操作の承認案](aws-execution-approval-draft.md)。R調査とE実操作を別々に確定・承認し、未記入の旧様式を実許可として使わない。操作手順/manifestのschemaは変更しない。
+
 Issue #58追記（2026-11-07）: [A操作手順](aws-a-operations.md)に従い、最初にaccount/既存role/region/対象read API/開始終了時刻を埋めた**調査だけの承認**を得る。その後、調査結果とB/Cのtask・fixture・要求/利用者/負荷・撮影上限を取り込み、以下の実操作を別承認する。read APIも承認前に呼ばない。調査承認は構築・送信・公開・削除を許可しない。
 
 | 項目 | 実行前に記入する内容 |

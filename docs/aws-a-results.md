@@ -51,3 +51,23 @@ mutationは設定ツール未導入のためnot_configured。E2EはUI/製品導�
 ## 設計との差異
 
 なし。
+
+## Issue #67：調査・実操作の承認案整備
+
+2026-11-07。branch `docs/aws-execution-approval-67`、baseline `08fc88361143b4dd7915e69474d3b055b597b104`。ユーザー「進めて良いです。」による文書整備の設計承認。独立設計レビューはSol/high 1体、High0/Medium2。A/C leaseのfreeze・一時返却と、B seed/C利用者の総数量・利用者残置を明記して承認へ提示した。
+
+[調査・実操作承認案](aws-execution-approval-draft.md)を新設し、調査action/数量・期間、2環境の成果物対応/公開/閉鎖/破棄、PassRole、fixture、残存/後日請求、指定待ち一覧を集約した。既存A手順/申請様式/readinessから参照し、費用表に公開単価の再取得hashと未算入項目の配賦表を追加。実行コード/manifest schema/CI/ゲート/製品設定は変更していない。
+
+| 検証 | #67の実施結果 |
+|---|---|
+| prebilling既定 / 架空scenario | exit0 / exit0。scenario計算値1.90 USD、AWS not_run/未承認/未決を維持 |
+| prebilling unittest | 16件pass |
+| gate回帰 | Node64件pass、fail/skip0。既存Node54件の記録は過去runのまま保持 |
+| 公開Price List | 7サービスの既存SKU/region/単位/USDを再取得し一致。TLS検証付きcurl、資格/API不使用 |
+| 文書差分/リンク | diff空白検査とローカル参照先存在検査。品質対象の最終snapshotはPRの検証記録へ保存 |
+| 登録11checks | not_run / docs領域のため対象外。DB/Compose/image/portを使用しない |
+| mutation / E2E | out_of_scope / none・not_proposed。実AWS試験はnot_run |
+
+ローカル検証記録は `/private/tmp/fitlog-67-quality/`、料金原本と抽出hashは `/private/tmp/fitlog-67-pricing/`。初回batchは全5コマンドexit0だが、実行中の文書リンク訂正1件でsnapshot不一致となりbatch終了1。成功snapshotへ付け替えず記録を保持し、最終文書の差分/リンク検査と前後snapshot照合を別途行う。既存テスト・ゲートの実行コードは変更していない。
+
+独立品質レビュー・指摘・最終対象commitとsnapshotはPR本文とローカル品質レポートに記録する。#66の正式契約が未取得のため最終照合は未完で、依存未解決のままmerge/Issue完了とはしない。account/role/USD上限/実日時/保管・削除・請求担当は指定待ち。実AWS読取り/構築/送信/公開/破棄/請求照会は未承認・not_run。
