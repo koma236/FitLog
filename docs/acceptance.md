@@ -45,4 +45,16 @@ DB断でreadinessが異常、復旧で正常に戻る。処理失敗をrequest_i
 - [FL-10A設計](fl-10a-design.md)の範囲で2利用者の実UI/API/DB/ローカル画像を検証している。[結果](fl-10a-results.md)に各runの成功・失敗・未到達を残す。再起動永続・3利用者集合/cursor境界・並行再送等は今回のブラウザ検証対象外であり、AC-01〜08全体の合格には読み替えない。
 - [FL-10B実測](fl-10b-local-results.md)では通常/最大境界の固定負荷、画像、認証集中をローカルで実行した。対象source・計測値・後続修正との差は同文書に記録している。AC-12のローカル性能部分の証拠であり、AWS性能・AWS動画の証拠ではない。
 - AC-09の現行ローカルchecksは[実行手順](../documents/development/run-checks.md)を正とし、v9への新規登録は行わない。対象snapshotに対応する実行結果を各作業の品質報告に保存する。
-- AC-10/11のAWS実証、AC-12のAWS操作動画、環境2往復の構築/破棄・後日請求確認は未実施。準備は[課金前readiness](fl-09b8-prebilling-readiness.md)を参照する。仕様のSHA照合・参照検査はアプリ検証の合格とは別。
+- AC-10/11のAWS実証、AC-12のAWS操作動画、環境2往復の構築/破棄・後日請求確認は未実施。準備は[課金前readiness](fl-09b8-prebilling-readiness.md)と下記のA/B/C到達点を参照する。仕様のSHA照合・参照検査はアプリ検証の合格とは別。
+
+## AWS準備の到達点（2026-11-07）
+
+A/Bのmain統合とCへの取込み後、Cの対象commit `cf21655ddedc0ea4f98ac03b69819c5f92341c8e`で登録11 checks・関連テストが成功し、B生成handoffをCが受理するオフライン接続も確認した。[結果と制限](aws-c-verification-results.md)を参照する。これらは実AWSの受入れ合格を示さない。
+
+| 対象 | 現在の状態 | 合格に必要な後続証拠 |
+|---|---|---|
+| AC-10 構築・再構築・破棄 | 基盤/配置/検証の実装とローカル検証済み、実AWSは未実施 | 初回/新環境の構築・配置・操作・破棄、対象source/digest、残存/費用の記録 |
+| AC-11 障害・復旧・ログ | ローカル検証と運用手順あり、AWS障害/復旧は未実施 | DB断/復旧時readiness、request_id追跡と秘密非漏洩、S3失敗・destroy失敗への対応記録 |
+| AC-12 AWS操作・性能・動画 | harness/限定性能集計/制御fixture確認済み、実AWS結果なし | 実AWSでの主要操作・固定条件の性能結果・動画視認/全frame decode・破棄後の再生確認 |
+
+C04はALB/task直接・S3匿名・別distribution・偽装header等の公開境界を確認する項目である。Aの対象資源と実要求条件/応答を原本hash付きで対応づける証跡形式とCの照合処理が未成立のため、`not_run`・総合受入れ未完了を維持する。Cの通信guardによる遮断や、対象不明の403/接続失敗をAWS側の拒否成功に数えない。C02の現対照はOrigin単独拒否の証明に使わない。[後続条件](production-readiness.md#abc統合後のaws準備2026-11-07)に従い、未実施項目は実結果が揃ってから更新する。

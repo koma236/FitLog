@@ -2,6 +2,14 @@
 
 最終更新2026-11-07。[設計](aws-c-verification-design.md)・[利用手順](aws-c-verification-runbook.md)。
 
+## 現在の到達点
+
+A/Bと先行PR #65をCへ取込み済み。対象commit `cf21655ddedc0ea4f98ac03b69819c5f92341c8e`で、コメント対応後run `20261107T105550Z-b83a3ce89cfa42ab84229ca64cf607c7`の登録11 checks全終了0（backend643/frontend190）、型・Python35・Node53・配置52・perf39・ゲート64件成功。clean source hash `55e34ee24954bdbbdb7e46eb243ecca8d647ff7390d9d0e63d6c6dddcb25815a`前後一致、自己所有DB停止・lock返却を確認した。B実handoff生成→C検証器の接続もオフライン確認済み。以下の古いrun/待機理由は経過記録であり、現在の依存状態は本節を正とする。
+
+[相互レビュー](https://github.com/koma236/FitLog/pull/63#issuecomment-6705861432)は同head、High0/Medium2/Low3。コード照合と同head再検証後に待ち解除。MediumのC02対照条件の違い・性能枠遅延のテスト不足、Lowの固定lock path・RDS参照根拠表示・C01失敗共有は未修正としてPRに記録した。C02成功をOrigin単独拒否の証明とは扱わない。既存Mediumの性能失敗時JSON未保存・detail oracleの事前GET依存も保持する。
+
+共通[受入れ文書](acceptance.md#aws準備の到達点2026-11-07)・[公開前条件](production-readiness.md#abc統合後のaws準備2026-11-07)・[README](../README.md#aws準備の現在地2026-11-07)を、実装/ローカル検証済み・実AWS未実施として更新した。今回の更新は結果の文書化のみで、実装・テスト内容は変更していない。C04の実観測証跡形式/照合処理、実AWS試験・動画・破棄/再構築・後日請求は後続。設計差異は設計文書の記録を保持し、品質フラグは未作成。mainへのマージ・実AWS接続は行わない。
+
 ## ローカルで確認した範囲
 
 Python契約/実行境界、NodeのURL/送信予算/性能枠/固定oracle、型、既存回復/撮影/guardの回帰を対象とする。正式な対象snapshot・check別終了コード・最新の品質判定はPRの検証欄と`.quality-check-runs/<run>/results.json` / source対応記録に残す。

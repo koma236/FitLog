@@ -2,6 +2,22 @@
 
 Issue #28。アプリ側の本番用部品を用意する段階。AWS資源、実RDS/S3、IAM、公開経路を検証した状態ではない。通常の開発Compose・API・画像token・DB schemaは維持する。
 
+## A/B/C統合後のAWS準備（2026-11-07）
+
+現在は実AWS操作前の準備段階である。A/Bはmain統合済み、Cは両方を取込み、[PR #63](https://github.com/koma236/FitLog/pull/63)で相互レビューコメント対応済み。今回の文書更新で実AWSへの公開可能・受入れ合格とは判定しない。
+
+| 担当 | 実装・ローカル確認済みの範囲 | 手順・根拠 |
+|---|---|---|
+| A | 基盤定義、費用/操作窓・対象管理、閉鎖/破棄の運用準備 | [操作手順](aws-a-operations.md)・[結果](aws-a-results.md) |
+| B | source/image/staticの成果物照合、工程順・稼働証跡、C用handoff | [配置手順](aws-b-deployment-runbook.md) |
+| C | exact origin/送信予算/期限/停止確認、共用E2E・撮影・限定性能、B証跡の読取り | [利用手順](aws-c-verification-runbook.md)・[検証結果](aws-c-verification-results.md) |
+
+次の作業では、まずC04の公開境界probeについて、Aが収集する対象資源・要求条件・期待拒否/SG観測・日時・原本hashの証跡形式と、Cの照合処理を整える。現在は成功要約だけで実拒否を判定できず、C04と総合受入れを自動合格にしない。C02の異Origin負例も正例と送信経路/header/bodyが異なり、Origin未転送を識別できない制限がある。実AWS検証計画では同一要求のOriginだけを変えた対照を整える必要がある。
+
+実AWS操作の開始前に、account/role・USD予算上限・実日時/期限・対象資源・初回/再構築・許可操作/試験量・停止/破棄/残置範囲を具体化して別承認する。AがAWS構成/配置操作を担い、Bが配置契約、Cが引渡し後の試験を担当する。C04証跡の整備は実AWS操作の許可を兼ねない。
+
+承認後も実RDS/S3/IAM/公開経路、実E2E・性能・動画、初回/再構築、閉鎖/破棄/残存/後日請求を個別に記録する。ローカルfixtureやCI成功を代用せず、動画視認と破棄後再生も分ける。未実施項目は[受入れ状況](acceptance.md#aws準備の到達点2026-11-07)へ残す。
+
 ## 起動と必須設定
 
 `backend/Dockerfile.production` は固定digestのPython/uv、lock済みruntime依存のみ、非rootで起動する。`DJANGO_SETTINGS_MODULE=config.production` と `FITLOG_ENV=production` をimageに設定し、Gunicornを8000番で起動する。起動時のmigration・seed・AWS操作はしない。秘密はimage/build引数へ入れず、配置側から注入する。
