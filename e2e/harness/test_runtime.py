@@ -118,16 +118,16 @@ class LifecycleTests(unittest.TestCase):
             finally:
                 lock.release()
 
-    def test_approved_run_limit_keeps_history_and_does_not_start_a_tenth_run(self):
+    def test_approved_run_limit_keeps_history_and_does_not_start_an_eleventh_run(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             artifacts = root / 'e2e/.artifacts'
             artifacts.mkdir(parents=True)
             journal = artifacts / 'attempts.json'
-            history = '["one","two","three","four","five","six","seven","eight","nine"]'
+            history = '["one","two","three","four","five","six","seven","eight","nine","ten"]'
             journal.write_text(history)
-            lock = runtime.shared.RuntimeLock(root, root, "test/fl-10a-e2e-54", "tenth")
-            driver = runtime.LocalDriver(lock, artifacts / 'tenth')
+            lock = runtime.shared.RuntimeLock(root, root, "test/fl-10a-e2e-54", "eleventh")
+            driver = runtime.LocalDriver(lock, artifacts / 'eleventh')
             with patch.object(runtime, 'ROOT', root), patch.object(driver, 'command', side_effect=AssertionError('Browser must not start')):
                 with self.assertRaisesRegex(RuntimeError, 'SESSION_RUN_LIMIT'):
                     driver.exercise()

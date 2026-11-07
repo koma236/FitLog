@@ -232,8 +232,8 @@ class LocalDriver:
     def exercise(self):
         journal = ROOT / "e2e/.artifacts/attempts.json"
         attempts = json.loads(journal.read_text()) if journal.exists() else []
-        # Original three + three + one + one + one approved; retain every attempt.
-        if len(attempts) >= 9:
+        # Original three + three + four individual approvals; retain every attempt.
+        if len(attempts) >= 10:
             raise RuntimeError("SESSION_RUN_LIMIT")
         attempts.append(self.lock.owner["run_id"])
         journal.write_text(json.dumps(attempts) + "\n")

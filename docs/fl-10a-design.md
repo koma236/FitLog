@@ -17,7 +17,7 @@
 - `fitlog-dev`、15173/18080、共有DB `fitlog`と`private-images` volumeを採用。独立DBやS3互換ストレージでの実証とは呼ばない。
 - 共通Git領域の`fitlog-runtime.lock`をbuildから停止確認まで保持。既存app/port占有があれば触らず終了。既存稼働DBは止めず、自分が起動した資源だけ停止。既存migrationとの不一致ではreset/逆migrationしない。
 - `e2e/runtime.py`は登録check runnerの読取り可能なlock/process/migration照合プリミティブを再利用する。登録11 checksの内容と実行経路は変更しない。
-- 1 runあたり合成2利用者、記録6、comment4、保存画像4（各64KiB以下）。当初3runから追加3run・1run・1run・1runの明示承認を得て、同実装作業で合計9run・合成利用者最大18件を上限にする。認証試行は全context合算で8回/rolling60秒、retries=0。既存counterによる429をresetしない。
+- 1 runあたり合成2利用者、記録6、comment4、保存画像4（各64KiB以下）。当初3runから追加3run・1run・1run・1run・1runの明示承認を得て、同実装作業で合計10run・合成利用者最大20件を上限にする。認証試行は全context合算で8回/rolling60秒、retries=0。既存counterによる429をresetしない。
 - E2E全体15分、判定ケース120秒、操作10秒、撮影5分。build10分・readiness合計90秒・自己所有サービスの一括停止command90秒を別枠で記録する。停止後のinventory/port確認も実施し、確認不能ならlockを保持する。
   撮影期限時は取消状態を各操作の前後に伝え、遅れて生成されたcontextも所有して閉じる。context生成/終了を含む撮影本体がsettleするまでE09へ進めない。
 - run固有の自己所有資源だけUIで解除/削除。利用者削除APIがないため合成利用者は残る。画像の物理回収・関連DBの全削除は既存backend責務であり、ブラウザ結果だけでは保証しない。

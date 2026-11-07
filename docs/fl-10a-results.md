@@ -1,6 +1,6 @@
 # FL-10A 結果と非秘密の記録様式
 
-現時点: 実アプリ9/9runを使用。9回目`75fc423d7af6`はE01登録Aの201後にUI確認でfail、後続not_run。原本と退避コピーを保持し、現コードの製品E2Eは未合格。追加承認された品質第3巡は完了し、コードの残存高0/新規中1。前巡の中3と合わせ4件をPRへ記録する。品質全体はE2E再検証待ちで、フラグ未発行。以下の8run/2巡停止等は各時点の履歴。
+現時点: 実アプリ10/10runを使用。ユーザーの「はい1回承認します」により追加1回のみ、累計10run/合成利用者最大20件を承認。10回目`e01acf6895da`はE01〜07/E10がpass、E08の再読み込みボタンclickでfail。E09と撮影はnot_run。両者UI cleanupと自己起動サービス停止/lock返却はpass。品質全体は未完了で、フラグ未発行。追加実行を提案して繰り返さず、検証方法の再整理で停止する。品質レビュー第3巡までの高コード0/中4は、この実アプリ失敗を解消した判定ではない。以下の9run上限/追加2run提案/8run/2巡停止等は各時点の履歴。
 
 最新追加承認: 「はい、承認します」により、CDP切断時の停止修正・quality追加1巡（計3巡）・E2E追加1run/2利用者（計9run/最大18利用者）を承認。正規extend済み。切断後/初期化中/重複通知/停止失敗の回帰4件はred→green、型とNode26/Python10がpass。制御Chromium最終fixture `network-fixture-4784116f9b61` は切断page終了・初期化拒否・正常close後の同context継続・禁止先到達0を確認、listener/browser停止/lock返却成功。以下の2巡上限による停止は追加承認前の履歴。
 
@@ -126,6 +126,18 @@ GPT-6 Astra/highの検証担当＋反証QAを正規quality第2巡で実施。H1�
 | 撮影 | local動画本数、decode結果、視認再生とOS chooserの実施有無 |
 
 一次結果は`e2e/.artifacts/<run>/runtime.json`、`journey.json`、`runner.json`、`accessibility.json`。Cookie/password/メール/署名URL/フォーム値/DOM/生例外は保存しない。公開するときは自己所有IDも省いて静的判定ID/集計へ縮約し、秘密を含まないことを点検する。
+
+## 10回目と検証方法の見直し
+
+ユーザーの「はい1回承認します」で最大10runへ拡張し、`e01acf6895da`を2026-11-07 04:06:33〜04:07:30 UTCに実行した。HEAD `94c22b12b019fc5273fc272e95d3e1065ac9987d`＋上限・対応テスト・文書だけの差分、source SHA-256 `09145baff1d8a1dc738c4863e8b150b82e08c1dbae48e6b4652eb0e69525307c`は前後一致。直前の型check/Node28件/Python10件はpass。通信ガードと製品コードは9回目後にレビューした版から変更していない。
+
+E01〜07/E10はpass。E08は`journey.spec.ts:366`の「画像と一覧を再読み込み」button clickで停止し、E09/撮影はnot_run。axe38画面の違反0/incomplete node30/最大overflow0px。両者UI cleanupで自己所有post/commentは0、logoutもpass。合成2利用者は承認どおり残置し、登録確認累計18件、未確認分込みの保守的割当20/20枠を使用。自起動postgres/backend/frontendの停止・port解放・lock返却を確認した。
+
+一次記録は`e2e/.artifacts/e01acf6895da/`、退避コピーは`.quality-check-runs/e2e-e01acf6895da-original/`。runtime/runner/journey/HTTP/guard/a11yの原本を保持する。guard診断には通常取消50件とsession close5件があり、`PROTOCOL_FAILURE`は0件。closeの記録だけで異常切断とは判定しない。今回も生例外・DOM・資格は保存しておらず、click待ちの詳細な画面状態は未確定。
+
+コード上は`go()`がlogout表示だけを待つため、E08は一覧の初期読込完了を保証せずofflineへ切り替える。一方、製品の再読み込みbuttonは`WorkoutFeed`の`page`取得後にだけ現れる。このため、初期読込と遮断の競合がテストに存在する。ただし今回の厳密な実行順序は記録不足で断定しない。待機時間の増加や自動retryで隠す修正は行っていない。
+
+今後の検証案は、初期読込成功とbuttonのenabledを確認→意図した再読込要求だけを遮断→エラー表示→オンラインで実200/内容復旧、という前提と判定を分離すること。初期読込を意図的に遅らせた隔離fixtureで競合を先に再現し、条件待ちの根拠を確かめる。固定分類の診断を段階ごとに残し、長い共通シナリオの前工程失敗が後工程を隠す構成も見直す。これは未実装の検討案であり、11回目の承認・実行はしていない。追加回数の申請を繰り返す段階には進めず、PR #57は品質未完了・マージ不可のままにする。
 
 ## 未実施・下位層との区別
 
