@@ -71,3 +71,23 @@ mutationは設定ツール未導入のためnot_configured。E2EはUI/製品導�
 ローカル検証記録は `/private/tmp/fitlog-67-quality/`、料金原本と抽出hashは `/private/tmp/fitlog-67-pricing/`。初回batchは全5コマンドexit0だが、実行中の文書リンク訂正1件でsnapshot不一致となりbatch終了1。成功snapshotへ付け替えず記録を保持し、最終文書の差分/リンク検査と前後snapshot照合を別途行う。既存テスト・ゲートの実行コードは変更していない。
 
 独立品質レビュー・指摘・最終対象commitとsnapshotはPR本文とローカル品質レポートに記録する。#66の正式契約が未取得のため最終照合は未完で、依存未解決のままmerge/Issue完了とはしない。account/role/USD上限/実日時/保管・削除・請求担当は指定待ち。実AWS読取り/構築/送信/公開/破棄/請求照会は未承認・not_run。
+
+
+## #66統合後の契約最終照合（2026-11-08）
+
+ユーザー「66終わりました。照合してください。」により再開。PR #69はhead `62b813bdad611726ce3c549bf5f55dbba85b0237`、統合commit `aadcf26a1d317f3baca3ac3cf1eb50b4681ccbb4` でMERGED、Issue #66 CLOSEDを確認し、#67 featureへ通常取込みした。上の「#66未取得/最終照合未完」は初回PR作成時点の履歴とする。
+
+| 照合元 | byte SHA256 |
+|---|---|
+| `docs/aws-c-boundary-contract.md` | `28c3a5541ad2ba13e10534a371d834bc7a4f5883dc22430376f23a7db6b9d468` |
+| `e2e/aws_boundary.py` | `66f9042b02e16f4b8eac97b38654a9555093f6c949720160e01492e813867db2` |
+| `e2e/support/aws-oracles.mjs` | `2c78ddb6cbdd2f8734fded68657b8e43766fd5b4e59c5b48b013fa518fbe8073` |
+| `terraform/functions/client-ip.js` | `d0422a69e40ff3a474ed62c04fedb7cd3bb45c393668e8ade20a0c5771418709` |
+
+C04は1環境9要求（ALB2/task1/S3匿名2/CloudFront4）、各response16KiB以下、timeout5秒、redirect/retryなし。C02は8要求を既存C予算で消費し追加user/post/imageなし。receipt v2/9 identity/inventory/全SG/OAC/既知object原本、health実15byte/hash、Function公開code、BのIP baseline/after・parameters hash、原本の前後再照合を確認した。C04のAPI/fixture/時間/費用はA追加枠へ切り出し、環境あたりobject2点・対照distribution/OAC各1・API200要求以内（片付け50確保）・観測10分以内の提案と許可action/残存担当欄を追記。未承認のまま実行できる値にはしない。
+
+契約/実装の受領と申請案への反映は完了。実account/role/予算/日時/実資源/実AWS原本/R/E承認は未確定で実行不可。#69のC02復元失敗時marker残置、media実在のA原本依存、古いtask IP正常対照不足、原本消失〜停止/lock返却の結合テスト不足、C結果文書の一部旧状態は既知事項として引継ぐ。#67の既知Medium（RDS管理masterと通常secretの生命周期混在）は未修正でPRへ保持する。C所有実装/共通受入れ文書は編集していない。
+
+照合後の再検証・独立品質結果・対象snapshot/commitとCIはPR #68とローカル品質報告を正とする。実AWSはread APIを含めnot_run、実受入れの成功は主張しない。設計との差異なし。
+
+再検証: prebilling既定/scenario各exit0、prebilling16件、AWS Python34件、Origin/Oracle Node8件、ゲートNode64件pass。実行前後snapshot一致、登録11checksはdocs差分のため対象外/not_run。以後の変更はfixture削除をC全client停止・lease返却後とする文書明確化と本結果追記だけで、最終文書diff/link/前後hashを別途検査する。

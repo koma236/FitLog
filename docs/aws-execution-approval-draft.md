@@ -1,13 +1,13 @@
 # AWS調査・実操作の承認案
 
-最終更新2026-11-07。Issue #67（関連 #58/#60/#66）。**未承認草案・実行不可**。
+最終更新2026-11-08。Issue #67（関連 #58/#60/#66）。**未承認草案・実行不可**。
 本書の文書整備は承認済みだが、調査・AWS操作の承認は受けていない。STSを含む実AWS API、送信、公開、破棄、請求照会はすべてnot_run。
 
 ## 使い方と正本
 
 調査申請Rと実操作申請Eを独立して承認する。開発承認、Rの承認、scenario成功をEの承認として使わない。各申請は版・対象・期間・数量・費用・実際の承認発言/参照を固定し、一方だけを承認できるようにする。未確定欄・未承認工程は実行しない。
 
-値の状態は「確定済み」「提案」「ユーザー指定待ち」「調査後待ち」「#66待ち」。提案は承認値ではない。空欄や未確定はゼロ・無制限・許可へ読み替えない。本書は具体申請の集約先、[A操作手順](aws-a-operations.md)は実行手順、[B配置手順](aws-b-deployment-runbook.md)・[C試験手順](aws-c-verification-runbook.md)は契約正本。旧[申請様式](fl-09b7-aws-approval-template.md)と重なる場合も、実際に承認された版・値が必要。
+値の状態は「確定済み」「提案」「ユーザー指定待ち」「調査後待ち」。#66のローカル契約は照合済みだが、実資源/実観測は取得後待ち。提案は承認値ではない。空欄や未確定はゼロ・無制限・許可へ読み替えない。本書は具体申請の集約先、[A操作手順](aws-a-operations.md)は実行手順、[B配置手順](aws-b-deployment-runbook.md)・[C試験手順](aws-c-verification-runbook.md)は契約正本。旧[申請様式](fl-09b7-aws-approval-template.md)と重なる場合も、実際に承認された版・値が必要。
 
 ## R：調査だけの申請
 
@@ -83,7 +83,7 @@ Terraformの必要write action/条件は、実際のHCL・保存planと選択済
 | B配置 | 対象static bucketの`ListBucket/GetObject/PutObject`、cluster/taskの`ecs:RunTask/DescribeTasks/ListTasks/StopTask`、指定streamの`logs:GetLogEvents`、Bで要求するmetadata action（別表へ展開） | inspect→static→bootstrap-inspect→bootstrap→migrate→seed→checkの同run証跡。未知応答時はintent収集、起動確認なしに再RunTaskしない |
 | PassRole | Web/bootstrapのtask/execution role完全ARN計4件、`iam:PassRole`かつ`iam:PassedToService=ecs-tasks.amazonaws.com` | 取得した実ARNとtask定義を照合。Web roleの管理権限拡張は不可 |
 | backend確認・一時公開 | 対象service/proxy、distributionだけ。private backend verify後にpublic=true | 各B工程とremote event、distribution Deployed、health/DB/seed/static対応。単なるALB liveは合格でない |
-| 対照fixture・probe | #66の専用S3 object/別distribution等、およびBの専用metadata/permission fixtureを個数/容量/ARN/key/TTL/actionで列挙 | #66待ち。fixture作成/原本保管/片付け担当と費用が不明なら開始不可。無関係のobjectや既存distributionで代用しない |
+| 対照fixture・probe | #66の専用S3 object/別distribution等、およびBの専用metadata/permission fixtureを個数/容量/ARN/key/TTL/actionで列挙 | #66契約照合済み。下の数量/action/時間の提案を実値へ拘束し承認するまで開始不可。無関係のobjectや既存distributionで代用しない |
 | C試験・撮影・性能 | 同origin/lease/campaignの既存C上限と#66確定分だけ。下記試験表 | B ready_for_cと証拠hash/実対象照合。403/timeout/成功要約だけをC04合格にしない |
 | 閉鎖 | distribution無効化→Deployed、service0→running/pending0、同runの全one-off停止/収集 | API応答だけで停止扱いしない。全client停止・lease返却・実task状態を確認。停止不明は未完了 |
 | 初回/再構築の破棄 | 停止確認後DB保護解除plan/apply→実保護off確認→通常destroy。許可済み専用bucket全version/delete marker/multipart、ECR image、fixtureの削除 | exact ID/ownerを照合、共有データ清掃/force_destroy/state手動編集/force-unlockなし。snapshot/backup等を残存台帳へ移す |
@@ -93,7 +93,7 @@ B manifestの`approval.steps`は既存8工程の許可部分集合だけ。Terra
 
 ### 試験・データ・操作窓
 
-下表は基準commit `08fc88361143b4dd7915e69474d3b055b597b104` の[C契約](aws-c-verification-design.md)から転記した既存上限。#66の追加分まで確定した値ではない。
+下表は#66統合commit `aadcf26a1d317f3baca3ac3cf1eb50b4681ccbb4` の[C契約](aws-c-verification-design.md)および[C04観測契約](aws-c-boundary-contract.md)との照合結果。既存C上限とAの追加枠を分ける。
 
 | 区分 | 1環境の数量・上限 | 2環境・残置の扱い |
 |---|---|---|
@@ -102,23 +102,48 @@ B manifestの`approval.steps`は既存8工程の許可部分集合だけ。Terra
 | C通信 | 3000要求（通常2800+cleanup200）、送信20MiB、auth24回・rolling60秒8回 | 各環境1attempt、失敗/中断も消費。2環境分台帳を別pathで初期化し直さない |
 | C時間/性能 | 5分超45分以内の固定窓、末尾5分cleanup/30秒停止確認。GETはwarmup10秒+90秒180枠 | C要求予算内。追加run/利用者/負荷/自動再loginなし |
 | 撮影/原本 | 限定quarantine動画、非秘密reportのみ。Cookie/CSRF/password/trace/HAR/raw DOMを保存しない | 視認・秘密混入検査・破棄後オフライン再生を別判定。保存先/期限/共有担当は指定待ち |
-| B one-off/追加probe | task数・実起動時間・metadata要求数はB実手順から積算。#66 probe/fixture/API/時間/転送は未確定 | 既存感度分析の追加task0.5hで全工程を賄えるとは扱わない。費用表の追加欄へ計上 |
+| B one-off/A追加probe | B task数・実起動時間はB実手順から積算。AのC04 HTTP9要求/環境、metadata/fixtureは下記別枠 | 2環境HTTP18要求。既存感度分析の追加task0.5hで全工程を賄えるとは扱わない |
 
 Aは単独operator。lease台帳に`lease_id / environment / 対象 / window / owner / handoff_at / paused_at / returned_at / 停止証拠`を持たせる。C開始後は構成/rotation/task変更をfreezeする。A検証が必要ならC送信停止・全in-flight完了/取消→Aへ一時返却→対象固定の検証/収集・全one-off停止確認→Cへ再引渡し。A/C要求を重ねない。IP観測はA baseline→停止→Cだけ認証1要求→C停止→A after。同窓/共通IP認証枠を照合し、自動再試行しない。停止不明はlease未返却。ローカルruntime lockだけでAWS排他を証明しない。
 
 Cは自己所有投稿/comment/like/follow/avatarを解除して残置/unknownをIDで渡す。利用者削除APIがないためB seedとC利用者、未回収画像・未確定書込みはAの環境破棄対象。cleanup成功を残存ゼロとはしない。
 
-### #66最終照合の受領欄
+### #66との最終照合（2026-11-08）
 
-2026-11-07確認時点でIssue #66に契約追記・対象branchの公開PRはなし。**#66待ち、E実行準備未完了**。他worktreeの未保存実装を正式契約として採用しない。
+PR #69はhead `62b813bdad611726ce3c549bf5f55dbba85b0237`、統合commit `aadcf26a1d317f3baca3ac3cf1eb50b4681ccbb4` で統合済み。[C04観測契約](aws-c-boundary-contract.md)と実検証器 `e2e/aws_boundary.py`、C02 `e2e/support/aws-oracles.mjs` を読み取り照合した。文書/検証器/送信量の受領は完了、実AWSの収集/合格/実操作準備完了とは区別する。契約文書とFunctionのbyte hashは[A結果](aws-a-results.md)の照合記録へ固定する。
 
-| 必須受領項目 | 照合先・現在状態 |
+| 受領項目 | 確定した契約・申請への反映 |
 |---|---|
-| 統合commit/契約path・hash、C04 receipt/原本対応とC02対照条件 | #66待ち。B/C契約版とsourceに固定 |
-| probeごとの実行主体/対象/期待結果/要求条件/成功時対照 | #66待ち。ALB/task/S3/別distribution/viewer各境界を照合 |
-| fixture個数/容量/保持時間/作成・破棄actionとexact対象 | #66待ち。B fixtureとも重複・不足確認 |
-| 要求/転送/auth/再試行/時間上限と既存C予算内・別枠区分 | #66待ち。A要求もlease/IP枠と費用へ積算 |
-| 費用/停止条件/cleanup責任/残置対象 | #66待ち。USD上限・destroy_by・残存台帳へ転記 |
+| C04 receipt/原本 | C契約schema v1のevidence配列を維持、receiptはschema v2。9 identity、全7probe共通inventory、対象実在原本、probe別観測原本をpath/byte SHA256で拘束。各file最大1MiB、owner/非symlink・非hardlink/親0700/file0600または0400。Bのcanonical JSON hashと混同しない |
+| 対象/期待結果 | ALB通常/Host差分各1、task1、S3 static/media匿名各1、正規/別distribution同一static object対照各1、viewer通常/spoof各1。合計9要求/環境。HTTP404/一般通信error/未知object/SG根拠なしtimeoutは合格不可 |
+| 別distribution | 正規と別のID/DNS、同じstatic bucket/key、origin path空・behavior `*`、両者にS3 OAC always/sigv4を実attachment。正規200+既知hash/lengthと別403/AccessDeniedを対照。既存bucket policyを広げない |
+| ALB/task/Function | ALB HTTP80はCloudFront prefix-list1規則のみ、task HTTP8000はALB SG1規則のみ。全SG attachment/全ingressを収集、余分な規則を射影で隠さない。実LIVE Function code hashとAPI association、BのIP baseline/afterとparameters hashを対応 |
+| viewer health | `/api/health/live` の本文は空白/末尾改行なし15byte、SHA256 `a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288`。通常/spoof両方200。secret値は保存せず、固定非秘密spoof値を台帳とB条件へ拘束 |
+| C02 | CSRF GET1+状態GET4+PUT3=8要求、既存Cの3000要求/20MiB/45分内。Originのみ異なる正負PUT、marker変更→復元→負例403/CSRF_FAILED→復元状態不変。既存投稿を使い追加利用者/画像/投稿なし |
+| 失敗/停止 | 原本不正はpreflight拒否、欠落/旧要約はnot_run、明示失敗を優先。終了時にも参照/byte hash集合を再照合し改変/追加/消失はfail。C04全7probeとB permissions/IPが揃った場合だけfinal_evidence_ready、総合acceptanceは別判定 |
+
+### A追加枠の数量・権限・期間（Eの承認候補）
+
+以下の上限は#67の提案であり実承認ではない。C04 HTTP9要求は#66の確定要求数、その他の数量/時間は実資源と承認へ拘束する。R調査にfixture作成や観測APIを自動追加しない。
+
+| 区分 | 1環境 / 2環境の数量・提案上限 | 費用・後始末・許可対象 |
+|---|---|---|
+| A C04 HTTP | 9 / 18要求。GETのみ、各timeout5秒、redirect/retry0、body各16KiBまで、受信合計144KiB / 288KiBまで。送信header込み上限は64KiB / 128KiBの提案 | ALB2/task1/S3匿名2/CloudFront4。Cの3000要求/20MiBへ暗黙加算しない。認証/製品データ書込みなし。受信上限超過は中断しfail、本文は保存せずbyte数/hash/分類だけ保存 |
+| 既知object | static1+media1=2 / 4点、各1〜16KiB、計32KiB / 64KiBまで | 各環境の専用key・本文hash/length・ownerをEへ記入。B/Cの利用者画像数と別枠。AがPut/Head/Getで実在確認し、C全client停止・lease返却後〜destroy_byに削除。既存object流用はexact key/hash/ownerの別承認がある場合だけ |
+| 別distribution/OAC | 専用distribution1+専用OAC1 / 各2。既存正規distribution/OAC/Functionは各環境1を参照し新規Functionなし | 同じstatic bucketへOAC署名し、bucket policyのSourceArnを追加しない。作成/Deployed待ちを公開前に行い、閉鎖時disable→Deployed→delete、OACはdetach後delete。resource IDを残存台帳へ記録 |
+| metadata/fixture API | 提案200 HTTP API要求/環境（ページ・作成/伝播poll・読取り・削除・再試行すべて込み）、2環境計400。1要求timeout5秒、自動retry0 | 下記actionだけ。9匿名HTTPとは別枠。作成/確認/削除ごとの残枠を記録し、片付け枠を最低50/環境確保。不足予測なら新規工程を開始しない。完了不能なら残存として引渡し、未承認の継続は不可 |
+| 時間/lease | C04観測+対象metadata再確認は10分以内の提案、固定C窓内のA一時返却区間に配置。C04単純timeout合計は最大45秒 | inventory/各原本のobserved_atはすべてCの[start,expires)内。C送信停止→A観測→全要求終了→C返却、構成freezeを維持。fixture作成/伝播/削除は各構築4h提案の内数でC45分に足さない。伝播不足で窓を確保できなければ試験を始めず閉鎖 |
+
+A metadata/fixtureのE付属action表は以下を対象実ID/ARN/keyに限定する。作成前だけenvironment prefix/tagと保存planで束縛し、作成後IDを登録してから次工程へ進む。
+
+- 実在/attachment: `elasticloadbalancing:DescribeLoadBalancers`、`ecs:DescribeTasks`、`ec2:DescribeNetworkInterfaces`、`ec2:DescribeSecurityGroups/DescribeSecurityGroupRules/DescribeManagedPrefixLists`。対象ALB/task/ENI/SG/prefix-listに限定し、Resource制限不能は理由を記載。
+- CloudFront読取り: `cloudfront:GetDistribution/GetDistributionConfig/GetOriginAccessControl/GetFunction`。正規/対照distributionとそのOAC、正規LIVE Functionだけ。raw設定のorigin secretや全headerは保存せず収集時にallowlist射影。
+- object: 対象bucketの専用keyへの `s3:PutObject/GetObject/DeleteObject`（HeadObjectはGetObject権限）、削除確認に必要な `s3:ListBucket`。version/未完了uploadがある場合は許可済みのversion別削除/abort actionとIDをEに追加確定してから実行。bucket policy更新なし。
+- 対照作成/閉鎖/破棄: `cloudfront:CreateDistribution/CreateOriginAccessControl/UpdateDistribution/DeleteDistribution/DeleteOriginAccessControl/TagResource`、対象の上記Get系。create時に別actionが必要な配置方式は自動代用せず付属表を確定してから実行。B固有permission fixture/RunTaskはBの既存工程で別計上し、本枠で包括許可しない。
+
+料金は[費用表](fl-10b-aws-costs.md)の追加内訳へ配賦。実数量/実期間/単価/請求有無が未確認のAPI、LCU、Function、転送、保存を0にしない。9要求の低負荷でも全体USD上限や後日確認担当を省略しない。
+
+#69の既知Mediumも実申請へ引継ぐ。C02復元前失敗でmarkerが残る可能性は残置投稿IDと状態をAへ渡し、無断再試行しない。media実在はAのHead/Get射影原本に依存し匿名403単独では証明しない。task入替え後の古いIPを検出する追加正常対照/最大時間差制限は未実装なので、原本時刻/実task identity/構成freezeを突合し、確証がなければ実境界の合格とはしない。原本消失〜runtime停止/lock返却の結合テスト不足とC結果文書の一部旧状態は#69の既知事項であり、#67からC所有文書/実装は変更しない。
 
 ## 残存・後日請求の申請欄
 
@@ -149,4 +174,4 @@ Cは自己所有投稿/comment/like/follow/avatarを解除して残置/unknown�
 
 文書の整合、[費用表](fl-10b-aws-costs.md)とscenario v1の式/時系列、既存オフライン検査で確認する。scenarioは過去の架空日時も受理するため、現在の承認有効期限・権限・fixture充足を保証しない。R/E値と実承認の照合はoperatorの責任。
 
-実装/検証の結果は[A結果](aws-a-results.md)の#67欄へ記録する。#66契約の最終照合とユーザー指定値、R結果、E実承認は未完。実AWSの成功・費用成立・全体完了は宣言しない。
+実装/検証の結果は[A結果](aws-a-results.md)の#67欄へ記録する。#66の契約最終照合は完了。ユーザー指定値、R結果、E実承認、実C04原本は未取得。実AWSの成功・費用成立・全体完了は宣言しない。

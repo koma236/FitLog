@@ -1,10 +1,10 @@
 # 2構築分のAWS費用試算
 
-最終更新2026-11-07 JST、Issue #55/#58/#67。下記単価の取得記録は従来#55の2026-11-07時点のもの。#58では再取得していない。#67で同じ公開Price ListのSKU/課金単位/USD値を再取得し一致を確認した（末尾参照）。東京Linux/x86オンデマンド、無料枠/credit控除なし。
+最終更新2026-11-08 JST、Issue #55/#58/#67。下記単価の取得記録は従来#55の2026-11-07時点のもの。#58では再取得していない。#67で同じ公開Price ListのSKU/課金単位/USD値を再取得し一致を確認した（末尾参照）。東京Linux/x86オンデマンド、無料枠/credit控除なし。
 実account/role/予算/期限は未決、実AWS未承認。仮定数量の感度分析であり請求額/hard cap保証ではない。
 再計算: `python3 -B scripts/prebilling/readiness.py`。
 
-実申請は[調査・実操作承認案](aws-execution-approval-draft.md)に集約する。本表の感度分析は#66のprobe/fixture、実one-off数、調査・請求照会、予備費が未確定のため総予算ではない。
+実申請は[調査・実操作承認案](aws-execution-approval-draft.md)に集約する。本表の感度分析は#66のprobe/fixture費用、実one-off数、調査・請求照会、予備費が未確定のため総予算ではない。
 
 ## 単価・数量
 
@@ -113,4 +113,21 @@ Cの別distribution/対照fixture/試験要求/負荷上限とBのtask時間は�
 
 [Cost Explorer公式料金](https://aws.amazon.com/aws-cost-management/aws-cost-explorer/pricing/)を2026-11-07確認。primary billing viewは1 requestにつき0.01 USD、custom viewはsourceごとの加算があるため今回採用せず、primary viewのページ/再試行を含む件数を承認する。例：primaryの3回×各1ページなら0.03 USDであり、これは実照会の許可や件数確定ではない。Cost Explorer設定/粒度/課金tagを変更する操作は含めない。
 
-#66のfixture数量/時間/要求/転送、Bのone-off時間、R調査費/期間、USD上限は未確定。上限到達後に止めるのでなく、見込総額と閉鎖/破棄の必要費用を監視して承認された早期停止閾値で新規作業を止める。Budgets通知は補助でありhard capではない。申請の指定待ち一覧と停止条件は[承認案](aws-execution-approval-draft.md)を正とする。
+#66契約の要求/最大応答量は下記で照合済み。fixture数量/時間はEへ提案し、実数量/保持期間/metadata費用、Bのone-off時間、R調査費/期間、USD上限は未確定。上限到達後に止めるのでなく、見込総額と閉鎖/破棄の必要費用を監視して承認された早期停止閾値で新規作業を止める。Budgets通知は補助でありhard capではない。申請の指定待ち一覧と停止条件は[承認案](aws-execution-approval-draft.md)を正とする。
+
+## #66統合後の追加数量・配賦（2026-11-08照合）
+
+PR #69、統合commit `aadcf26a1d317f3baca3ac3cf1eb50b4681ccbb4` の[C04観測契約](aws-c-boundary-contract.md)を受領した。C02の8要求は既存C予算内。C04の9要求/環境、API・fixture作成/伝播/削除はA追加枠であり、既存Cの3000要求/20MiB/45分へ暗黙加算しない。
+
+| 費目 | 1環境 / 2環境 | 費用への対応 |
+|---|---|---|
+| C04 HTTP | ALB2・task1・S3匿名2・CloudFront4 = 9 / 18要求 | CloudFront HTTPS4×0.012/10000、S3匿名GET2×0.0037/10000を変動費へ。ALB分は既存LCU予算に収まるか再評価し、超過分のみ追加。送受信・task/ALB pathの課金経路も確認 |
+| 応答/送信 | 応答144KiB / 288KiB以内。送信64KiB / 128KiBの提案 | CloudFront viewer応答だけなら64KiB / 128KiB以内を日本viewer単価へ。全9要求のbytesを全部CloudFront転送へ二重配賦しない。エラー応答/headers/関連APIの量も別途確認 |
+| fixture storage/PUT | static/media各1点・各16KiB以内 = 32KiB / 64KiB以内の提案 | S3 PUT2/環境とHead/Get metadata・保持GB時を追加。known objectは新規利用者画像と別枠。承認済み既存object流用時は容量を重複加算しない |
+| 別distribution/OAC | 各1 / 各2の専用資源を提案。新規Function0 | 対照distributionの実HTTPS要求/転送、API/伝播poll/閉鎖/削除を配賦。API/resourceを未確認のまま一括0 USDとしない。正規LIVE Function参照とviewer追加2回/環境のFunction実行費も確認 |
+| metadata/fixture API | 作成/確認/poll/削除/再試行込み200 / 400 HTTP要求以内の提案 | APIごとの件数・課金有無/単位をE付属表で確定。S3 Get/Head等を上記と二重計上しない。B one-offは別枠、追加task0.5hで代替しない |
+| 時間/残存 | 観測/metadata再確認10分以内、fixtureは構築開始〜destroy_byの4h内数の提案 | 作成・伝播待ちを含む実寿命で試算。C窓内のA一時返却、残枠と片付け猶予を確保。削除未確認のobject/distribution/OACは残存費/確認窓へ移す |
+
+2026-11-07に確認した既存単価を使う検算では、C04のCloudFront/S3匿名要求分は `4×0.0000012 + 2×0.00000037 = 0.00000554 USD/環境`、2環境0.00001108 USD。CloudFront viewer応答64KiBなら `65536/1073741824×0.114 = 0.0000069580078125 USD/環境`。いずれも費目の一部だけであり**追加枠の総額でも承認上限でもない**。新しい単価取得の主張ではなく、7日の原本による数量検算。実操作日に単価を再照合する。
+
+実配分はEの200要求上限を各APIへ割当て、最低50要求/環境の片付け枠を確保する提案とする。上限で足りない場合に無断拡張せず、実行前に申請へ戻す。任意のUSD値を作らず、既知費目+未確定費目+予備費+残存/請求を区別して全体上限を具体承認する。#66依存の契約照合は完了したが、R/E値・実資源・実AWS費用の成立は未確認。
