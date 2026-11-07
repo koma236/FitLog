@@ -1,7 +1,7 @@
 # FL-09B7 配置・実経路検証・撮影・破棄・再構築
 
-Issue #52、[設計](fl-09b7-deployment-design.md)、[実AWS申請書](fl-09b7-aws-approval-template.md)。最終更新2026-11-06。
-実AWS工程は未実施。以下は**申請書を具体化して別途承認後**に使う。ローカルCLIの`--aws-approved`は実承認を代替しない。
+Issue #52、[設計](fl-09b7-deployment-design.md)、[実AWS申請書](fl-09b7-aws-approval-template.md)。最終更新2026-11-07（B #59）。
+実AWS工程は未実施。AWS構成変更・image送信・static配置・one-off起動・停止のoperatorは担当Aに限定する。BはCLI/手順を提供し、CはAの操作窓内で試験する。B #59の現行契約は [配置設計](aws-b-deployment-design.md) と [成果物・引継ぎ手順](aws-b-deployment-runbook.md) を参照。以下は**申請書を具体化して別途承認後**に使う。ローカルCLIの`--aws-approved`は実承認を代替しない。
 
 ## ローカルの検査と環境
 
@@ -38,7 +38,7 @@ manifestの完全schema/公開fixtureは `scripts/deployment/test_contract.py::f
 
 所要時間はローカルbuild/転送速度次第。実測開始終了を記録し、ここに未実測の分数を置かない。
 
-1. 承認済みsource commitをclean checkoutし、`git status --porcelain`が空、`git rev-parse HEAD`が記録と一致することを確認。source変更中のbuildをしない。
+1. 承認済みsource commitをclean checkoutし、`git status --porcelain`が空、`git rev-parse HEAD`が記録と一致することを確認。同commitのgit archiveを専用0700 directoryへ展開し、そのexportだけをbuild contextにする（詳細はB配置手順）。
 2. frontendのlock済みbuildを実行。例: `npm --prefix frontend ci`、`npm --prefix frontend run build`。共有runtimeを使う場合は個人並列運用の排他を取得する。
 3. `python3 scripts/deployment/bundle.py --root frontend/dist --output /protected/assets.json`。sha256をmanifest.frontend_sha256へ設定。staticのファイル名/MIME/hashを確認する。
 4. 初回ECR未存在時だけ、必要tfvarsを保護してECR限定保存planを作る。架空backend digestはこの限定planにだけ使用する。plan/state/tfvarsにはorigin verifierが入るため表示/共有しない。
@@ -53,23 +53,23 @@ terraform -chdir=terraform apply -input=false /protected/ecr.plan
 `ecr_plan_verified`以外はapplyしない。plan内容がECR create1件以外なら停止。初回限定targetは通常の全体planの代替ではない。
 
 5. 対象accountのECRへログインし、専用一時DOCKER_CONFIGを使う。`aws ecr get-login-password --region ap-northeast-1`は必ず`docker login --username AWS --password-stdin <対象registry>`へ直接pipeし、passwordを表示/保存しない。終了後専用の認証cacheだけを除去する。
-6. `docker buildx build --platform linux/amd64 --file backend/Dockerfile.production --label org.opencontainers.image.revision=<40桁commit> --tag <対象ECR>:<commit>-<runUUID> --push .`。送信対象/費用承認を先に照合。immutable tagの衝突を上書きしない。
+6. B配置手順に従いsingle-platform/provenance無効のlocal image IDを作成し、同IDを `<対象ECR>:<commit>-<runUUID>` へtag付けしてpushする。送信対象/費用承認を先に照合。immutable tagの衝突を上書きしない。
 7. `aws ecr describe-images --repository-name <environment>/backend --image-ids imageTag=<同tag> --region ap-northeast-1 --query 'imageDetails[0].imageDigest' --output text`でdigestを記録し、source/build記録・revision labelと対応づける。tfvarsへ実digest/sourceを設定し、service/public/proxyは既定falseの全体保存plan→確認→apply。taskは起動しない。
 
 ## 2. private環境で初期化・migration・seed
 
 RDS available、CloudFront Deployedかつdisabled、service desired/running/pending=0、metadata一致を確認。RDS SQL/監査ログの非漏洩条件もB6 runbookに従い確認。初期化用roleとrunnerが使えることを申請と照合する。
 
-以下の各コマンドは前段成功後だけ実行する。`M`は保護manifest、`E`は専用0700証跡folderの絶対pathへ置換。shell変数へ秘密は入れない。
+以下の各コマンドは前段成功後だけ実行する。`M`は保護manifest、`A`は照合済みartifact record、`E`は専用0700証跡folderの絶対pathへ置換。shell変数へ秘密は入れない。
 
 ```sh
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step inspect
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step static --static-root frontend/dist --assets /protected/assets.json
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step bootstrap-inspect
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step bootstrap
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step migrate
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step seed
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step check
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step inspect
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step static --static-root frontend/dist --assets /protected/assets.json
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step bootstrap-inspect
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step bootstrap
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step migrate
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step seed
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step check
 ```
 
 成功は実task STOPPED/exit0/実imageDigest一致と**同task streamのremote event**で判定。ログ待ちはSTOPPED後180秒、task待ちは900秒。待ち期限で成功を推測しない。bootstrap再開は同bootstrap UUIDを維持し、[B6復旧規則](fl-09b6-bootstrap-runbook.md)へ従う。migrationのfake/reverse/reset、seed既存値の修復を行わない。
@@ -86,15 +86,24 @@ operatorが対象clusterの`startedBy=<runUUID>`をListTasksで調べ（停止�
 
 ## 3. backend起動・公開試験
 
-service/proxy=true、public=falseで通常plan→apply。proxy変更でWeb task revisionが変わるのでmanifest.resources.backend_taskを新しいTerraform outputへ更新する。同run/environment/source/digestは維持。CLIはtask revision/承認期限の更新を許し、先行証跡のdeployment identityを照合する。service stable/target healthyを待つ。
+service/proxy=true、public=falseで通常plan→apply。proxy変更でWeb task revisionが変わるのでmanifest.resources.backend_taskを新しいTerraform outputへ更新する。同run/environment/source/digestは維持。CLIはtask revision/承認期限の更新を許し、先行証跡のdeployment identityを照合する。下記backend inspectでservice stable/target healthyを待つ。
+
+```sh
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step inspect --phase backend
+```
 
 `/protected/database.json`は`{"mode":"database","parameters":{}}`。次でmigration未適用なしとTLS/app DB identityを検査する。
 
 ```sh
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step verify --phase backend --verify-input /protected/database.json
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step verify --phase backend --verify-input /protected/database.json
 ```
 
-static/secret/readinessだけで境界実証済みとしない。設計§4のFunction両behavior関連付け、originヘッダ上書き、ALB/SG/Host/IAMを確認後、public=trueの通常plan→apply。Deployedを待ち一時公開試験へ入る。対外URL共有は全試験成功後。失敗時は承認済み退避（distribution無効化→Deployed、service0→全task停止）を行い、原因不明なら停止。
+static/secret/readinessだけで境界実証済みとしない。設計§4のFunction両behavior関連付け、originヘッダ上書き、ALB/SG/Host/IAMを確認後、public=trueの通常plan→apply。Deployedを待ち、次のpublic inspect成功後に一時公開試験へ入る。
+
+```sh
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step inspect --phase public
+```
+対外URL共有は全試験成功後。失敗時は承認済み退避（distribution無効化→Deployed、service0→全task停止）を行い、原因不明なら停止。
 
 ### 試験表とoracle
 
@@ -120,8 +129,8 @@ operatorがmedia bucketの `deployment-probes/<runUUID>.txt` に公開fixtureを
 IP試験のinputは`mode=ip`、parametersは`expected_ip`、異なるnetworkの`spoof_ip`、`window`（offset付きUTC分境界）、`before`、`spoof_before`。同じparametersでmodeだけ`ip-baseline`にしたファイルを先にverify実行し、VPC内の固定ORM照合で事前count一致を確認する。Fargate起動時間を考慮して未来のUTC分窓を選び、通常はbefore/spoof_before=0。baselineの完了後、指定したUTC窓でsignup/loginを1回だけ試し、その後mode=ipでcount差分を検証する。後段taskの起動が次の分へ遅れても、記録した元窓を照合する。CLIはbaselineの成功と同parameters hashを要求する。IPv4/32・IPv6/64、VPN有無を記録。認証の既存10回上限/他試行と競合すれば合格にせず新窓で再試験。HMAC/鍵は出力しない。`/api`はIPを消費しないためFunction関連付けの照合と動作実証を混同しない。
 
 ```sh
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step verify --phase public --verify-input /protected/permissions.json
-python3 scripts/deployment/deploy.py --manifest M --evidence E --aws-approved --step verify --phase public --verify-input /protected/ip.json
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step verify --phase public --verify-input /protected/permissions.json
+python3 scripts/deployment/deploy.py --manifest M --artifacts A --evidence E --aws-approved --step verify --phase public --verify-input /protected/ip.json
 ```
 
 各modeは別intent/証跡として保存。既存runの同modeを安易に再実行せず、ログ収集の再開はcollect-taskを使う。実試験に安全条件が欠ければnot_runでverifiedへ進めない。

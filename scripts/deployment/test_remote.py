@@ -9,6 +9,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from test_contract import fixture, protected_state
+from test_artifacts import artifact_fixture, private_json
 
 from operations.deployment_aws import collect, preflight
 from operations.deployment_cli import execute, identity, main, validate_verify_input
@@ -71,6 +72,10 @@ class EnvironmentApi(Fake):
         self.calls.append((service, operation, kwargs))
         if operation == 'get_caller_identity':
             return {'Account': account}
+        if operation == 'describe_images':
+            return {'imageDetails': [{'registryId': account, 'repositoryName': env + '/backend',
+                    'imageTags': [data['source_revision'] + '-' + data['run_id']],
+                    'imageDigest': data['image_digest']}]}
         if operation == 'describe_services':
             return {'services': [{'status': 'ACTIVE', 'serviceName': env + '-backend',
                     'clusterArn': f'arn:aws:ecs:ap-northeast-1:{account}:cluster/{env}',
@@ -122,16 +127,21 @@ class ExecutionTests(unittest.TestCase):
     def test_evidence_matches_executed_mode_when_input_file_changes(self):
         data = fixture()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             protected_state(data, root)
             manifest = Manifest.parse(data)
             evidence = root / 'evidence'
             write_evidence(evidence, manifest, 'check', 'pass',
                            deployment_identity=identity(manifest))
+            write_evidence(evidence, manifest, 'public-health', 'pass',
+                           deployment_identity=identity(manifest), origin='https://dtest.cloudfront.net')
+            artifacts = private_json(root / 'artifacts.json', artifact_fixture(data))
             source = root / 'input.json'
             source.write_text(json.dumps({'mode': 'database', 'parameters': {}}))
+            source.chmod(0o600)
             manifest_path = root / 'manifest.json'
             manifest_path.write_text(json.dumps(data))
+            manifest_path.chmod(0o600)
 
             class PublicApi(EnvironmentApi):
                 def call(self, service, operation, **kwargs):
@@ -160,6 +170,7 @@ class ExecutionTests(unittest.TestCase):
             with patch('operations.deployment_cli.Gateway.connect', return_value=api), \
                     redirect_stdout(io.StringIO()):
                 result = main(['--manifest', str(manifest_path), '--evidence', str(evidence),
+                               '--artifacts', str(artifacts),
                                '--aws-approved', '--step', 'verify', '--phase', 'public',
                                '--verify-input', str(source)])
             self.assertEqual(result, 0)
@@ -178,7 +189,7 @@ class ExecutionTests(unittest.TestCase):
         manifest = Manifest.parse(fixture())
         api = EnvironmentApi()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             write_evidence(root, manifest, 'bootstrap', 'pass', deployment_identity=identity(manifest))
             self.assertEqual(execute(api, manifest, root, 'migrate', 'private'), TASK)
             with self.assertRaises(FileExistsError):
@@ -205,7 +216,7 @@ class ExecutionTests(unittest.TestCase):
         manifest = Manifest.parse(data)
         api = EnvironmentApi()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             write_evidence(root, manifest, 'bootstrap', 'pass', deployment_identity=identity(manifest))
             self.assertEqual(execute(api, manifest, root, 'migrate', 'private'), TASK)
             data['approval']['expires_at'] = (datetime.now(UTC) + timedelta(hours=4)).isoformat()
@@ -226,7 +237,7 @@ class ExecutionTests(unittest.TestCase):
         manifest = Manifest.parse(data)
         api = LostResponse()
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             write_evidence(root, manifest, 'bootstrap', 'pass', deployment_identity=identity(manifest))
             with self.assertRaises(TimeoutError):
                 execute(api, manifest, root, 'migrate', 'private')

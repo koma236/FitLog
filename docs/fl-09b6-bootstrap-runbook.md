@@ -65,3 +65,7 @@ fitlog DBはfitlog_admin所有。fitlog_appはCONNECT、publicのUSAGE/CREATEと
 非SUPERUSER fitlog_adminから初期化し、createrole_self_grantの既定とinherit,setの両方、TLSのCA/SAN正負例、rollback/再開、lock競合、危険操作拒否、ACL/marker差異拒否、appとして全Django migrationを確認する。RDS固有のrds_superuserや実IAM/経路/ログ方針はこの検証では実証できない。
 
 実run経路でも、claimのみ、秘密保存後timeout、claim/完了commit後の応答喪失、最終ログイン失敗、lease喪失、遅延旧Putの両到着順、claimなしsecretの拒否をSDK境界応答注入＋専用DBで確認する。TLS fixture内のDB破棄/再作成は公開fixtureの専用DBだけを対象とする。
+
+## B #59との接続（2026-11-07）
+
+新しい配置入口では [B配置手順](aws-b-deployment-runbook.md) のartifact recordと同runのinspect/static成功を確認してから、既存bootstrap-inspect→bootstrapを実行する。初期化SQL・claim/lock/TLS・同一bootstrap UUIDでの再開契約は本書を維持する。実AWSの起動/収集/停止operatorはAのみ。B/Cが別経路で実行しない。実AWS未実施。

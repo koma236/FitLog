@@ -10,6 +10,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from test_contract import fixture, protected_state
+from test_artifacts import artifact_fixture, private_json
 from test_remote import EnvironmentApi
 
 from operations.deployment_assets import bundle, upload
@@ -19,20 +20,26 @@ from operations.deployment_contract import DeploymentError, Manifest
 
 class ManifestGuardTests(unittest.TestCase):
     def invoke(self, data, root, *arguments, api=None):
+        root = root.resolve()
         source = root / 'manifest.json'
         source.write_text(json.dumps(data))
+        source.chmod(0o600)
         output, error = io.StringIO(), io.StringIO()
         with patch('operations.deployment_cli.Gateway.connect',
                    return_value=api if api is not None else EnvironmentApi()) as gateway, \
                 redirect_stdout(output), redirect_stderr(error):
-            result = main(['--manifest', str(source), *arguments])
+            artifact_args = []
+            if '--aws-approved' in arguments and data.get('source_revision'):
+                record = private_json(root / 'artifacts.json', artifact_fixture(data))
+                artifact_args = ['--artifacts', str(record)]
+            result = main(['--manifest', str(source), *artifact_args, *arguments])
         return result, output.getvalue(), error.getvalue(), gateway
 
     def test_partial_draft_is_offline_and_never_executable(self):
         data = {'schema_version': 1, 'region': 'ap-northeast-1', 'account': None,
                 'approval': {'steps': ['inspect']}, 'resources': {'backend_task': None}}
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             result, output, error, gateway = self.invoke(data, root, '--draft')
             self.assertEqual((result, error), (0, ''))
             self.assertEqual(json.loads(output)['event'], 'deployment_manifest_draft_validated')
@@ -72,7 +79,7 @@ class ManifestGuardTests(unittest.TestCase):
 
     def test_permitted_inspect_succeeds_with_verified_state(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             data = fixture()
             protected_state(data, root)
             data['approval']['steps'] = ['inspect']
@@ -86,7 +93,7 @@ class ManifestGuardTests(unittest.TestCase):
 
     def test_unapproved_steps_and_collection_rejected_before_aws(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             data = fixture()
             protected_state(data, root)
             data['approval']['steps'] = ['inspect']
@@ -104,7 +111,7 @@ class ManifestGuardTests(unittest.TestCase):
     def test_state_hash_permissions_missing_and_symlink_fail_before_aws(self):
         for failure in ('hash', 'file-mode', 'directory-mode', 'missing', 'symlink', 'parent-symlink'):
             with self.subTest(failure=failure), tempfile.TemporaryDirectory() as folder:
-                root = Path(folder)
+                root = Path(folder).resolve()
                 data = fixture()
                 state = protected_state(data, root)
                 if failure == 'hash':
@@ -139,7 +146,7 @@ class ManifestGuardTests(unittest.TestCase):
 
     def test_static_upload_also_requires_its_own_approval(self):
         with tempfile.TemporaryDirectory() as folder:
-            root = Path(folder)
+            root = Path(folder).resolve()
             (root / 'index.html').write_text('fixture')
             assets = bundle(root)
             data = fixture()
@@ -160,7 +167,7 @@ class ManifestGuardTests(unittest.TestCase):
 
         for change_path in (True, False):
             with self.subTest(change_path=change_path), tempfile.TemporaryDirectory() as folder:
-                root = Path(folder)
+                root = Path(folder).resolve()
                 data = fixture()
                 state = protected_state(data, root)
                 assets_root = root / 'static'
@@ -169,6 +176,7 @@ class ManifestGuardTests(unittest.TestCase):
                 assets = bundle(assets_root)
                 assets_path = root / 'assets.json'
                 assets_path.write_text(json.dumps(assets))
+                assets_path.chmod(0o600)
                 data['frontend_sha256'] = assets['sha256']
                 evidence = root / 'evidence'
                 result, _, _, _ = self.invoke(data, root, '--aws-approved',

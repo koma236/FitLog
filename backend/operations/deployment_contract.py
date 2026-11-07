@@ -18,11 +18,15 @@ from typing import Any
 REGION = 'ap-northeast-1'
 OPERATIONS = ('inspect', 'static', 'bootstrap-inspect', 'bootstrap', 'migrate', 'seed',
               'check', 'verify')
-STEPS = ('inspect', 'bootstrap-inspect', 'bootstrap', 'migrate', 'seed', 'check',
+STEPS = ('inspect', 'static', 'bootstrap-inspect', 'bootstrap', 'migrate', 'seed', 'check',
+         'public-health',
          'backend', 'verify', 'verify-backend-database', 'verify-public-database',
          'verify-public-permissions', 'verify-public-ip',
          'verify-public-ip-baseline',
          'capture', 'destroy', 'rebuild', 'destroy-again')
+LIVE_EVIDENCE_STEPS = ('backend', 'public-health', 'verify-backend-database',
+                       'verify-public-database', 'verify-public-permissions',
+                       'verify-public-ip-baseline', 'verify-public-ip')
 
 
 class DeploymentError(Exception):
@@ -180,6 +184,7 @@ def write_evidence(
     task: str | None = None, exit_code: int | None = None, started_at: str | None = None,
     deployment_identity: str | None = None, parameters_sha256: str | None = None,
     allow_existing: bool = False,
+    origin: str | None = None,
 ) -> Path:
     """Only allowlisted metadata, exclusive creation and restrictive permissions."""
     require(step in STEPS and status in ('pass', 'fail', 'not_run'))
@@ -189,6 +194,7 @@ def write_evidence(
     require(exit_code is None or type(exit_code) is int)
     require(deployment_identity is None or matches(r'[a-f0-9]{64}', deployment_identity))
     require(parameters_sha256 is None or matches(r'[a-f0-9]{64}', parameters_sha256))
+    require(origin is None or matches(r'https://[a-z0-9]+\.cloudfront\.net', origin))
     folder.mkdir(mode=0o700, parents=True, exist_ok=True)
     require(not folder.is_symlink() and folder.stat().st_mode & 0o777 == 0o700)
     directory = os.open(folder, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
@@ -196,6 +202,8 @@ def write_evidence(
     record = {'schema_version': 2, 'run_id': manifest.data['run_id'],
               'manifest_sha256': manifest.fingerprint, 'source_revision': manifest.data['source_revision'],
               'image_digest': manifest.data['image_digest'], 'step': step, 'status': status,
+              'frontend_sha256': manifest.data['frontend_sha256'], 'origin': origin,
+              'backend_task': manifest.resources['backend_task'],
               'deployment_identity': deployment_identity or manifest.fingerprint,
               'parameters_sha256': parameters_sha256,
               'started_at': started_at or datetime.now(UTC).isoformat(),
@@ -222,7 +230,8 @@ def write_evidence(
             # Current approval metadata/timestamps can change during recovery;
             # immutable deployment/task/step bindings cannot.
             keys = ('schema_version', 'run_id', 'source_revision', 'image_digest',
-                    'step', 'status', 'deployment_identity', 'parameters_sha256', 'task', 'exit_code')
+                    'step', 'status', 'deployment_identity', 'parameters_sha256', 'task', 'exit_code',
+                    'frontend_sha256', 'origin', 'backend_task')
             require(all(existing.get(key) == record[key] for key in keys))
     finally:
         try:
