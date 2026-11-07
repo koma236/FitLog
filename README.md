@@ -22,6 +22,8 @@ CIは機械チェックによるmerge条件です。独立AIレビュー・mutat
 
 ## ローカル検証
 
+主要操作のブラウザ検証は[FL-10A設計](docs/fl-10a-design.md)と[実行結果](docs/fl-10a-results.md)、固定負荷の実測は[FL-10B結果](docs/fl-10b-local-results.md)を参照してください。ローカルでの検証とAWS上の実証・撮影・環境破棄は別に扱います。[受け入れ条件](docs/acceptance.md)の全項目が合格したことは意味しません。
+
 [.ai-dev/project.toml](.ai-dev/project.toml) に実行可能な11チェックを登録しています。Composeのbackend/frontend build、lint/型、Django check、migrate/差分確認、backend/frontend全テスト、本番buildです。CIでも同じコマンドと基準を使います（image buildのみ各jobに分割）。
 
 [集約script](.github/ci/required-status.sh)の固定16組と不正入力は `bash .github/ci/test-required-status.sh` で確認できます。workflowのneeds/always/result入力と既存11チェックの対応も、固定frontend依存の検証imageで確認します。YAMLの読取りには現在のESLint依存に含まれるjs-yamlを使います。依存更新で解決できなくなれば検査は失敗し、CIを成功扱いしません。検査器自身を呼ぶstepの削除は検査器だけでは防げないため、workflow差分のレビュー対象です。

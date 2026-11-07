@@ -1,0 +1,7 @@
+node_modules/
+.artifacts/
+__pycache__/
+harness/__pycache__/
+test-results/
+playwright-report/
+blob-report/
