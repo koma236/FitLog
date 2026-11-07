@@ -1,7 +1,11 @@
 # FL-09B8 課金前の実行準備
 
-最終更新2026-11-07、Issue #55/#58。実AWSの申請・承認記録ではない。
+最終更新2026-11-08、Issue #55/#58。実AWSの申請・承認記録ではない。
 [既存runbook](fl-09b7-deployment-runbook.md)と[申請様式](fl-09b7-aws-approval-template.md)を正とし処理・権限は変更しない。
+
+## #67の承認案への引継ぎ
+
+[調査・実操作承認案](aws-execution-approval-draft.md)に、R調査の具体action/時間/API上限と、Eの2環境/費用/lease/閉鎖/破棄/残存/後日照会の指定欄を集約した。R/Eは未承認。#66追加fixture契約は統合commit aadcf26a1d317f3baca3ac3cf1eb50b4681ccbb4と照合済みで、確定した9要求/環境・16KiB/応答とA用追加枠の提案を申請案へ反映した。実対象/日時/USDは未確定。文書整備の承認はAWS接続の承認ではない。scenarioは計算/時系列の検算のみで、現在の期限有効性・実権限・実準備完了を証明しない。
 
 ## オフライン予行
 
