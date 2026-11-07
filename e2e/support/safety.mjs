@@ -17,12 +17,13 @@ export function assertQuietEnvironment(env) {
 
 /** Chromium enforces this policy on redirect hops that Playwright does not route. */
 const localPageGuards = new WeakMap()
-export async function installLocalRequestGuard(context) {
+/** @param {{ validate: (value: string) => void, reserve?: (event: {request: {method: string, url: string}}) => void }} policy */
+export async function installLocalRequestGuard(context, policy = { validate: assertLocalUrl }) {
   const pages = new WeakMap()
-  localPageGuards.set(context, pages)
+  localPageGuards.set(context, { pages, policy })
   await context.route('**/*', async route => {
     try {
-      assertLocalUrl(route.request().url())
+      policy.validate(route.request().url())
       const page = route.request().frame().page()
       if (pages.get(page)?.healthy !== true) throw new Error('PAGE_GUARD_REQUIRED')
     } catch {
@@ -38,8 +39,9 @@ export async function installLocalRequestGuard(context) {
  * @param {(event: {code: string, method?: string}) => void} [observe]
  */
 export async function newLocalPage(context, observe = () => {}) {
-  const pages = localPageGuards.get(context)
-  if (!pages) throw new Error('CONTEXT_GUARD_REQUIRED')
+  const guard = localPageGuards.get(context)
+  if (!guard) throw new Error('CONTEXT_GUARD_REQUIRED')
+  const { pages, policy } = guard
   const page = await context.newPage()
   let stopPage
   try {
@@ -66,11 +68,15 @@ export async function newLocalPage(context, observe = () => {}) {
       let method; let parameters
       try {
         if (!state.healthy) throw new Error('NATIVE_GUARD_LOST')
-        assertLocalUrl(event.request.url)
+        policy.validate(event.request.url)
+        if (event.responseStatusCode === undefined && !event.responseErrorReason) policy.reserve?.(event)
         // Reject forbidden Location values before Chromium follows/normalizes them.
         if (event.responseStatusCode >= 300 && event.responseStatusCode < 400) {
           for (const header of event.responseHeaders ?? []) {
-            if (header.name.toLowerCase() === 'location') assertLocalUrl(new URL(header.value, event.request.url).href)
+            if (header.name.toLowerCase() === 'location') {
+              if (policy.reserve) policy.validate(/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(header.value) ? header.value : new URL(header.value, event.request.url).href)
+              else policy.validate(new URL(header.value, event.request.url).href)
+            }
           }
         }
         if (event.responseErrorReason) {
@@ -81,6 +87,7 @@ export async function newLocalPage(context, observe = () => {}) {
         }
       } catch {
         method = 'Fetch.failRequest'; parameters = { requestId: event.requestId, errorReason: 'BlockedByClient' }
+        if (policy.reserve) { notify({ code: 'POLICY_BLOCKED' }); void stopPage() }
       }
       try { await session.send(method, parameters) }
       catch (error) {
@@ -193,9 +200,11 @@ export class ResultLedger {
   rows() { return [...this.entries.values()] }
 }
 export class Budget {
-  constructor(limits) { this.limits = limits; this.used = {} }
+  /** @param {Record<string, number>} limits @param {(used: object) => void} [persist] */
+  constructor(limits, persist = () => {}) { this.limits = limits; this.used = {}; this.persist = persist }
   take(kind) {
     if (!Object.hasOwn(this.limits, kind) || (this.used[kind] ?? 0) >= this.limits[kind]) throw new Error('RESOURCE_LIMIT')
     this.used[kind] = (this.used[kind] ?? 0) + 1
+    this.persist({ ...this.used })
   }
 }

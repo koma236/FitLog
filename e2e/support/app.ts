@@ -3,14 +3,15 @@ import AxeBuilder from '@axe-core/playwright'
 import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
-import { assertLocalUrl, ORIGIN, sanitizeAxe, Budget, installLocalRequestGuard, newLocalPage } from './safety.mjs'
+import { assertLocalUrl, sanitizeAxe, Budget, installLocalRequestGuard, newLocalPage } from './safety.mjs'
+import { ORIGIN, isAws, artifact, runId, validateUrl, reserveNative, savePrivate } from './environment.js'
+import { installAwsGuard } from './aws-policy.mjs'
+export { ORIGIN, artifact, runId } from './environment.js'
 import { responseAfter, RecoveryLog } from './recovery.mjs'
 
 export type Actor = { context: BrowserContext; page: Page; username: string; email: string; password: string; name: string; id: string }
-export const runId = process.env.FITLOG_E2E_RUN_ID!
-export const artifact = path.resolve(import.meta.dirname, '../.artifacts', runId)
 export const recoveryLog = new RecoveryLog(rows => writeFileSync(path.join(artifact, 'recovery-observations.json'), JSON.stringify(rows, null, 2)))
-export const budget = new Budget({ users: 2, posts: 6, comments: 4, images: 4 })
+export const budget = new Budget({ users: 2, posts: 6, comments: 4, images: 4 }, isAws ? used => savePrivate('resource-budget', used) : undefined)
 const authAttempts: number[] = []
 const httpObservations: { method: string; operation: string; expected: number; received: number }[] = []
 const guardObservations: { code: string; method?: string; observed_at: string }[] = []
@@ -29,7 +30,12 @@ export async function guardedContext(browser: Browser, options: Parameters<Brows
   const context = await browser.newContext({ locale: 'ja-JP', timezoneId: 'Asia/Tokyo', viewport: { width: 1280, height: 800 }, serviceWorkers: 'block', ...options })
   context.setDefaultTimeout(10_000)
   context.setDefaultNavigationTimeout(10_000)
-  try { await installLocalRequestGuard(context); return context }
+  try {
+    if (isAws) {
+      await installAwsGuard(context, { validate: validateUrl!, reserve: reserveNative })
+    } else await installLocalRequestGuard(context)
+    return context
+  }
   catch { await context.close(); throw new Error('CONTEXT_GUARD_UNAVAILABLE') }
 }
 
@@ -94,7 +100,8 @@ export async function go(page: Page, hash: string) {
 
 /** Supplemental real API observations stay in the page's own origin/session. */
 export async function api(actor: Actor, pathname: string, method = 'GET', data?: unknown, csrf = true) {
-  assertLocalUrl(ORIGIN + pathname)
+  if (isAws) validateUrl!(ORIGIN + pathname)
+  else assertLocalUrl(ORIGIN + pathname)
   return actor.page.evaluate(async ({ pathname, method, data, csrf, id }) => {
     const headers: Record<string, string> = { Accept: 'application/json' }
     if (method !== 'GET') {

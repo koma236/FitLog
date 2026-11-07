@@ -2,7 +2,9 @@ import { test, expect, type Browser, type BrowserContext, type Page, type Reques
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
-import { STEP_IDS, ResultLedger, ORIGIN, sanitizeFailure, captureSearchAllowed, withinDeadline, withinCancellableDeadline, modalFocusContained, type CancellationScope } from '../support/safety.mjs'
+import { STEP_IDS, ResultLedger, sanitizeFailure, captureSearchAllowed, withinDeadline, withinCancellableDeadline, modalFocusContained, type CancellationScope } from '../support/safety.mjs'
+import { ORIGIN, isAws, requestApi } from '../support/environment.js'
+import { awsResult, securityAndHealth, performanceProbe, cleanupPhase } from '../support/aws-checks.js'
 import { api, artifact, audit, authSlot, budget, fillRecord, go, guardedContext, guardedPage, imageFixture, keyboardTarget, login, logout, makeActor, responseFor, recoveryLog, runId, scan, signup, type Actor } from '../support/app.js'
 import { captureLikeFromFollowing, deletionSettled, networkRecovery, recoveryCases, recoveryRows, sessionMatches } from '../support/recovery.mjs'
 
@@ -75,7 +77,7 @@ test('two members use the real local application', async ({ browser }) => {
     run_id: runId, checkpoint, failures, recovery, capture_status: captureStatus, unconfirmed_writes_on_timeout: unconfirmedWritesOnTimeout, steps: ledger.rows(), resources: {
       users: resources.users, posts: resources.posts.map(row => row.id), comments: resources.comments,
     }, cleanup, browsers: { chromium: browser.version(), firefox: 'not_run', webkit: 'not_run' },
-    aws: 'not_run', natural_session_expiry: 'not_run', server_restart: 'not_run', native_file_picker_manual: 'not_run',
+    aws: isAws ? 'executed' : 'not_run', natural_session_expiry: 'not_run', server_restart: 'not_run', native_file_picker_manual: 'not_run',
   }, null, 2))
   const mark = (value: string) => { checkpoint = value; save() }
   const step = async (id: string, action: () => Promise<void>) => {
@@ -377,7 +379,7 @@ test('two members use the real local application', async ({ browser }) => {
             const tab = await guardedPage(A.context)
             try { await tab.goto(ORIGIN); await logout({ ...A, page: tab }) }
             finally { await tab.close() }
-            const response = await old.request.get(ORIGIN + '/api/auth/me', { maxRedirects: 0 })
+            const response = await requestApi(old.request, '/api/auth/me')
             expect(response.status()).toBe(401); expect((await response.json()).code).toBe('AUTH_REQUIRED')
           } finally { await old.close() }
           await A.page.reload(); await login(A)
@@ -387,8 +389,8 @@ test('two members use the real local application', async ({ browser }) => {
           try {
             await A.context.clearCookies({ name: 'sessionid' })
             await A.page.reload(); await expect(A.page.getByRole('button', { name: 'ログイン', exact: true })).toBeVisible()
-            const csrf = (await (await oldForLogout.request.get(ORIGIN + '/api/auth/csrf', { maxRedirects: 0 })).json()).csrf_token
-            expect((await oldForLogout.request.post(ORIGIN + '/api/auth/logout', { headers: { 'X-CSRFToken': csrf }, maxRedirects: 0 })).status()).toBe(204)
+            const csrf = (await (await requestApi(oldForLogout.request, '/api/auth/csrf')).json()).csrf_token
+            expect((await requestApi(oldForLogout.request, '/api/auth/logout', { method: 'POST', headers: { 'X-CSRFToken': csrf } })).status()).toBe(204)
           } finally { await oldForLogout.close() }
           await login(A)
         }) },
@@ -408,6 +410,7 @@ test('two members use the real local application', async ({ browser }) => {
       recoveryLog.event('postcondition', A.page, 'A', 'observation', { matches: continuationReady })
     } catch { continuationReady = false }
     if (!continuationReady) throw new Error('PRECONDITION_FAILED')
+    if (isAws && !failed) await securityAndHealth(A, B, aPost, recordPayload)
 
     // Capture has its own outcome: a recording failure must not hide otherwise
     // independent recovery/deletion observations. The whole run still fails.
@@ -415,14 +418,19 @@ test('two members use the real local application', async ({ browser }) => {
       try {
         await withinCancellableDeadline((scope: CancellationScope) => capture(browser, A, B, aPost, mark, scope), 300_000)
         captureStatus = 'pass'
+        awsResult('C05', 'pass')
       }
       catch (error) {
         if (error instanceof Error && error.message === 'CASE_TIMEOUT') unconfirmedWritesOnTimeout = true
         captureStatus = 'fail'; failed = true; failures.push(sanitizeFailure(error))
+        awsResult('C05', 'fail')
       }
       finally { save() }
     }
 
+    if (isAws && !failed && captureStatus === 'pass') await performanceProbe([A, B], [aPost, bPost]).catch(() => { failed = true })
+
+    if (isAws) cleanupPhase()
     await step('E09', async () => {
       await openPost(A, aPost)
       await A.page.getByRole('button', { name: '記録を削除', exact: true }).click()
@@ -434,13 +442,17 @@ test('two members use the real local application', async ({ browser }) => {
   } catch {
     failed = true
   } finally {
+    if (isAws) cleanupPhase()
     for (const actor of [a, b]) {
       if (!actor) continue
       if (!actor.id) { cleanup.push({ action: 'registration-not-confirmed', status: 'not_run' }); await actor.context.close(); continue }
       try {
         await actor.context.setOffline(false)
         await actor.page.goto(ORIGIN)
-        if (await actor.page.getByRole('button', { name: 'ログイン', exact: true }).isVisible()) await login(actor)
+        if (await actor.page.getByRole('button', { name: 'ログイン', exact: true }).isVisible()) {
+          if (isAws) throw Error('CLEANUP_SESSION_LOST')
+          await login(actor)
+        }
         if (actor === b && a?.id) {
           await go(actor.page, '#profile/' + a.username)
           if (await actor.page.getByRole('button', { name: 'フォローを解除', exact: true }).isVisible()) {
@@ -467,6 +479,7 @@ test('two members use the real local application', async ({ browser }) => {
     save()
   }
   // Fixed error prevents framework-generated error context from containing inputs.
+  if (isAws) awsResult('C01', failed || !ledger.success ? 'fail' : 'pass')
   if (failed || !ledger.success) throw new Error('E2E_ASSERTION_OR_CLEANUP_FAILED')
 })
 
@@ -551,5 +564,5 @@ async function capture(browser: Browser, a: Actor, b: Actor, postId: string, mar
     if (unsafe) throw new Error('CAPTURE_QUARANTINED')
   }
   scope.check()
-  writeFileSync(path.join(artifact, 'capture-safe.json'), JSON.stringify({ status: 'local_capture_pending_playback', authentication: 'not_recorded', search_privacy_mask: 'until_exact_synthetic_result', public_sharing: 'not_authorized' }))
+  writeFileSync(path.join(artifact, 'capture-safe.json'), JSON.stringify({ status: isAws ? 'aws_capture_pending_playback' : 'local_capture_pending_playback', authentication: 'not_recorded', search_privacy_mask: 'until_exact_synthetic_result', public_sharing: 'not_authorized' }))
 }

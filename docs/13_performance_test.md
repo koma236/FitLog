@@ -12,6 +12,10 @@ UUID別のDB container/volume・network・画像volume・backendを作る。専�
 全体30分（作業29分+cleanup最大1分）、migration/seed各5分、HTTP全体5秒、body16MiB。worker終了不明/cleanup失敗はlock保持・fail。
 S3/CloudFront/ALB/RDS/Gunicornとの差は未測定。ローカル合格をAWS合格としない。
 
+## AWS限定試験の準備（C #60）
+
+[専用harness](aws-c-verification-runbook.md)ではE2Eの同じ2利用者と既存投稿を使い、各1要求/秒・GETのみ、warmup10秒＋90秒180枠を別測定する。3分類各60標本、既存nearest-rank集計・各p95<1000ms・失敗/欠測0を採用する。ローカル5人/1000投稿のseed・最大境界・画像負荷・auth-burstはAWSへ持ち込まない。実AWS試験は別承認前not_runであり、5人容量や本番性能の証明とは呼ばない。
+
 ## 15.2 固定データ
 
 | データ | 通常 | 最大境界 |

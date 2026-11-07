@@ -114,3 +114,15 @@ test('failure to persist a guard observation stops the page instead of continuin
   await f.request(ORIGIN + '/ok')
   assert.deepEqual(f.events, ['close', 'abort'])
 })
+
+test('injected policy checks and charges each native request once, never response events', async () => {
+  const f = fixture(); const charged = []
+  const validate = url => { if (!url.startsWith('https://dexample.cloudfront.net/')) throw Error('ORIGIN_BLOCKED') }
+  await installLocalRequestGuard(f.context, { validate, reserve: event => charged.push(event.request.method) })
+  await newLocalPage(f.context)
+  await f.paused({ requestId: 'first', request: { url: 'https://dexample.cloudfront.net/ok', method: 'GET' } })
+  await f.paused({ requestId: 'first', request: { url: 'https://dexample.cloudfront.net/ok', method: 'GET' }, responseStatusCode: 200 })
+  assert.deepEqual(charged, ['GET'])
+  await f.request(ORIGIN + '/wrong')
+  assert.equal(f.events.at(-1), 'abort')
+})
