@@ -13,19 +13,26 @@ spec.loader.exec_module(runtime)
 
 
 class AwsRuntimeTests(unittest.TestCase):
-    def run_fake_lifecycle(self, *, stopped, exercise_failed=False, owner=True, changed_source=False, stop_raises=False):
+    def run_fake_lifecycle(self, *, stopped, exercise_failed=False, owner=True, changed_source=False, stop_raises=False,
+                           owner_states=None, release_rechecks=False):
         """Run the real coordinator with client/lock boundaries replaced only."""
         data = {'source': 'a' * 40, 'test_run': 'aaaaaaaaaaaa', 'lease_id': 'fixture-window'}
         before = {'commit': data['source'], 'dirty_paths': [], 'source_sha256': 'b' * 64}
         after = {**before, 'source_sha256': 'c' * 64} if changed_source else before
         lock = Mock(owner={}); lock.owned.return_value = owner
+        if owner_states is not None: lock.owned.side_effect = owner_states
         driver = Mock(report={})
         driver.stop_owned.return_value = stopped
         if stop_raises: driver.stop_owned.side_effect = RuntimeError('PRIVATE-STOP-CANARY')
         if exercise_failed: driver.exercise.side_effect = RuntimeError('PRIVATE-ERROR-CANARY')
         saved = []
         driver.save.side_effect = lambda: saved.append(copy.deepcopy(driver.report))
-        lock.release.side_effect = lambda: self.assertTrue(all(item['status'] == 'fail' for item in saved))
+        def release():
+            self.assertTrue(all(item['status'] == 'fail' for item in saved))
+            # The shared lock independently checks ownership again at release.
+            if release_rechecks and not lock.owned():
+                raise RuntimeError('Lock ownership changed; leave untouched')
+        lock.release.side_effect = release
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(runtime.local.shared, 'git_context', return_value=(runtime.local.EXPECTED_COMMON, 'test/aws-verification-60')), \
                  patch.object(runtime.local, 'snapshot', side_effect=[before, after]), \
@@ -35,6 +42,20 @@ class AwsRuntimeTests(unittest.TestCase):
                  patch.object(runtime, 'AwsDriver', return_value=driver):
                 code = runtime.execute(data, Path(directory).resolve())
         return code, driver.report, saved, lock
+
+    def test_observed_owner_failure_is_retained_even_if_later_read_would_recover(self):
+        code, report, saved, lock = self.run_fake_lifecycle(stopped=True, owner_states=[False, True, True])
+        self.assertNotEqual(code, 0)
+        self.assertEqual(report['status'], 'fail')
+        self.assertEqual(report['error'], 'OWNER_CHANGED')
+        self.assertFalse(report['lease_returned'])
+        self.assertTrue(all(item['status'] == 'fail' for item in saved))
+        lock.release.assert_not_called()
+        lock.owned.assert_called_once()
+
+    def test_owner_change_at_independent_release_check_cannot_become_success(self):
+        with self.assertRaisesRegex(RuntimeError, 'Lock ownership changed'):
+            self.run_fake_lifecycle(stopped=True, owner_states=[True, False, True], release_rechecks=True)
 
     def test_successful_exercise_with_unconfirmed_stop_fails_and_retains_lock(self):
         code, report, saved, lock = self.run_fake_lifecycle(stopped=False)

@@ -157,12 +157,15 @@ def execute(data, campaign):
                 stopped = driver is None or driver.stop_owned()
             except (Exception, KeyboardInterrupt):
                 stopped = False
+            # Capture once: a later successful read must not erase an observed
+            # ownership failure. release() still performs its own final check.
+            owned = lock.owned()
             if driver:
                 after = local.snapshot()
-                passed = passed and stopped and after == snapshot and lock.owned()
+                passed = passed and stopped and after == snapshot and owned
                 if not stopped:
                     driver.report['error'] = 'STOP_UNCONFIRMED'
-                elif not lock.owned():
+                elif not owned:
                     driver.report['error'] = 'OWNER_CHANGED'
                 elif after != snapshot:
                     driver.report['error'] = 'SOURCE_CHANGED'
@@ -174,7 +177,7 @@ def execute(data, campaign):
                                      c04='not_run', boundary_reason='A_BOUNDARY_RECEIPT_SCHEMA_PENDING',
                                      acceptance='not_run', ended_at=local.shared.now())
                 driver.save()
-            if stopped and lock.owned():
+            if stopped and owned:
                 lock.release()
                 released = True
             passed = passed and released
