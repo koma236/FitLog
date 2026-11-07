@@ -3,6 +3,8 @@
 関連: Issue #52、[設計](fl-09b7-deployment-design.md)、[手順](fl-09b7-deployment-runbook.md)。
 本書は申請様式。**未記入のまま実行不可**。実装の承認をAWS操作の承認へ読み替えない。
 
+Issue #58追記（2026-11-07）: [A操作手順](aws-a-operations.md)に従い、最初にaccount/既存role/region/対象read API/開始終了時刻を埋めた**調査だけの承認**を得る。その後、調査結果とB/Cのtask・fixture・要求/利用者/負荷・撮影上限を取り込み、以下の実操作を別承認する。read APIも承認前に呼ばない。調査承認は構築・送信・公開・削除を許可しない。
+
 | 項目 | 実行前に記入する内容 |
 |---|---|
 | account / operator | 個人専用12桁account、STSで照合するrole完全ARN。既存の共有/会社資格を使わない |
@@ -21,5 +23,7 @@
 | 停止判断 | 期限/見込み費用上限に達する前の停止担当・退避・連絡先。Budget通知はhard capではない |
 
 費用の数値が現時点未定なのは、実行期間・account・上限が未指定のため。ローカルmock/CI成功で費用・経路・権限の成立を推定しない。
+
+初回と再構築の両方に、公開期限より早い`close_start_at`、`public_end_at`、`destroy_by`をUTC/JSTで記入する。退避/破棄の承認有効期間を別途確保する。期限切れ後のAPIも新しい許可が必要。再構築は同sourceから各回の実digest/static hashを取得し、その実対象を承認へ拘束する（同sourceによる同一digestは保証しない）。B/C契約未決・残存削除担当/日付未定なら実行準備未完了。
 
 operator権限は本環境のTerraform構築/配置権限とは別に、対象cluster/task定義へのRunTask/DescribeTasks/StopTask、必要role完全ARNへのiam:PassRole（iam:PassedToService=ecs-tasks.amazonaws.com）、対象Web/bootstrap streamのlogs:GetLogEvents、対象サービスmetadataのDescribe、対象S3/ECR配置、前後secret version metadata照合を要する。metadata fixture作成権限/後始末も列挙する。Web task roleを広げて代用しない。
