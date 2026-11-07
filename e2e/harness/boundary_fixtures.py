@@ -57,7 +57,7 @@ def complete(root, data):
                 'body_bytes': len(body), 'body_sha256': hashlib.sha256(body).hexdigest()}
 
     timeout = {'transport': 'timeout', 'status': None, 'response_class': 'none', 'body_bytes': 0, 'body_sha256': None}
-    health = http(200, 'health', b'{"status": "ok"}')
+    health = http(200, 'health', b'{"status":"ok"}')
     cases = {}
     for probe, host_header in [('alb-normal', 'alb'), ('alb-host', 'canonical')]:
         cases[probe] = [{'request': request('alb', targets['alb']['dns'], 80, 'http', '/api/health/live', host_header), 'result': timeout}]

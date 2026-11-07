@@ -9,7 +9,7 @@ from aws_contract import (IDENTITY, FINAL_PROBES, Invalid, canonical_hash, ident
                           protected, require, timestamp, validate_handoff)
 
 MAX_BODY = 16 * 1024
-HEALTH = b'{"status": "ok"}'
+HEALTH = b'{"status":"ok"}'
 TARGETS = {'alb', 'task', 'static', 'media', 'distribution', 'other', 'function'}
 PROBE_TARGETS = {
     'alb-normal': {'alb'}, 'alb-host': {'alb'}, 'task': {'task', 'alb'},

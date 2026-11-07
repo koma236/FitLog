@@ -1,5 +1,6 @@
 """C04 oracles fixed before implementation; synthetic, offline-only."""
 import copy
+import hashlib
 import sys
 from pathlib import Path
 import unittest
@@ -22,6 +23,21 @@ class BoundaryTests(unittest.TestCase):
         self.assertEqual(result['status'], 'pass')
         self.assertEqual(set(result['probes']), set(contract.FINAL_PROBES))
         self.assertEqual(result['probes']['task']['classification'], 'sg-restricted')
+
+    def test_viewer_health_uses_product_wire_contract_not_json_equivalence(self):
+        # FL-01 public health contract and the real Django/DRF response probe.
+        # Do not import the validator's HEALTH constant to generate this oracle.
+        for body, expected in ((b'{"status":"ok"}', 'pass'),
+                               (b'{"status": "ok"}', 'fail'),
+                               (b'{"status":"ok"}\n', 'fail')):
+            with self.subTest(body=body):
+                complete(self.root, self.data)
+                def replace(row):
+                    for attempt in row['attempts']:
+                        attempt['result'].update(body_bytes=len(body), body_sha256=hashlib.sha256(body).hexdigest())
+                mutate_observation(self.root, self.data, 'viewer-headers', replace)
+                self.assertEqual(contract.boundary_status(self.data)['probes']['viewer-headers']['status'], expected)
+                self.assertEqual(contract.final_ready(self.data), expected == 'pass')
 
     def test_wrong_identity_and_unknown_or_secret_fields_fail(self):
         for change in (

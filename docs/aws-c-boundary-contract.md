@@ -62,7 +62,9 @@ resultの完全なキーは `transport,status,response_class,body_bytes,body_sha
 | task | 実ENI public IP/HTTP8000、health、host_header=task | SG原本とattachmentが一致しtimeout。HTTP拒否と区別してsg-restrictedと記録 |
 | s3-static/media | `<bucket>.s3.ap-northeast-1.amazonaws.com`/HTTPS443/既知key、host_header=target | 匿名・非署名GET403/access-denied。既知objectの実在原本が必須 |
 | other-distribution | 正規→別DNSの順でHTTPS443/同じstatic既知key、host_header=target | 正規200/objectと既知hash/size一致、別403/access-denied。両方でOAC署名必須 |
-| viewer-headers | 正規DNS/HTTPS443/health/host_header=canonical、headers=none→spoofed | 両方200/health、本文 `{"status": "ok"}` のbyte hash一致、配信Function/設定原本とB IP観測一致 |
+| viewer-headers | 正規DNS/HTTPS443/health/host_header=canonical、headers=none→spoofed | 両方200/health、本文 `{"status":"ok"}` のbyte hash一致、配信Function/設定原本とB IP観測一致 |
+
+healthの期待byteは[FL-01仕様](fl-01-foundation-design.md)に従う空白・末尾改行なしの15byteで、SHA256は `a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288`。`e2e/harness/health_response_contract.py` を実backendの `manage.py shell` で実行し、Django Client→LiveView→DRF rendererの実応答 `response.content` と照合する。共通runtime lock内でこのworktreeのimageをbuildしてから実施する。validatorの定数から期待値を生成せず、同じ意味の空白入りJSONもbyte不一致として拒否する。
 
 health pathは `/api/health/live`。noneでは秘密origin headerを送らない。spoofedは固定の無効なorigin-verify、httpのforwarded-proto、試験用IPを用いてorigin-verify/proto/client-IPの偽装を試みる条件名。実値は秘密でない専用値をAの操作台帳へ固定し、B IP試験のspoof条件とも照合する。受信header全体やsecretは原本に保存しない。
 

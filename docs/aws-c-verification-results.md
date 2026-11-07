@@ -4,6 +4,8 @@
 
 ## #66 公開境界・Origin対照の補強
 
+2026-11-08のPR #69相互レビューコメント（対象 `44c1ddfb422236fa2a688ffb21af6dcdcdd62e92`）のHigh1件を再現し、health期待byteをFL-01仕様と実DRF応答に合わせて修正した。実backendのDjango Client経路はUTC `2026-11-07T16:07:57Z` に200/15byte、SHA256 `a29ee2b15c494311c52521766e44af56a3ad2248e7a8ab465e5206463c13d288` を確認。fixtureと観測契約を揃え、空白入り/改行付きJSONを拒否する回帰テストを追加した。実AWSは未実施。コメント対応後のchecks結果はPRへ記録し、既存qualityレビュー予算が2/2消費済みのため追加確認は承認待ちとする。
+
 Issue #66で[C04観測契約](aws-c-boundary-contract.md)・オフライン判定・終了時原本再照合を実装し、C02をOriginだけが異なる共通送信関数へ変更した。旧要約/欠落はnot_run、不正原本はfail、全7probeとBの必要証跡が整合した場合だけreadinessを認める。これにより下記PR #63時点のC04保留とC02対照条件差を解消する実装を用意した。
 
 ローカルHTTPS試験 `aws-fixture-364070666dce` で共通関数を実Playwright APIRequestContextから実行し、正負要求のOrigin以外の一致、正例/復元/負例、状態不変、外部接続0、秘密の非保存を確認した。fixtureはproduct_requests=0/aws=not_run、orphan browser停止とlistener解放も成功。正式なchecksと品質レビュー結果は対象snapshot付きでPR検証欄へ記録する。
