@@ -9,9 +9,16 @@ spec = importlib.util.spec_from_file_location('network_fixture', Path(__file__).
 fixture = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(fixture)
 runtime = fixture.runtime
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from browser_ownership import stop_browsers
 
 
 class AwsFixtureDriver(fixture.FixtureDriver):
+    def stop_owned(self):
+        stopped = stop_browsers(self.output, self.lock.owner['run_id'], required=self.fixture_started)
+        return super().stop_owned() and stopped
+
     def exercise(self):
         self.fixture_started = True
         self.output.chmod(0o700)
@@ -30,6 +37,15 @@ class AwsFixtureDriver(fixture.FixtureDriver):
         result = json.loads((self.output / 'fixture.json').read_text())
         if result.get('passed') is not True or result.get('forbidden_reads') != 0:
             raise RuntimeError('FIXTURE_FAILED')
+        expected_exit = False
+        try:
+            self.command('orphan-browser-fixture', ['node', 'e2e/harness/browser-orphan.mjs'], 15,
+                         {'FITLOG_GUARD_FIXTURE_RUN': self.lock.owner['run_id']})
+        except RuntimeError:
+            expected_exit = self.report['operations'][-1]['exit_code'] == -9
+        if not expected_exit or not stop_browsers(self.output, self.lock.owner['run_id'], required=True):
+            raise RuntimeError('ORPHAN_BROWSER_STOP_UNCONFIRMED')
+        self.report['orphan_browser_stop'] = 'pass'
 
 
 def main():

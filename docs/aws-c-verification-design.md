@@ -154,3 +154,6 @@ Mediumは設計の明確化として反映し、再レビューは行ってい�
 - test run識別子は既存E2Eのusername長/設定と互換な12桁hexを採用し、deployment/campaignはcanonical UUIDで拘束する。
 - 動画視認・破棄後再生/C07/後日請求の自動合格は追加しない。自動観測の成功と総合受入れを分離し、Aの運用証跡と実確認を必要とする。操作窓の一時返却はA/Cの手動調整を前提とし、自動AWS操作は追加しない。
 - Bの実装済みhandoff v1を読取り照合し、C用成功サマリへの転記を要求せず元のB工程証跡のcanonical hashを検査するadapterに具体化した。B branch未統合時は契約fixtureの検証にとどめる。
+- A PR #61は通常mergeで取込み済み。B未統合のため、C専用のローカル品質確認・PR作成を先行し、B統合後の契約再確認と共通README/acceptance/production-readiness更新を未完了として残す。相互レビュー待ちに加えてB依存の解消まではマージしない。理由は各担当の待機時間を減らし、C差分を具体的にレビュー可能にするため。
+- 品質レビューで公開境界の薄い成功要約では実拒否を検証できないと判明したため、Aの実観測receipt仕様の成立・実装まではC04/final_evidence_readyをnot_run/falseに固定する。証跡参照の受領と合格を区別する。実AWS受入れは未完了のままで、SDKや独自collectorは追加しない。
+- 期限内停止を確保するため末尾30秒はclient取消/停止確認に使い、API timeout・親監視はUTC/monotonic残時間で拘束する。ChromiumのPIDをCDPから取得し起動時刻/PGIDと対応づけ、Nodeとは別groupの停止を確認する。追加listenerや新portを使わず既存pipe transportを維持する。

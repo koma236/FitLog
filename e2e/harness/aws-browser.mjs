@@ -7,6 +7,9 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { chromium, request, expect } from '@playwright/test'
 import { installAwsGuard, urlPolicy, SendBudget, apiSend, nativeBodyBytes } from '../support/aws-policy.mjs'
 import { newLocalPage } from '../support/safety.mjs'
+import { launchOwnedBrowser } from '../support/owned-browser.mjs'
+import { saveArtifact } from '../support/private-artifacts.mjs'
+import { fileURLToPath } from 'node:url'
 
 const run = process.env.FITLOG_GUARD_FIXTURE_RUN
 const owner = JSON.parse(readFileSync('/Users/saki/project/FitLog/.git/fitlog-runtime.lock/owner.json', 'utf8'))
@@ -50,10 +53,11 @@ proxy.on('connect', (req, client, head) => {
 })
 const listen = (listener, port) => new Promise((resolve, reject) => { listener.once('error', reject); listener.listen(port, '127.0.0.1', resolve) })
 const close = listener => listener.listening ? new Promise(resolve => listener.close(resolve)) : Promise.resolve()
-const policy = { origin, budget: new SendBudget({ expires: Date.now() + 600000, persist: () => {} }) }
+const policy = { origin, budget: new SendBudget({ expires: Date.now() + 600000, persist: value => saveArtifact(fileURLToPath(directory), 'budget', value) }) }
 try {
   await listen(server, 18080); await listen(proxy, 15173)
-  browser = await chromium.launch({ proxy: { server: 'http://127.0.0.1:15173' }, args: ['--ignore-certificate-errors-spki-list=' + pin] })
+  browser = await launchOwnedBrowser(chromium, fileURLToPath(directory), run, 0, { launchOptions: { proxy: { server: 'http://127.0.0.1:15173' }, args: ['--ignore-certificate-errors-spki-list=' + pin] } })
+  policy.budget.watch(() => browser.close())
   const context = await browser.newContext({ serviceWorkers: 'block', ignoreHTTPSErrors: false })
   await installAwsGuard(context, { validate: urlPolicy(origin), reserve: event => policy.budget.take(event.request.method, event.request.url, nativeBodyBytes(event.request)) })
   const page = await newLocalPage(context)
@@ -84,6 +88,15 @@ try {
   await expect(apiSend(hanging, policy, '/api/drip')).rejects.toThrow('API_SEND_FAILED')
   expect(performance.now() - began).toBeLessThan(6500)
   await hanging.dispose()
+  stage = 'approval-expiry'
+  const expiring = await request.newContext({ proxy: { server: 'http://127.0.0.1:15173' }, ignoreHTTPSErrors: false })
+  const expiryBudget = new SendBudget({ expires: Date.now() + 30150, persist: () => {} })
+  expiryBudget.cleanup()
+  let stoppedAtExpiry = false
+  expiryBudget.watch(async () => { await expiring.dispose(); stoppedAtExpiry = true })
+  await expect(apiSend(expiring, { origin, budget: expiryBudget }, '/api/drip')).rejects.toThrow('API_SEND_FAILED')
+  await expiryBudget.stopAll()
+  expect(stoppedAtExpiry).toBe(true)
   stage = 'finished'
   expect(forbidden).toBe(0); expect(allowed).toBeGreaterThan(3)
   expect(policy.budget.state.bytes).toBe(bytes)

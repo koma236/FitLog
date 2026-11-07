@@ -49,7 +49,7 @@ B handoffの`ready_for_c`、account/region/environment/run/bootstrap/source_revi
 まだB未統合なら、Cのfixture契約を検証済みとだけ報告し、B統合済み/実配置成功とは扱わない。Bのschemaが変わったらadapterと固定fixtureを照合し、同snapshotで再検証する。
 
 公開境界のC参照`evidence`は`{probe_id,path,sha256}`。probe_idは`alb-normal/alb-host/task/s3-static/s3-media/other-distribution/viewer-headers`だけ。各fileはC契約のaccount/region/environment/run_id/bootstrap_id/source/image_digest/frontend_sha256/originとprobe_id/status=passのみを持つAの非秘密結果。対象・期待拒否・既知fixture・元の実行記録の意味はAの実操作台帳と照合し、CのファイルだけでAWS拒否を証明したとは呼ばない。未提供ならnot_run。
-B permissions/IPがnot_runでもCは開始できる。最終集約にはBの両probe成功とAの全公開境界証跡を要求する。
+B permissions/IPがnot_runでもCは開始できる。公開境界の薄い成功要約は実拒否の証明にならないため、現在C04/final_evidence_readyはnot_run/falseを維持する。Aの実応答・SG観測・既知objectと原本対応を含むreceipt仕様の成立と検証器の実装が必要で、Bの両probe成功や参照数だけでpassにしない。
 
 オフライン検査（AWS未接続）:
 
@@ -65,11 +65,11 @@ A/Bが基盤/配置を完了し、AがCへ環境と操作窓を引き渡す。C�
 campaign folderはrepo外で正規path・実行者所有0700とする。初回/再構築の環境名とcampaign UUIDをAの台帳へ固定し、初回のみ`--campaign <folder> --init-campaign <初回名> <再構築名>`をオフライン契約検査へ追加して初期化する。既存campaignを上書きせず、別pathによる回数リセットを禁止する。
 実行時だけ同じ入口に`--campaign <folder> --execute-aws`を追加する。clean sourceが契約の完全OIDに一致しない、共通runtime lockが他担当使用中、期限/証跡が不正なら接続前に拒否する。環境ごとのattempt intentを排他作成した後にclientを起動し、中断/失敗でも1回を消費する。rebuildは初回intentが存在する別環境で1回だけ。
 1環境で2利用者/6投稿/4comment/保存画像4点・各64KiB以下、要求3000（通常2800＋cleanup200）/送信20MiB/auth24回・rolling60秒8回。正常画像は既存小型fixture、負例は既存5MiB+1のUI拒否であり実送信を強制しない。
-cleanup開始後も期限・総要求/送信/auth上限を緩めない。失われたsessionの自動再loginはせず、未回収の自己所有IDと利用者2名を残置としてAへ引き渡す。環境削除はAだけが行う。
+cleanup開始後も期限・総要求/送信/auth上限を緩めない。期限末尾30秒は取消/停止確認用とし、親はUTC/monotonicを短周期で監視、API timeoutも残時間以下にする。失われたsessionの自動再loginはせず、未回収の自己所有IDと利用者2名を残置としてAへ引き渡す。環境削除はAだけが行う。
 
 ## 結果と停止
 
 campaign/run folderに契約参照、予算、resource-budget、journey/cleanup、C01〜C06、performance-requests/集計、safe reporter、runtime、quarantine動画を保存する。Cookie/password/CSRF/storageStateはメモリのみ、trace/HAR/生HTTP/DOM/例外dumpは保存しない。
 限定性能は2利用者でGETのみ、10秒warmupを除く90秒180枠・3分類各60。既存`perf.report.summarize`を使い各分類p95<1000ms、失敗/欠測0を要求する。撮影失敗はfailを保持し性能を見送り、前提が健全なら削除検証を続ける。
 `runtime.status=pass`は観測したブラウザ操作/限定性能/動画decodeとclient停止の成功である。`acceptance`、視認、破棄後再生、再構築、Aの残存/後日請求は別状態で、現実装では自動passにしない。C04がnot_runなら受入れ未完了。C07の2環境完了はAの記録とともに人間が確認して文書化する。
-全child group停止を確認してからlocal lockと試験leaseを返す。停止不明はlock保持・lease未返却。CはCloudFront無効化やECS停止を行わずAに引き渡す。動画は視認・秘密混入検査前に共有せず、破棄後もAWS外で再生確認する。
+Node groupに加え、CDPのSystemInfoで特定したChromium PID/PGID/起動時刻の所有記録も照合し、全group消滅後にlocal lockと試験leaseを返す。Node強制終了時は残った自己所有browser groupだけを停止する。起動途中でPID未確定・起動時刻不一致・停止不明ならlock保持・lease未返却。追加port/launchServerを使わない。CはCloudFront無効化やECS停止を行わずAに引き渡す。動画は視認・秘密混入検査前に共有せず、破棄後もAWS外で再生確認する。

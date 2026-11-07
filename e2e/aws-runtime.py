@@ -7,6 +7,8 @@ from pathlib import Path
 import signal
 import subprocess
 import sys
+import time
+from datetime import datetime, timezone
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from aws_contract import Invalid, claim, exclusive_json, final_ready, init_campaign, load, protected, sha256, validate, validate_handoff
@@ -16,12 +18,15 @@ local = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(local)
 sys.path.insert(0, str(local.ROOT))
 from perf.runner import cleanup_signals
+from browser_ownership import stop_browsers
 
 
 class AwsDriver(local.LocalDriver):
     def __init__(self, lock, output, data):
         super().__init__(lock, output, capture=True)
         self.data = data
+        self.deadline = time.monotonic() + (datetime.fromisoformat(data['expires_at'].replace('Z', '+00:00')) - datetime.now(timezone.utc)).total_seconds() - 30
+        self.browser_attempted = False
         self.report.update(environment='aws', lease_returned=False, final_evidence_ready=final_ready(data),
                            manual_playback='not_run', after_destroy_playback='not_run')
 
@@ -31,6 +36,10 @@ class AwsDriver(local.LocalDriver):
     def command(self, name, argv, timeout=90, env=None):
         """Reuse group-stop primitives with spawn registration protected from signals."""
         if not self.lock.owned(): raise RuntimeError('OWNER_CHANGED')
+        remaining = min(self.deadline - time.monotonic(),
+                        (datetime.fromisoformat(self.data['expires_at'].replace('Z', '+00:00')) - datetime.now(timezone.utc)).total_seconds() - 30)
+        if remaining <= 0: raise RuntimeError('AWS_DEADLINE')
+        timeout = min(timeout, remaining)
         entry = {'id': name, 'started_at': local.shared.now(), 'exit_code': None}
         self.report['operations'].append(entry)
         self.persist()
@@ -44,7 +53,16 @@ class AwsDriver(local.LocalDriver):
                 child = subprocess.Popen(argv, cwd=local.ROOT, env=child_env, stdout=subprocess.PIPE,
                                          stderr=subprocess.PIPE, start_new_session=True)
             if deferred: raise KeyboardInterrupt()
-            stdout, _ = child.communicate(timeout=timeout)
+            operation_end = time.monotonic() + timeout
+            while True:
+                left = min(operation_end - time.monotonic(), self.deadline - time.monotonic(),
+                           (datetime.fromisoformat(self.data['expires_at'].replace('Z', '+00:00')) - datetime.now(timezone.utc)).total_seconds() - 30)
+                if left <= 0: raise subprocess.TimeoutExpired(argv, timeout)
+                try:
+                    stdout, _ = child.communicate(timeout=min(.2, left))
+                    break
+                except subprocess.TimeoutExpired:
+                    continue
             if local.shared.group_exists(child.pid):
                 local.shared.stop_group(child)
                 raise ChildProcessError('DESCENDANT_REMAINED')
@@ -70,6 +88,7 @@ class AwsDriver(local.LocalDriver):
                        'final_evidence_ready': final_ready(self.data)})
 
     def exercise(self):
+        self.browser_attempted = True
         self.command('aws-browser', ['node', 'e2e/node_modules/@playwright/test/cli.js', 'test', '--config=e2e/aws.playwright.config.ts'],
                      1200, {'FITLOG_E2E_RUN_ID': self.data['test_run'], 'FITLOG_E2E_CAPTURE': '1',
                             'FITLOG_AWS_INPUT': str(self.output / 'runtime-input.json'), 'FITLOG_AWS_OUTPUT': str(self.output)})
@@ -96,9 +115,11 @@ class AwsDriver(local.LocalDriver):
     def stop_owned(self):
         # command() verifies process-group death before returning, on every exit.
         # No Compose/DB/remote AWS lifecycle operation is reachable here.
-        self.report['client_stop_confirmed'] = self.safe
-        self.report['lease_returned'] = self.safe
-        return self.safe
+        browsers_stopped = stop_browsers(self.output, self.lock.owner['run_id'], required=self.browser_attempted)
+        safe = self.safe and browsers_stopped
+        self.report['client_stop_confirmed'] = safe
+        self.report['lease_returned'] = safe
+        return safe
 
 
 def execute(data, campaign):
@@ -136,7 +157,7 @@ def execute(data, campaign):
                 after = local.snapshot()
                 passed = passed and after == snapshot
                 driver.report.update(source_after=after, status='pass' if passed else 'fail',
-                                     c04='pass' if final_ready(data) else 'not_run',
+                                     c04='not_run', boundary_reason='A_BOUNDARY_RECEIPT_SCHEMA_PENDING',
                                      acceptance='not_run', ended_at=local.shared.now())
                 driver.save()
             if stopped and lock.owned(): lock.release()

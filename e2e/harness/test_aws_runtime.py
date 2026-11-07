@@ -3,6 +3,7 @@ import importlib.util
 from pathlib import Path
 import unittest
 import tempfile
+import time
 from unittest.mock import Mock, patch
 
 spec = importlib.util.spec_from_file_location('aws_runtime', Path(__file__).parents[1] / 'aws-runtime.py')
@@ -34,12 +35,17 @@ class AwsRuntimeTests(unittest.TestCase):
         argv = driver.command.call_args.args[1]
         self.assertEqual(argv[0], 'node')
         self.assertIn('--config=e2e/aws.playwright.config.ts', argv)
-        self.assertTrue(driver.stop_owned())
+        # No browser receipt: even a stopped fake Node is not proof of Chromium.
+        self.assertFalse(driver.stop_owned())
 
     def test_spawn_failure_retains_uncertain_stop_and_does_not_expose_raw_error(self):
         driver = object.__new__(runtime.AwsDriver)
         driver.lock = Mock(owned=Mock(return_value=True))
         driver.report = {'operations': []}; driver.safe = True; driver.persist = Mock()
+        driver.deadline = time.monotonic() + 100
+        driver.data = {'expires_at': '2030-01-01T00:00:00Z'}
+        driver.output = Path('/fixture/nonexistent'); driver.browser_attempted = False
+        driver.lock.owner = {'run_id': 'aaaaaaaaaaaa'}
         with patch.object(runtime.subprocess, 'Popen', side_effect=OSError('secret-canary')):
             with self.assertRaises(OSError): driver.command('browser', ['node', 'fixture'])
         self.assertFalse(driver.stop_owned())
@@ -62,3 +68,13 @@ class AwsRuntimeTests(unittest.TestCase):
                 driver.exercise()
             self.assertEqual(rows['C03']['status'], 'not_run')
             self.assertNotIn('acceptance', driver.report)
+
+    def test_parent_refuses_a_browser_command_after_its_stop_reserve(self):
+        driver = object.__new__(runtime.AwsDriver)
+        driver.lock = Mock(owned=Mock(return_value=True))
+        driver.safe = True; driver.deadline = time.monotonic() - 1
+        driver.data = {'expires_at': '2030-01-01T00:00:00Z'}
+        with patch.object(runtime.subprocess, 'Popen') as spawn:
+            with self.assertRaisesRegex(RuntimeError, 'AWS_DEADLINE'):
+                driver.command('aws-browser', ['node', 'fixture'], 1200)
+        spawn.assert_not_called()

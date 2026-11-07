@@ -4,7 +4,7 @@ import { randomBytes } from 'node:crypto'
 import { readFileSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { assertLocalUrl, sanitizeAxe, Budget, installLocalRequestGuard, newLocalPage } from './safety.mjs'
-import { ORIGIN, isAws, artifact, runId, validateUrl, reserveNative, savePrivate } from './environment.js'
+import { ORIGIN, isAws, artifact, runId, validateUrl, reserveNative, savePrivate, sendBudget } from './environment.js'
 import { installAwsGuard } from './aws-policy.mjs'
 export { ORIGIN, artifact, runId } from './environment.js'
 import { responseAfter, RecoveryLog } from './recovery.mjs'
@@ -32,6 +32,8 @@ export async function guardedContext(browser: Browser, options: Parameters<Brows
   context.setDefaultNavigationTimeout(10_000)
   try {
     if (isAws) {
+      const unwatch = sendBudget!.watch(async () => { await Promise.allSettled([context.request.dispose(), context.close()]) })
+      context.once('close', unwatch)
       await installAwsGuard(context, { validate: validateUrl!, reserve: reserveNative })
     } else await installLocalRequestGuard(context)
     return context

@@ -36,10 +36,29 @@ export class SendBudget {
     this.expires = expires; this.now = now; this.persist = persist
     this.started = performance.now(); this.limitMs = expires - now()
     this.state = { requests: 0, bytes: 0, auth: 0, auth_times: [], cleanup: false, failed: false }
+    this.stops = new Set(); this.expired = false; this.stopping = null
+    // Leave 30s for the parent's Node + detached Chromium group cancellation.
+    this.timer = setTimeout(() => { void this.stopAll() }, Math.max(0, this.limitMs - 30000))
+    this.timer.unref?.()
+    this.monitor = setInterval(() => { if (this.remaining() <= 0) void this.stopAll() }, 100)
+    this.monitor.unref?.()
+  }
+  remaining() {
+    return Math.min(this.expires - this.now(), this.limitMs - (performance.now() - this.started)) - 30000
+  }
+  watch(stop) {
+    if (this.expired) { void Promise.resolve().then(stop).catch(() => {}); throw Error('DEADLINE') }
+    this.stops.add(stop)
+    return () => this.stops.delete(stop)
+  }
+  stopAll() {
+    this.expired = true; clearTimeout(this.timer); clearInterval(this.monitor)
+    this.stopping ??= Promise.allSettled([...this.stops].map(stop => Promise.resolve().then(stop)))
+    return this.stopping
   }
   check() {
     const reserved = this.state.cleanup ? 0 : 300000
-    if (this.now() >= this.expires - reserved || performance.now() - this.started >= this.limitMs - reserved) throw Error('DEADLINE')
+    if (this.expired || this.remaining() <= reserved) throw Error('DEADLINE')
     if (this.state.failed) throw Error('BUDGET_WRITE_FAILED')
   }
   cleanup() { this.state.cleanup = true }
@@ -65,13 +84,17 @@ export async function apiSend(request, policy, pathname, options = {}) {
   const { method = 'GET', headers = {}, data } = options
   const raw = data === undefined ? undefined : typeof data === 'string' || Buffer.isBuffer(data) ? data : JSON.stringify(data)
   policy.budget.take(method, url, raw === undefined ? 0 : Buffer.byteLength(raw))
+  const unwatch = policy.budget.watch(() => request.dispose())
   try {
+    const timeout = Math.min(5000, Math.floor(policy.budget.remaining()))
+    if (timeout <= 0) throw Error('DEADLINE')
     const response = await request.fetch(url, { method, headers: { Origin: policy.origin, ...headers }, ...(raw === undefined ? {} : { data: raw }),
-      maxRedirects: 0, maxRetries: 0, ignoreHTTPSErrors: false, timeout: 5000 })
+      maxRedirects: 0, maxRetries: 0, ignoreHTTPSErrors: false, timeout })
+    policy.budget.check()
     if (response.status() >= 300 && response.status() < 400) throw Error('REDIRECT_BLOCKED')
     return response
   } catch {
     await request.dispose().catch(() => {})
     throw Error('API_SEND_FAILED')
-  }
+  } finally { unwatch() }
 }

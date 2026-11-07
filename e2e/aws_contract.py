@@ -166,9 +166,13 @@ def validate(data, now=None):
 
 
 def final_ready(data):
-    handoff = validate_handoff(data)
-    return ({item['probe_id'] for item in data['evidence']} == set(FINAL_PROBES)
-            and handoff['probes'] == {'permissions': 'pass', 'ip': 'pass'})
+    """A's boundary observation schema is pending: hashes are not denial proof.
+
+    Keep acceptance unavailable until an agreed, independently evaluated receipt
+    carries actual response/SG observation and the known existing fixture.
+    """
+    validate_handoff(data)
+    return False
 
 
 def init_campaign(folder, first, second, campaign_id=None):

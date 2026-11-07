@@ -1,10 +1,12 @@
-import { test, expect, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test'
+import { expect, type Browser, type BrowserContext, type Page, type Request } from '@playwright/test'
+import { test } from '../support/test.js'
 import { writeFileSync, mkdirSync } from 'node:fs'
 import { randomUUID } from 'node:crypto'
 import path from 'node:path'
 import { STEP_IDS, ResultLedger, sanitizeFailure, captureSearchAllowed, withinDeadline, withinCancellableDeadline, modalFocusContained, type CancellationScope } from '../support/safety.mjs'
 import { ORIGIN, isAws, requestApi } from '../support/environment.js'
 import { awsResult, securityAndHealth, performanceProbe, cleanupPhase } from '../support/aws-checks.js'
+import { captureAllowed } from '../support/aws-oracles.mjs'
 import { api, artifact, audit, authSlot, budget, fillRecord, go, guardedContext, guardedPage, imageFixture, keyboardTarget, login, logout, makeActor, responseFor, recoveryLog, runId, scan, signup, type Actor } from '../support/app.js'
 import { captureLikeFromFollowing, deletionSettled, networkRecovery, recoveryCases, recoveryRows, sessionMatches } from '../support/recovery.mjs'
 
@@ -367,7 +369,7 @@ test('two members use the real local application', async ({ browser }) => {
 
     await step('E08', async () => {
       const passed = await recoveryCases({
-        network: { ready: () => sessionMatches(B, recoveryLog, 'B'), action: () => networkRecovery(B, noteB, recoveryLog) },
+        network: { ready: () => sessionMatches(B, recoveryLog, 'B'), action: () => networkRecovery(B, noteB, recoveryLog, ORIGIN) },
         csrf: { ready: () => sessionMatches(A, recoveryLog, 'A'), action: () => recoveryLog.stage('case-csrf', A.page, 'A', async () => {
           const rejected = await api(A, '/api/posts/' + aPost, 'PUT', recordPayload, false)
           expect(rejected.status).toBe(403); expect(rejected.body.code).toBe('CSRF_FAILED')
@@ -414,7 +416,7 @@ test('two members use the real local application', async ({ browser }) => {
 
     // Capture has its own outcome: a recording failure must not hide otherwise
     // independent recovery/deletion observations. The whole run still fails.
-    if (process.env.FITLOG_E2E_CAPTURE === '1') {
+    if (process.env.FITLOG_E2E_CAPTURE === '1' && captureAllowed(isAws, failed)) {
       try {
         await withinCancellableDeadline((scope: CancellationScope) => capture(browser, A, B, aPost, mark, scope), 300_000)
         captureStatus = 'pass'

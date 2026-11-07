@@ -1,4 +1,6 @@
 /** Stable record state; signed media capabilities naturally change with time. */
+export function captureAllowed(aws, failed) { return !aws || !failed }
+
 export function unchangedRecord(value) {
   const copy = structuredClone(value)
   const strip = item => {

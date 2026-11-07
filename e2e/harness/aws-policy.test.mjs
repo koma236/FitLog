@@ -71,3 +71,22 @@ test('last five minutes are reserved for cleanup without extending the hard dead
   now = 600000
   assert.throws(() => budget.take('GET', origin), /DEADLINE/)
 })
+
+test('API timeout is bounded by remaining approval time and late success is rejected', async () => {
+  let now = 0; let observedTimeout; let disposed = false
+  const budget = new SendBudget({ expires: 600000, now: () => now, persist: () => {} }); budget.cleanup()
+  now = 568000
+  const request = { fetch: async (_url, options) => { observedTimeout = options.timeout; now = 600001; return { status: () => 200 } }, dispose: async () => { disposed = true } }
+  await assert.rejects(apiSend(request, { origin, budget }, '/api/auth/me'), /API_SEND_FAILED/)
+  assert.ok(observedTimeout <= 2000)
+  assert.equal(disposed, true)
+})
+
+test('hard expiry cancels registered active clients and refuses new requests', async () => {
+  const budget = new SendBudget({ expires: Date.now() + 600000, persist: () => {} })
+  let stopped = 0
+  budget.watch(async () => { stopped++ })
+  await budget.stopAll()
+  assert.equal(stopped, 1)
+  assert.throws(() => budget.take('GET', origin), /DEADLINE/)
+})

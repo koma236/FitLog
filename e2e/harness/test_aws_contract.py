@@ -92,6 +92,21 @@ class ContractTests(unittest.TestCase):
         p.write_text(json.dumps(handoff)); self.data['handoff']['sha256'] = contract.sha256(p)
         contract.validate(self.data, self.now)
 
+    def test_thin_success_summaries_never_certify_actual_boundary_denials(self):
+        # Even complete reference lists are not HTTP/SG/known-object observations.
+        self.assertEqual(len(self.data['evidence']), 7)
+        h = contract.load(self.data['handoff']['path'])
+        for mode in ('permissions', 'ip', 'ip-baseline'):
+            record = contract.load(h['evidence'][0]['path'])
+            record['step'] = 'verify-public-' + mode
+            p = self.root / (mode + '.json'); contract.exclusive_json(p, record)
+            h['evidence'].append({'step': record['step'], 'path': str(p), 'sha256': contract.canonical_hash(record)})
+        h['probes'] = {'permissions': 'pass', 'ip': 'pass'}
+        p = Path(self.data['handoff']['path']); p.write_text(json.dumps(h))
+        self.data['handoff']['sha256'] = contract.sha256(p)
+        contract.validate(self.data, self.now)
+        self.assertFalse(contract.final_ready(self.data))
+
     def test_campaign_attempt_is_durable_and_never_refunded(self):
         campaign = self.root / 'campaign'
         campaign.mkdir(mode=0o700)
