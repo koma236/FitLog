@@ -77,7 +77,10 @@
 //     subcommand is from GIT_SUBCOMMANDS (so no `config`, no alias) and carries
 //     no option that makes git run a command string (`runsCommand`).
 //     `gh`: the subcommand is from GH_SUBCOMMANDS (no `alias`, no extension).
-//     A runner: no gate word in its arguments (`npx -c "git push"`).
+//     A runner: no gate word in its arguments (`npx -c "git push"`), except
+//     the fixed quality-context --merge-only grammar (Issue #64) below.
+//     That helper must occupy the whole command, without output plumbing;
+//     declarations/alwaysDeny still run first. It never issues quality evidence.
 //     A location change: exactly one path (in PowerShell optionally after
 //     `-Path` / `-LiteralPath`); `popd` none.
 //   - In `git` / `gh` words: no unquoted single-dash option carrying anything
@@ -558,6 +561,11 @@ function parseLines(text) {
   else if (pending === '&&') notSimple('`&&` at the end');
   if (line.segments.length > 0) lines.push(line);
   for (const l of lines) for (const s of l.segments) checkSegment(s);
+  const segments = lines.flatMap((l) => l.segments);
+  if (segments.some((s) => s.qualityContext) &&
+      (lines.length !== 1 || segments.length !== 1 || segments[0].before || segments[0].after)) {
+    notSimple('quality-context must run alone, without command separators');
+  }
   return lines;
 }
 
@@ -599,12 +607,39 @@ function runsCommand(sub, words, start) {
   return false;
 }
 
+// Issue #64: a closed literal grammar, not a general npx/script allowance.
+// This descriptor only exempts the runner argument check; the original whole
+// command and all earlier declaration/deny checks still have to pass.
+function qualityContextDescriptor(seg) {
+  const { words, quoted, expand } = seg;
+  if (words.length < 5 || words[0] !== 'npx' || words[1] !== '--no' ||
+      words[2] !== '@crearize/ai-dev-helm@3.7.1' || words[3] !== 'quality-context' ||
+      words[4] !== '--merge-only' || [0, 1, 3, 4].some((i) => quoted[i]) ||
+      expand.some(Boolean) || (!quoted[2] && reading !== 'posix')) return null;
+  const seen = new Set();
+  for (let i = 5; i < words.length; i += 2) {
+    const opt = words[i];
+    const value = words[i + 1];
+    if (quoted[i] || !['--base', '--out'].includes(opt) || seen.has(opt) || value === undefined) return null;
+    seen.add(opt);
+    if (opt === '--base') {
+      if (!/^(?:origin\/(?:main|master)|main|master|[0-9a-f]{40})$/.test(value)) return null;
+    } else {
+      if (!/^(?:\/|[A-Za-z]:\/)[A-Za-z0-9_.-]+(?:\/[A-Za-z0-9_.-]+)*$/.test(value) ||
+          value.split('/').some((part) => part === '.' || part === '..')) return null;
+      checkPath(value, false);
+    }
+  }
+  return { packageIndex: 2 };
+}
+
 // Classify and check one segment: `kind`, and `git` / `move` details.
 function checkSegment(seg) {
   const { words } = seg;
   const first = words[0].toLowerCase();
   if (seg.quoted[0]) notSimple('a quoted command word');
   if (words[0].includes('=')) notSimple('an environment assignment');
+  const qualityContext = qualityContextDescriptor(seg);
   for (let i = 0; i < words.length; i++) {
     // PowerShell's stop-parsing token. Unquoted, it passes the rest of the
     // line on verbatim (quotes left in, `%VAR%` expanded); quoted, Windows
@@ -612,7 +647,8 @@ function checkSegment(seg) {
     // arguments unquoted. Either way the words git gets are not these.
     if (words[i] === '--%') notSimple('`--%`');
     if (seg.quoted[i]) continue;
-    if (words[i].length > 1 && words[i].startsWith('@')) notSimple(`\`${words[i]}\``);
+    if (words[i].length > 1 && words[i].startsWith('@') &&
+        !(qualityContext && i === qualityContext.packageIndex && reading === 'posix')) notSimple(`\`${words[i]}\``);
   }
   const op = MOVE_WORDS.get(words[0]) || (reading === 'powershell' && PS_MOVE_OPS.get(first));
   if (op) {
@@ -640,7 +676,8 @@ function checkSegment(seg) {
   }
   if (RUNNERS.has(first)) {
     seg.kind = 'run';
-    if (words.slice(1).some((w) => GATE_WORD_RE.test(w))) notSimple(`a gate word in the arguments of \`${words[0]}\``);
+    if (qualityContext) seg.qualityContext = qualityContext;
+    if (!qualityContext && words.slice(1).some((w) => GATE_WORD_RE.test(w))) notSimple(`a gate word in the arguments of \`${words[0]}\``);
     return;
   }
   if (first !== 'git' && first !== 'gh') notSimple(`the command \`${words[0]}\``);
@@ -2610,9 +2647,20 @@ function classifyText(text, ctx) {
   let lines;
   try {
     lines = parseSimple(judged);
+    if (lines.some((l) => l.segments.some((s) => s.qualityContext))) {
+      const original = (crlf ? text.replace(/\r\n/g, '\n') : text).trim();
+      if (/[\r\n]/.test(original) || original !== judged.trim()) {
+        notSimple('quality-context must run on one line without output plumbing or shell rewriting');
+      }
+    }
   } catch (e) {
     // Without a gate word only a simple trunk rewrite is judged.
-    if (e instanceof NotSimple) return gateWordIn(judged) ? deny('2', notSimpleReason(e.message)) : allow();
+    if (e instanceof NotSimple) {
+      const hint = text.includes('quality-context')
+        ? " For the FitLog helper, run npx --no '@crearize/ai-dev-helm@3.7.1' quality-context --merge-only as one standalone line (only optional --base REF and --out PATH)."
+        : '';
+      return gateWordIn(judged) ? deny('2', notSimpleReason(e.message) + hint) : allow();
+    }
     throw e;
   }
   const analyzed = lines.map(analyzeLine);
