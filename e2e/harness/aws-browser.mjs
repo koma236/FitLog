@@ -9,6 +9,7 @@ import { installAwsGuard, urlPolicy, SendBudget, apiSend, nativeBodyBytes } from
 import { newLocalPage } from '../support/safety.mjs'
 import { launchOwnedBrowser } from '../support/owned-browser.mjs'
 import { saveArtifact } from '../support/private-artifacts.mjs'
+import { originContrast } from '../support/aws-oracles.mjs'
 import { fileURLToPath } from 'node:url'
 
 const run = process.env.FITLOG_GUARD_FIXTURE_RUN
@@ -21,6 +22,10 @@ const pin = createHash('sha256').update(createPublicKey(cert).export({ type: 'sp
 const origin = 'https://dexample.cloudfront.net'
 let forbidden = 0; let allowed = 0; let bytes = 0; let sockets = new Set(); let browser
 let passed = false; let stage = 'start'
+let fixtureNote = 'before'
+const contrastPuts = []
+const sessionCanary = 'PRIVATE-SESSION-CANARY'
+const csrfCanary = 'PRIVATE-CSRF-CANARY'
 const server = https.createServer({ key, cert }, (req, res) => {
   allowed++
   if (req.url === '/forbidden') forbidden++
@@ -32,9 +37,24 @@ const server = https.createServer({ key, cert }, (req, res) => {
     return // Owned listener closes the hanging body after client cancellation.
   }
   let received = 0
-  req.on('data', chunk => { received += chunk.length })
+  const chunks = []
+  req.on('data', chunk => { received += chunk.length; chunks.push(chunk) })
   req.on('end', () => {
     bytes += received
+    if (req.url === '/api/auth/csrf' || req.url === '/api/posts/fixture') {
+      if (!req.headers.cookie?.includes('sessionid=' + sessionCanary)) { res.writeHead(401); res.end('{}'); return }
+      let status = 200; let body
+      if (req.url === '/api/auth/csrf') body = { csrf_token: csrfCanary }
+      else if (req.method === 'PUT') {
+        const raw = Buffer.concat(chunks).toString()
+        contrastPuts.push({ headers: req.headers, method: req.method, path: req.url, raw })
+        if (req.headers['x-csrftoken'] !== csrfCanary) { status = 403; body = { code: 'INVALID_TOKEN' } }
+        else if (req.headers.origin !== origin) { status = 403; body = { code: 'CSRF_FAILED' } }
+        else { fixtureNote = JSON.parse(raw).note; body = { ok: true } }
+      }
+      body ??= { id: 'fixture', note: fixtureNote, exercises: [] }
+      res.writeHead(status, { 'Content-Type': 'application/json' }); res.end(JSON.stringify(body)); return
+    }
     res.writeHead(200, { 'Content-Type': req.url?.startsWith('/api/') ? 'application/json' : 'text/html' })
     res.end(req.url?.startsWith('/api/') ? '{"ok":true}' : '<!doctype html><title>synthetic guard</title>fixture')
   })
@@ -82,6 +102,16 @@ try {
   expect((await apiSend(api, policy, '/api/ok')).status()).toBe(200)
   await expect(apiSend(api, policy, '/api/redirect')).rejects.toThrow('API_SEND_FAILED')
   await api.dispose()
+  stage = 'origin-contrast'
+  await context.addCookies([{ name: 'sessionid', value: sessionCanary, url: origin, secure: true, httpOnly: true, sameSite: 'Lax' }])
+  const contrast = await originContrast((path, options) => apiSend(context.request, policy, path, options),
+    { origin, owner: 'fixture-owner', post: 'fixture', payload: { note: 'before', exercises: [] }, marker: 'fixture-positive' })
+  expect(contrast).toEqual({ positive: 200, restored: 200, negative: 403, unchanged: true })
+  expect(contrastPuts.length).toBe(3)
+  const [positive, , negative] = contrastPuts
+  expect({ ...positive, headers: { ...positive.headers, origin: 'same' } }).toEqual({ ...negative, headers: { ...negative.headers, origin: 'same' } })
+  expect(fixtureNote).toBe('before')
+  expect(JSON.stringify(contrast)).not.toMatch(/PRIVATE|CSRF|SESSION/)
   stage = 'body-timeout'
   const hanging = await request.newContext({ proxy: { server: 'http://127.0.0.1:15173' }, ignoreHTTPSErrors: false })
   const began = performance.now()
@@ -107,5 +137,5 @@ finally {
   for (const socket of sockets) socket.destroy()
   server.closeAllConnections(); proxy.closeAllConnections()
   await close(proxy); await close(server)
-  writeFileSync(new URL('fixture.json', directory), JSON.stringify({ passed, stage, forbidden_reads: forbidden, allowed_reads: allowed, body_bytes: bytes, product_requests: 0, aws: 'not_run', tls: 'fixture_certificate_spki_pinned_in_chromium_ca_in_node', listeners_closed: true }), { mode: 0o600 })
+  writeFileSync(new URL('fixture.json', directory), JSON.stringify({ passed, stage, forbidden_reads: forbidden, allowed_reads: allowed, body_bytes: bytes, origin_contrast: contrastPuts.length === 3 && fixtureNote === 'before' ? 'pass' : 'not_run', product_requests: 0, aws: 'not_run', tls: 'fixture_certificate_spki_pinned_in_chromium_ca_in_node', listeners_closed: true }), { mode: 0o600 })
 }

@@ -157,3 +157,11 @@ Mediumは設計の明確化として反映し、再レビューは行ってい�
 - A PR #61は通常mergeで取込み済み。B未統合のため、C専用のローカル品質確認・PR作成を先行し、B統合後の契約再確認と共通README/acceptance/production-readiness更新を未完了として残す。相互レビュー待ちに加えてB依存の解消まではマージしない。理由は各担当の待機時間を減らし、C差分を具体的にレビュー可能にするため。
 - 品質レビューで公開境界の薄い成功要約では実拒否を検証できないと判明したため、Aの実観測receipt仕様の成立・実装まではC04/final_evidence_readyをnot_run/falseに固定する。証跡参照の受領と合格を区別する。実AWS受入れは未完了のままで、SDKや独自collectorは追加しない。
 - 期限内停止を確保するため末尾30秒はclient取消/停止確認に使い、API timeout・親監視はUTC/monotonic残時間で拘束する。ChromiumのPIDをCDPから取得し起動時刻/PGIDと対応づけ、Nodeとは別groupの停止を確認する。追加listenerや新portを使わず既存pipe transportを維持する。
+
+## #66の承認済み補強設計（2026-11-07）
+
+[C04観測契約・C02 Origin対照](aws-c-boundary-contract.md)を後続仕様とする。C04常時not_runの保留実装を、schema v2の対象台帳/実在原本/観測原本の厳格照合へ置き換える。旧要約はnot_runのまま。原本のhash/対象/identity/窓を照合し、開始後の改変・消失はfail。全7probeとB permissions/IPが揃った場合だけfinal_evidence_ready=trueで、総合acceptanceは別状態のまま。
+
+C02はAPIRequestContextとrequestApiを共通化し、同じPUT/body/CSRF/sessionからOriginだけ変更。正例でmarker変更をGET確認、正規PUTで復元・GET確認、同じmarker本文の負例403/CSRF_FAILEDと復元後の状態不変を確認する。追加の製品認証実装やAWS接続経路は作らない。
+
+独立設計レビューHigh1（OACなし別distributionの403で誤合格）を、両OACのalways/sigv4/attachmentと同一static object正常対照で是正し確認済み。Medium2の扱いはユーザー承認済み（初回不足はnot_run、検証後消失はfail。viewer IPはFunction公開code hashとB baseline/IP観測を結合）。実AWS操作を含まない設計・計画をチャットで承認後に実装する。
