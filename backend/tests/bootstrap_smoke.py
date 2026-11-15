@@ -18,10 +18,13 @@ def main() -> None:
     probe = Path(__file__).with_name('bootstrap_probe.py').read_text()
 
     setting = ''
+    creator_superuser = False
 
     def docker(*args: str, source: str | None = None) -> str:
         if source is not None:
-            source += '\nimport os\nos.environ["BOOTSTRAP_SELF_GRANT"] = ' + repr(setting) + '\n' + flow + '\n' + probe
+            source += ('\nimport os\nos.environ["BOOTSTRAP_SELF_GRANT"] = ' + repr(setting)
+                       + '\nos.environ["BOOTSTRAP_CREATOR_SUPERUSER"] = '
+                       + repr('1' if creator_superuser else '0') + '\n' + flow + '\n' + probe)
             result = subprocess.run(['docker', *args], input=source, text=True,
                                     capture_output=True, timeout=180)
             if result.returncode:
@@ -30,8 +33,10 @@ def main() -> None:
         return original(*args, source=source)
 
     with patch.object(tls, "IMAGE", IMAGE), patch.object(tls, "docker", docker):
-        for setting in ("", "inherit,set"):
-            print("createrole_self_grant fixture:", repr(setting), flush=True)
+        for setting, creator_superuser in (("", True), ("", False), ("inherit,set", False)):
+            print("createrole_self_grant fixture:", repr(setting),
+                  "local missing-auto-admin model:" if creator_superuser else "non-superuser:",
+                  creator_superuser, flush=True)
             tls.main()
 
 

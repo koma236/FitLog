@@ -32,13 +32,16 @@ def connect(user: str, password: str) -> psycopg.Connection[tuple[object, ...]]:
 
 
 def main() -> None:
+    # A local model for missing creator membership; this is not an RDS emulator.
+    creator_superuser = os.environ.get('BOOTSTRAP_CREATOR_SUPERUSER') == '1'
     with connect('postgres', 'tls-public-fixture') as root:
-        root.execute(sql.SQL('CREATE ROLE fitlog_admin NOSUPERUSER LOGIN CREATEROLE CREATEDB '
+        privilege = 'SUPERUSER' if creator_superuser else 'NOSUPERUSER'
+        root.execute(sql.SQL('CREATE ROLE fitlog_admin ' + privilege + ' LOGIN CREATEROLE CREATEDB '
                              'INHERIT NOREPLICATION NOBYPASSRLS PASSWORD {}').format(
                                  sql.Literal(PASSWORD)))
         root.execute('ALTER DATABASE fitlog OWNER TO fitlog_admin')
     with connect('fitlog_admin', PASSWORD) as admin:
-        assert admin.execute("SELECT rolsuper FROM pg_roles WHERE rolname=session_user").fetchone() == (False,)
+        assert admin.execute("SELECT rolsuper FROM pg_roles WHERE rolname=session_user").fetchone() == (creator_superuser,)
         admin.execute("SELECT set_config('createrole_self_grant', %s, false)",
                       (os.environ.get('BOOTSTRAP_SELF_GRANT', ''),))
         database = Database(admin)
@@ -70,6 +73,14 @@ def main() -> None:
         database.initialize(REQUEST, values)
         assert database.before(REQUEST) is True
         database.verify(REQUEST)
+        management = admin.execute(
+            "SELECT admin_option,inherit_option,set_option FROM pg_auth_members WHERE roleid="
+            "(SELECT oid FROM pg_roles WHERE rolname='fitlog_app') AND member="
+            "(SELECT oid FROM pg_roles WHERE rolname='fitlog_admin')").fetchall()
+        assert management and any(row[0] for row in management)
+        assert all(row[1:] == (False, False) for row in management)
+        assert admin.execute("SHOW createrole_self_grant").fetchone() == (
+            os.environ.get('BOOTSTRAP_SELF_GRANT', ''),)
         verify_login('db-valid', values, CA)
         with connect('fitlog_app', values.password) as app:
             app.execute('CREATE TABLE public.bootstrap_sample(id integer PRIMARY KEY)')
@@ -143,7 +154,7 @@ def main() -> None:
         with connect('fitlog_admin', PASSWORD) as closed:
             closed.close()
             rejected(lambda: Database(closed).initialize(REQUEST, values))
-    print('Bootstrap: non-superuser role/ACL/marker, rollback/resume, refusal, app migrations: OK')
+    print('Bootstrap: role/ACL/marker, explicit management grant, rollback/resume, app refusal and migrations: OK')
 
 
 if __name__ == '__main__':
