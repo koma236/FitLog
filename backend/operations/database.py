@@ -150,12 +150,23 @@ class Database:
         with self.connection.transaction():
             require(not self.role_exists())
             self.empty(allow_control=True)
+            # Never inherit app rights via a caller's self-grant preference.
+            self.connection.execute("SET LOCAL createrole_self_grant = ''")
             verifier = self.connection.pgconn.encrypt_password(
                 values.password.encode(), b"fitlog_app", b"scram-sha-256").decode()
             self.connection.execute(sql.SQL(
                 "CREATE ROLE fitlog_app LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE "
                 "NOREPLICATION NOBYPASSRLS NOINHERIT PASSWORD {}"
             ).format(sql.Literal(verifier)))
+            # Managed PostgreSQL need not grant the creator ADMIN implicitly.
+            # PostgreSQL rejects redundant ADMIN grants back to one's grantor.
+            has_admin = self.scalar(
+                "SELECT coalesce(bool_or(admin_option),false) FROM pg_auth_members "
+                "WHERE roleid=(SELECT oid FROM pg_roles WHERE rolname='fitlog_app') "
+                "AND member=(SELECT oid FROM pg_roles WHERE rolname='fitlog_admin')")
+            if has_admin is not True:
+                self.connection.execute(
+                    "GRANT fitlog_app TO fitlog_admin WITH ADMIN TRUE, INHERIT FALSE, SET FALSE")
             self.connection.execute("REVOKE ALL ON DATABASE fitlog FROM PUBLIC")
             self.connection.execute("GRANT CONNECT ON DATABASE fitlog TO fitlog_app")
             self.connection.execute("REVOKE ALL ON SCHEMA public FROM PUBLIC")
