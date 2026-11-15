@@ -80,3 +80,14 @@ HTTPの製品エラーとは別の運用CLI event。詳細は `docs/fl-09b7-depl
 | `deployment_step_failed` | 2 | remote固定工程の失敗。子処理出力・SQL/SDK例外を出さず成功eventを発行しない |
 | `deployment_evidence_failed` | 2 | 失敗証跡の保存自体に失敗。後続のdeployment_failedとともに未完了扱い |
 | `ecr_plan_rejected` | 2 | ECR create1件以外、または保存plan判定不能。apply不可 |
+
+### Day70 recording-free verification (CLI)
+
+HTTPの製品エラーとは別の運用CLI。詳細は `docs/aws-day70-runbook.md`。
+
+| event | exit | 意味 |
+|---|---|---|
+| `DAY70_RUN_REFUSED` | 1 | 入力/承認/期限/実行の拒否。生例外を表示せず停止 |
+| `DAY70_RUN_FAILED` | 1 | 録画なしjourneyの実行失敗。attemptは消費済み |
+| `DAY70_OBSERVATIONS_INVALID` | 1 | 必須観測の欠落、録画/性能/再構築の誤実行、禁止artifactを検出 |
+| `DAY70_EVIDENCE_INVALID` | 1 | 停止後のB/C04原本再照合が失敗。成功へ昇格しない |
