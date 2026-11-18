@@ -27,17 +27,21 @@ https://github.com/user-attachments/assets/ab8f2915-3b8a-4c3f-be9f-5c6cd9c9f765
 
 | 領域 | 技術 |
 |---|---|
-| フロントエンド | React 19 / TypeScript 5.9 / Vite 7、Node.js 24 |
-| バックエンド | Python 3.13 / Django 5.2 / Django REST framework、Django ORM、uv |
-| 認証 | DB保存のDjangoセッション / CSRF対策 |
-| データベース | PostgreSQL 17 / Django migrations |
-| 画像 | Pillowで検証・変換、ローカルは非公開Docker volume、AWS向けは非公開S3 |
-| 開発環境 | Docker / Docker Compose |
-| テスト・静的検査 | pytest / pytest-django / Vitest / Testing Library / Ruff / mypy / ESLint / TypeScript |
-| ブラウザ・性能検証 | Playwright / k6 |
-| AWS向け構成 | Terraform / CloudFront / S3 / ALB / ECS Fargate（Gunicorn）/ RDS PostgreSQL |
+| フロントエンド | React / React DOM 19.3.1、TypeScript 5.9.3、Vite 7.3.7、Node.js 24.22.1 |
+| バックエンド | Python 3.13.18、Django 5.2.18、Django REST framework 3.18.3、Django ORM、uv 0.13.6 |
+| 認証 | DB保存のDjangoセッション / CSRF対策（Django同梱） |
+| データベース | PostgreSQL 17.11（ローカル）/ Django migrations（Django同梱） |
+| 画像 | Pillow 13.0.0で検証・変換、ローカルは非公開Docker volume、AWS向けは非公開S3 |
+| 開発環境 | Docker / Docker Compose（リポジトリではバージョン未固定） |
+| テスト・静的検査 | pytest 8.4.2 / pytest-django 4.14.0 / Vitest 3.2.7 / Testing Library（React 16.3.3、jest-dom 6.9.1）/ Ruff 0.17.3 / mypy 1.19.1 / ESLint 9.39.5 / TypeScript 5.9.3 |
+| ブラウザ・性能検証 | Playwright 1.65.0 / k6（リポジトリではバージョン未固定） |
+| AWS向け構成 | Terraform 1.15.1 / AWS provider 6.71.0 / CloudFront / S3 / ALB / ECS Fargate（Gunicorn 25.3.0）/ RDS PostgreSQL 17系（適用時に版を指定） |
 
-依存の正確なバージョンは [frontend/package-lock.json](frontend/package-lock.json)・[backend/uv.lock](backend/uv.lock)、開発用イメージとポートは [compose.yaml](compose.yaml) で固定しています。AWS構成の定義と実環境で確認した範囲は、後述の「AWS構成」で区別しています。
+ライブラリの版は [frontend/package-lock.json](frontend/package-lock.json)・[backend/uv.lock](backend/uv.lock)・[e2e/package-lock.json](e2e/package-lock.json) の解決済みバージョンです。TypeScriptはフロントエンドが5.9.3、E2Eが5.9.2です。Django ORM・セッション・migrationsはDjango同梱の機能です。
+
+Node.js・Python・uv・ローカルPostgreSQLの版は [compose.yaml](compose.yaml) と [frontend/Dockerfile](frontend/Dockerfile)・[backend/Dockerfile](backend/Dockerfile) の固定イメージに基づきます。開発用ポートもComposeで固定しています。
+
+Terraformの版は [versions.tf](terraform/versions.tf)、AWS providerの解決済み版は [provider lock](terraform/.terraform.lock.hcl) が根拠です。RDSのPostgreSQLは [postgres_engine_version](terraform/variables.tf) で17系の具体的なマイナーバージョンを適用時に指定し、ローカルの17.11と同一とは限りません。AWS構成の定義と実環境で確認した範囲は、後述の「AWS構成」で区別しています。
 
 ## ディレクトリ構成
 
